@@ -82,7 +82,20 @@ def init_db():
     """Create all tables and seed default data."""
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     cur = conn.cursor()
-
+# Quick migrations
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT")
+        cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS created_by INTEGER")
+        cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT")
+        cur.execute("ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER")
+        cur.execute("ALTER TABLE associates ADD COLUMN IF NOT EXISTS created_by INTEGER")
+        cur.execute("ALTER TABLE references_ ADD COLUMN IF NOT EXISTS created_by INTEGER")
+        cur.execute("UPDATE users SET is_active=TRUE")
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Migration note: {e}")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id           SERIAL PRIMARY KEY,
