@@ -18,7 +18,9 @@ load_dotenv()
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
 app.permanent_session_lifetime = timedelta(hours=8)
-
+# Initialize database on startup
+with app.app_context():
+    init_db()
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/sky_eduworld')
 
 # ─────────────────────────────────────────────────────────
