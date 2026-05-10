@@ -495,7 +495,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <div class="card" id="user-mgmt-card">
           <div class="card-hd">
             <div><div class="card-title">👥 User Accounts</div><div class="card-sub">Manage staff and their permissions</div></div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-user')">+ Add User</button>
+            <button class="btn btn-p btn-sm" onclick="openAddUser()">+ Add User</button>
           </div>
           <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>Universities</th><th>Actions</th></tr></thead><tbody id="users-table"></tbody></table></div>
         </div>
@@ -1270,11 +1270,6 @@ function renderUnivCheckboxes(selected){
 }
 
 // Override openM for user modal to populate univs
-const origOpenM=openM;
-window.openM=function(id){
-  if(id==='m-user'){openAddUser();return}
-  origOpenM(id);
-};
 
 async function saveUser(){
   const editId=document.getElementById('mu-id').value;
