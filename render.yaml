@@ -1,0 +1,29 @@
+# render.yaml — Deploy to Render.com in one click
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: sky-eduworld
+    env: python
+    region: singapore          # closest to India
+    plan: free                 # change to 'starter' for always-on ($7/mo)
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      python -c "from app import init_db; init_db()" &&
+      gunicorn --bind 0.0.0.0:$PORT --workers 2 app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sky-eduworld-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true       # Render auto-generates a secure key
+      - key: FLASK_ENV
+        value: production
+
+databases:
+  - name: sky-eduworld-db
+    databaseName: sky_eduworld
+    user: sky_user
+    region: singapore
+    plan: free                   # 1GB, 90-day expiry on free; use 'starter' ($7/mo) for production

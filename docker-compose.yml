@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+
+  # ─── PostgreSQL Database ───
+  db:
+    image: postgres:16-alpine
+    container_name: sky_eduworld_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       sky_eduworld
+      POSTGRES_USER:     sky_user
+      POSTGRES_PASSWORD: sky_password_change_this
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          # expose for local tools like pgAdmin / DBeaver
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sky_user -d sky_eduworld"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Flask Application ───
+  app:
+    build: .
+    container_name: sky_eduworld_app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://sky_user:sky_password_change_this@db:5432/sky_eduworld
+      SECRET_KEY:   change-this-in-production-use-long-random-string
+      FLASK_ENV:    production
+      PORT:         5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./static:/app/static    # hot-reload frontend without rebuild
+
+  # ─── Nginx Reverse Proxy (optional, recommended for production) ───
+  nginx:
+    image: nginx:alpine
+    container_name: sky_eduworld_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro          # put your SSL certs here
+    depends_on:
+      - app
+    profiles:
+      - production                       # only starts with: docker compose --profile production up
+
+volumes:
+  pg_data:
+    driver: local
