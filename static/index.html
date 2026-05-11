@@ -943,6 +943,12 @@ function nav(id,btn){
   else if(id==='settings')loadSettings();
   else if(id==='addstudent'){resetForm();populateDropdowns()}
   else if(id==='dashboard')reloadDashboard();
+  else if(id==='leads')loadLeads();
+  else if(id==='followups'){loadFollowUps();populateDropdowns();}
+  else if(id==='overdue')loadOverdue();
+  else if(id==='sessions')loadSessions();
+  else if(id==='audit')loadAuditLogs();
+  else if(id==='loginhist')loadLoginHistory();
 }
 
 async function reloadDashboard(){
