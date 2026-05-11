@@ -440,8 +440,13 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-5"><span class="fl" style="margin:0">Passport Photos</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
               </div>
-              <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea></div>
-            </div>
+              <div class="fg full">
+      <label class="fl">Document Notes</label>
+      <textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea>
+    </div>
+  </div>
+</div>
+
           
           <div class="tab-panel" id="ti">
             <div style="padding:18px">
@@ -1405,7 +1410,7 @@ async function loadLeads(){
   if(ls) ls.innerHTML=Object.entries(counts).map(([k,v])=>`<div class="sc ${k==='Converted'?'green':k==='Lost'?'rose':k==='Interested'?'gold':'blue'}"><div class="sc-lbl">${k}</div><div class="sc-val">${v}</div></div>`).join('');
   const lt=document.getElementById('lead-table');
   if(lt) lt.innerHTML=data.map(l=>`<tr>
-    <td><div class="av-cell">${avEl(l.name)}<div><div class="cp">${l.name}</div><div class="cm">${l.email||''}</div></div></div></td>
+    <td><div class="av-cell">${av(l.name)}<div><div class="cp">${l.name}</div><div class="cm">${l.email||''}</div></div></div></td>
     <td class="cmo">${l.mobile||'—'}</td><td>${l.course||'—'}</td>
     <td class="cm">${(l.university||'—').split(' ').slice(0,2).join(' ')}</td>
     <td><span class="tag tsl">${l.source||'Walk-in'}</span></td>
