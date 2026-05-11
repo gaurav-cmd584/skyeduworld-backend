@@ -270,10 +270,17 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <button class="nv" onclick="nav('fees',this)"><span class="ni">💰</span>Fee Management</button>
       <button class="nv" onclick="nav('feereceive',this)"><span class="ni">🧾</span>Receive Fee</button>
       <button class="nv" onclick="nav('incentive',this)"><span class="ni">🤝</span>Associate & Ref</button>
+      <div class="sb-sec">Leads &amp; CRM</div>
+      <button class="nv" id="nav-leads" onclick="nav('leads',this)"><span class="ni">📋</span>Leads<span class="nb" id="nb-leads" style="background:var(--rose)">0</span></button>
+      <button class="nv" onclick="nav('followups',this)"><span class="ni">📅</span>Follow-ups</button>
+      <button class="nv" onclick="nav('overdue',this)"><span class="ni">⚠️</span>Overdue<span class="nb" id="nb-od" style="background:var(--rose)">0</span></button>
       <div class="sb-sec">Academics</div>
       <button class="nv" onclick="nav('universities',this)"><span class="ni">🏫</span>Universities</button>
       <button class="nv" onclick="nav('documents',this)"><span class="ni">📄</span>Documents</button>
       <button class="nv" onclick="nav('reports',this)"><span class="ni">📈</span>Reports</button>
+      <button class="nv" id="nav-sess" onclick="nav('sessions',this)"><span class="ni">🎓</span>Sessions</button>
+      <button class="nv" id="nav-audit" onclick="nav('audit',this)"><span class="ni">🔍</span>Audit Logs</button>
+      <button class="nv" id="nav-lh" onclick="nav('loginhist',this)"><span class="ni">🔐</span>Login History</button>
       <div class="sb-sec">Admin</div>
       <button class="nv" onclick="nav('settings',this)"><span class="ni">⚙️</span>Settings</button>
     </div>
