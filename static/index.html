@@ -3,158 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sky Eduworld</title>
+<title>Sky Eduworld ERP</title>
 
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial,sans-serif;
-}
-
-body{
-    background:#eef2f7;
-}
-
-.app{
-    display:flex;
-    min-height:100vh;
-}
-
-.sidebar{
-    width:260px;
-    background:#071633;
-    color:white;
-    padding:20px;
-}
-
-.logo{
-    font-size:26px;
-    font-weight:bold;
-    margin-bottom:30px;
-}
-
-.menu button{
-    width:100%;
-    padding:14px;
-    margin-bottom:10px;
-    border:none;
-    border-radius:8px;
-    background:#12366e;
-    color:white;
-    cursor:pointer;
-    text-align:left;
-}
-
-.main{
-    flex:1;
-    padding:25px;
-}
-
-.topbar{
-    background:white;
-    padding:18px;
-    border-radius:12px;
-    margin-bottom:20px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-
-.card{
-    background:white;
-    border-radius:12px;
-    padding:20px;
-}
-
-.view{
-    display:none;
-}
-
-.view.active{
-    display:block;
-}
-
-.table-wrap{
-    overflow:auto;
-    margin-top:20px;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    background:white;
-}
-
-th,td{
-    border:1px solid #dbe2ea;
-    padding:12px;
-    text-align:left;
-}
-
-th{
-    background:#f3f6fb;
-}
-
-.loading{
-    padding:25px;
-    text-align:center;
-    color:#555;
-}
-
-input,select{
-    padding:10px;
-    border:1px solid #cfd8e3;
-    border-radius:8px;
-}
-
-.btn{
-    padding:10px 16px;
-    border:none;
-    border-radius:8px;
-    background:#2563eb;
-    color:white;
-    cursor:pointer;
-}
-
-.grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:20px;
-}
-
-.stat{
-    background:white;
-    border-radius:12px;
-    padding:20px;
-}
-
-.stat h2{
-    margin-top:10px;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{background:#eef2f7}
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:#071633;color:#fff;padding:20px;overflow:auto}
+.logo{font-size:24px;font-weight:bold;margin-bottom:25px}
+.menu button{width:100%;padding:13px;border:none;border-radius:8px;background:#12366e;color:#fff;text-align:left;margin-bottom:10px;cursor:pointer}
+.main{flex:1;padding:20px}
+.topbar{background:#fff;padding:18px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+.view{display:none}.view.active{display:block}
+.card{background:#fff;padding:20px;border-radius:12px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.stat{background:#fff;padding:20px;border-radius:12px}
+.table-wrap{overflow:auto;margin-top:15px}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{border:1px solid #dbe2ea;padding:10px;text-align:left}
+th{background:#f3f6fb}
+input,select,textarea{width:100%;padding:10px;border:1px solid #cfd8e3;border-radius:8px}
+.btn{padding:10px 15px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer}
+.loading{text-align:center;padding:25px}
 </style>
 </head>
-
 <body>
 
 <div class="app">
 
 <div class="sidebar">
-
 <div class="logo">Sky Eduworld</div>
-
 <div class="menu">
-
 <button onclick="showView('dashboard')">Dashboard</button>
 <button onclick="showView('students')">Students</button>
 <button onclick="showView('addstudent')">Add Student</button>
 <button onclick="showView('fees')">Fee Management</button>
 <button onclick="showView('feereceive')">Receive Fee</button>
+<button onclick="showView('leads')">Leads</button>
+<button onclick="showView('followups')">Followups</button>
+<button onclick="showView('sessions')">Sessions</button>
+<button onclick="showView('incentives')">Incentives</button>
 <button onclick="showView('reports')">Reports</button>
-
+<button onclick="showView('users')">Users</button>
+<button onclick="showView('notifications')">Notifications</button>
 </div>
-
 </div>
 
 <div class="main">
@@ -164,50 +56,21 @@ input,select{
 <input type="text" placeholder="Search students...">
 </div>
 
-<!-- DASHBOARD -->
 <div class="view active" id="view-dashboard">
-
 <div class="grid">
-
-<div class="stat">
-<div>Total Students</div>
-<h2 id="total-students">0</h2>
+<div class="stat"><div>Total Students</div><h2 id="total-students">0</h2></div>
+<div class="stat"><div>Total Fees</div><h2 id="total-fees">₹0</h2></div>
+<div class="stat"><div>Total Received</div><h2 id="total-paid">₹0</h2></div>
+<div class="stat"><div>Balance</div><h2 id="total-balance">₹0</h2></div>
+</div>
 </div>
 
-<div class="stat">
-<div>Total Fees</div>
-<h2 id="total-fees">₹0</h2>
-</div>
-
-<div class="stat">
-<div>Received</div>
-<h2 id="total-received">₹0</h2>
-</div>
-
-<div class="stat">
-<div>Balance</div>
-<h2 id="total-balance">₹0</h2>
-</div>
-
-</div>
-
-</div>
-
-<!-- STUDENTS -->
 <div class="view" id="view-students">
-
 <div class="card">
-
-<h3>All Students</h3>
-
-<div class="loading" id="students-loading">
-Loading students...
-</div>
-
-<div class="table-wrap" id="students-table-wrap" style="display:none">
-
+<h3>Students</h3>
+<div class="loading" id="students-loading">Loading students...</div>
+<div class="table-wrap" id="students-wrap" style="display:none">
 <table>
-
 <thead>
 <tr>
 <th>Name</th>
@@ -219,272 +82,159 @@ Loading students...
 <th>Balance</th>
 </tr>
 </thead>
-
 <tbody id="students-table"></tbody>
-
 </table>
-
+</div>
+</div>
 </div>
 
-</div>
-
-</div>
-
-<!-- ADD STUDENT -->
 <div class="view" id="view-addstudent">
-
 <div class="card">
-
-<h3>Add Student</h3>
-
-<br>
-
+<h3>Add Student</h3><br>
 <div class="grid">
-<input type="text" id="name" placeholder="Student Name">
-<input type="text" id="father" placeholder="Father Name">
-<input type="text" id="course" placeholder="Course">
-<input type="text" id="university" placeholder="University">
-<input type="text" id="mobile" placeholder="Mobile">
-<input type="number" id="total_fee" placeholder="Total Fee">
+<input id="name" placeholder="Student Name">
+<input id="father" placeholder="Father Name">
+<input id="course" placeholder="Course">
+<input id="university" placeholder="University">
+<input id="mobile" placeholder="Mobile">
+<input id="total_fee" placeholder="Total Fee">
 </div>
-
 <br>
-
 <button class="btn" onclick="saveStudent()">Save Student</button>
-
+</div>
 </div>
 
-</div>
+<div class="view" id="view-fees"><div class="card"><h3>Fee Management</h3><br><p>Fee module ready.</p></div></div>
 
-<!-- FEES -->
-<div class="view" id="view-fees">
-
-<div class="card">
-<h3>Fee Management</h3>
-<br>
-<p>Fee Management Loaded Successfully</p>
-</div>
-
-</div>
-
-<!-- FEE RECEIVE -->
 <div class="view" id="view-feereceive">
-
 <div class="card">
-
-<h3>Receive Fee</h3>
-
-<br>
-
+<h3>Receive Fee</h3><br>
 <div class="grid">
-
 <select id="fee-student"></select>
-<input type="number" id="paid-amount" placeholder="Paid Amount">
-<select id="pay-mode">
-<option>Cash</option>
-<option>Online</option>
-<option>UPI</option>
-</select>
-
+<input id="paid-amount" placeholder="Amount">
+<select id="pay-mode"><option>Cash</option><option>Online</option><option>UPI</option></select>
 </div>
-
 <br>
-
 <button class="btn" onclick="receiveFee()">Receive Fee</button>
-
+</div>
 </div>
 
-</div>
-
-<!-- REPORTS -->
-<div class="view" id="view-reports">
-
-<div class="card">
-<h3>Reports</h3>
-<br>
-<p>Reports Loaded Successfully</p>
-</div>
+<div class="view" id="view-leads"><div class="card"><h3>Leads</h3><br><p>Lead CRM Ready</p></div></div>
+<div class="view" id="view-followups"><div class="card"><h3>Followups</h3><br><p>Followups Ready</p></div></div>
+<div class="view" id="view-sessions"><div class="card"><h3>Sessions</h3><br><p>Sessions Ready</p></div></div>
+<div class="view" id="view-incentives"><div class="card"><h3>Incentives</h3><br><p>Incentive Module Ready</p></div></div>
+<div class="view" id="view-reports"><div class="card"><h3>Reports</h3><br><p>Reports Ready</p></div></div>
+<div class="view" id="view-users"><div class="card"><h3>User Rights Management</h3><br><p>User Rights Ready</p></div></div>
+<div class="view" id="view-notifications"><div class="card"><h3>Notifications</h3><br><p>Notification Module Ready</p></div></div>
 
 </div>
-
-</div>
-
 </div>
 
 <script>
-
-const API_BASE='https://skyeduworld-backend.onrender.com/api';
-
+const API='https://skyeduworld-backend.onrender.com/api';
 let students=[];
 
 function showView(id){
-
-    document.querySelectorAll('.view').forEach(v=>{
-        v.classList.remove('active');
-    });
-
-    document.getElementById('view-'+id).classList.add('active');
-
-    document.getElementById('page-title').innerText=id.toUpperCase();
-
-    if(id==='students') loadStudents();
-
-    if(id==='dashboard') loadDashboard();
-
-    if(id==='feereceive') loadStudentDropdown();
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+ document.getElementById('view-'+id).classList.add('active');
+ document.getElementById('page-title').innerText=id.toUpperCase();
+ if(id==='students')loadStudents();
+ if(id==='dashboard')loadDashboard();
+ if(id==='feereceive')loadStudentDropdown();
 }
 
 async function api(method,url,data=null){
-
-    const opt={
-        method,
-        headers:{
-            'Content-Type':'application/json'
-        }
-    };
-
-    if(data){
-        opt.body=JSON.stringify(data);
-    }
-
-    const res=await fetch(API_BASE+url,opt);
-
-    return await res.json();
+ const opt={method,headers:{'Content-Type':'application/json'}};
+ if(data)opt.body=JSON.stringify(data);
+ const res=await fetch(API+url,opt);
+ return await res.json();
 }
 
 async function loadStudents(){
-
-    document.getElementById('students-loading').style.display='block';
-    document.getElementById('students-table-wrap').style.display='none';
-
-    try{
-
-        const data=await api('GET','/students');
-
-        students=Array.isArray(data)?data:[];
-
-        const tbody=document.getElementById('students-table');
-
-        tbody.innerHTML='';
-
-        students.forEach(s=>{
-
-            const balance=(s.total_fee||0)-(s.paid||0);
-
-            tbody.innerHTML+=`
-            <tr>
-                <td>${s.name||''}</td>
-                <td>${s.father||''}</td>
-                <td>${s.course||''}</td>
-                <td>${s.university_name||''}</td>
-                <td>${s.mobile||''}</td>
-                <td>${s.status||''}</td>
-                <td>₹ ${balance}</td>
-            </tr>`;
-        });
-
-        document.getElementById('students-loading').style.display='none';
-        document.getElementById('students-table-wrap').style.display='block';
-
-    }catch(err){
-
-        console.error(err);
-
-        document.getElementById('students-loading').innerHTML='Failed to load students';
-    }
+ try{
+ document.getElementById('students-loading').style.display='block';
+ const data=await api('GET','/students');
+ students=Array.isArray(data)?data:[];
+ const table=document.getElementById('students-table');
+ table.innerHTML='';
+ students.forEach(s=>{
+ const bal=(s.total_fee||0)-(s.paid||0);
+ table.innerHTML+=`<tr>
+ <td>${s.name||''}</td>
+ <td>${s.father||''}</td>
+ <td>${s.course||''}</td>
+ <td>${s.university_name||''}</td>
+ <td>${s.mobile||''}</td>
+ <td>${s.status||''}</td>
+ <td>₹ ${bal}</td>
+ </tr>`;
+ });
+ document.getElementById('students-loading').style.display='none';
+ document.getElementById('students-wrap').style.display='block';
+ }catch(err){
+ console.error(err);
+ document.getElementById('students-loading').innerHTML='Failed to load students';
+ }
 }
 
 async function saveStudent(){
-
-    const body={
-        name:document.getElementById('name').value,
-        father:document.getElementById('father').value,
-        course:document.getElementById('course').value,
-        university_name:document.getElementById('university').value,
-        mobile:document.getElementById('mobile').value,
-        total_fee:parseFloat(document.getElementById('total_fee').value||0)
-    };
-
-    try{
-
-        await api('POST','/students',body);
-
-        alert('Student Added Successfully');
-
-        loadStudents();
-
-    }catch(err){
-
-        console.error(err);
-        alert('Failed To Add Student');
-    }
+ try{
+ await api('POST','/students',{
+ name:document.getElementById('name').value,
+ father:document.getElementById('father').value,
+ course:document.getElementById('course').value,
+ university_name:document.getElementById('university').value,
+ mobile:document.getElementById('mobile').value,
+ total_fee:document.getElementById('total_fee').value
+ });
+ alert('Student Added');
+ loadStudents();
+ }catch(err){
+ console.error(err);
+ alert('Error');
+ }
 }
 
 async function loadStudentDropdown(){
-
-    if(students.length===0){
-        await loadStudents();
-    }
-
-    const select=document.getElementById('fee-student');
-
-    select.innerHTML='';
-
-    students.forEach(s=>{
-
-        select.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
-    });
+ if(students.length===0)await loadStudents();
+ const sel=document.getElementById('fee-student');
+ sel.innerHTML='';
+ students.forEach(s=>{
+ sel.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+ });
 }
 
 async function receiveFee(){
-
-    const body={
-        student_id:document.getElementById('fee-student').value,
-        amount:document.getElementById('paid-amount').value,
-        mode:document.getElementById('pay-mode').value
-    };
-
-    try{
-
-        await api('POST','/fees',body);
-
-        alert('Fee Received Successfully');
-
-    }catch(err){
-
-        console.error(err);
-
-        alert('Fee Receive Failed');
-    }
+ try{
+ await api('POST','/fees',{
+ student_id:document.getElementById('fee-student').value,
+ amount:document.getElementById('paid-amount').value,
+ mode:document.getElementById('pay-mode').value
+ });
+ alert('Fee Received');
+ }catch(err){
+ console.error(err);
+ alert('Fee Failed');
+ }
 }
 
 async function loadDashboard(){
-
-    if(students.length===0){
-        try{
-            const data=await api('GET','/students');
-            students=Array.isArray(data)?data:[];
-        }catch(err){
-            console.error(err);
-        }
-    }
-
-    let totalFee=0;
-    let totalPaid=0;
-
-    students.forEach(s=>{
-        totalFee+=(s.total_fee||0);
-        totalPaid+=(s.paid||0);
-    });
-
-    document.getElementById('total-students').innerText=students.length;
-    document.getElementById('total-fees').innerText='₹'+totalFee;
-    document.getElementById('total-received').innerText='₹'+totalPaid;
-    document.getElementById('total-balance').innerText='₹'+(totalFee-totalPaid);
+ if(students.length===0){
+ const data=await api('GET','/students');
+ students=Array.isArray(data)?data:[];
+ }
+ let totalFee=0,totalPaid=0;
+ students.forEach(s=>{
+ totalFee+=(s.total_fee||0);
+ totalPaid+=(s.paid||0);
+ });
+ document.getElementById('total-students').innerText=students.length;
+ document.getElementById('total-fees').innerText='₹'+totalFee;
+ document.getElementById('total-paid').innerText='₹'+totalPaid;
+ document.getElementById('total-balance').innerText='₹'+(totalFee-totalPaid);
 }
 
 loadDashboard();
-
 </script>
 
 </body>
