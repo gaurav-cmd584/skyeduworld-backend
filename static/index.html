@@ -308,323 +308,283 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       </div>
     </div>
 
-    <div class="content">
+<div class="content">
 
-      <!-- DASHBOARD -->
-      <div class="view active" id="view-dashboard">
-        <div id="overdue-alert" style="display:none" class="overdue-banner" onclick="nav('overdue',null)"><span style="font-size:18px">⚠️</span><div><span id="overdue-text" style="font-weight:600;color:#9F1239"></span></div><span style="margin-left:auto;font-size:11px;color:var(--rose)">View →</span></div>
-      <div class="stats-row" id="dash-stats" style="grid-template-columns:repeat(4,1fr)"></div>
-        <div style="display:grid;grid-template-columns:1fr 310px;gap:16px">
-          <div>
-            <div class="card">
-              <div class="card-hd">
-                <div><div class="card-title">Recent Admissions</div></div>
-                <div class="card-acts">
-                  <button class="btn btn-g btn-sm" onclick="nav('students',null)">View All</button>
-                  <button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ Add</button>
-                </div>
-              </div>
-              <div class="tw"><table><thead><tr><th>Student</th><th>Course / University</th><th>Date</th><th>Fee</th><th></th></tr></thead><tbody id="dash-recent"></tbody></table></div>
-            </div>
-            <div class="card">
-              <div class="card-hd"><div class="card-title">Quick Actions</div></div>
-              <div class="qa-grid">
-                <button class="qa-btn" onclick="nav('feereceive',null)"><div class="qa-ico" style="background:var(--sky-lt)">💸</div><span class="qa-lbl">Receive Fee</span></button>
-                <button class="qa-btn" onclick="nav('addstudent',null)"><div class="qa-ico" style="background:var(--em-lt)">👤</div><span class="qa-lbl">New Student</span></button>
-                <button class="qa-btn" onclick="nav('incentive',null)"><div class="qa-ico" style="background:var(--gold-lt)">🤝</div><span class="qa-lbl">Associate / Ref</span></button>
-                <button class="qa-btn" onclick="nav('reports',null)"><div class="qa-ico" style="background:var(--rose-lt)">📊</div><span class="qa-lbl">Reports</span></button>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="card" style="margin-bottom:14px">
-              <div class="card-hd"><div><div class="card-title">Fee Tracker</div></div></div>
-              <div id="fee-tracker"></div>
-            </div>
-            <div class="card">
-              <div class="card-hd"><div class="card-title">Universities</div></div>
-              <div id="univ-mini" style="padding:6px 0"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- STUDENTS -->
-      <div class="view" id="view-students">
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading…</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select>
-              <button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button>
-            </div>
-          </div>
-          <div class="loading" id="s-loading"><div class="spin"></div>Loading students…</div>
-          <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="s-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- ADD/EDIT STUDENT -->
-      <div class="view" id="view-addstudent">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title" id="as-title">New Student Registration</div><div class="card-sub">Fill all required fields</div></div></div>
-          <div class="tabs">
-            <button class="tab active" onclick="stab('tp',this)">Personal</button>
-            <button class="tab" onclick="stab('ta',this)">Academic</button>
-            <button class="tab" onclick="stab('tf',this)">Fee</button>
-            <button class="tab" onclick="stab('td',this)">Documents</button>
-            <button class="tab" onclick="stab('ti',this)">Installments</button>
-          </div>
-          <div class="tab-panel active" id="tp">
-            <div class="form-grid">
-              <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="f-name" placeholder="Student full name"></div>
-              <div class="fg"><label class="fl">Date of Birth</label><input class="fi" type="date" id="f-dob"></div>
-              <div class="fg"><label class="fl">Gender</label><select class="fs" id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-              <div class="fg"><label class="fl">Mobile *</label><input class="fi" id="f-mobile" placeholder="10-digit mobile"></div>
-              <div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="f-email" placeholder="Optional"></div>
-              <div class="fg"><label class="fl">Aadhar No.</label><input class="fi" id="f-aadhar" placeholder="XXXX XXXX XXXX"></div>
-              <div class="fg"><label class="fl">Father's Name *</label><input class="fi" id="f-father" placeholder="Father's full name"></div>
-              <div class="fg"><label class="fl">Mother's Name</label><input class="fi" id="f-mother" placeholder="Optional"></div>
-              <div class="fg full"><label class="fl">Address</label><textarea class="ft" id="f-address" placeholder="Full address…"></textarea></div>
-            </div>
-          </div>
-          <div class="tab-panel" id="ta">
-            <div class="form-grid">
-              <div class="fg"><label class="fl">University *</label><select class="fs" id="f-univ"><option value="">Select university</option></select></div>
-              <div class="fg"><label class="fl">Course *</label><select class="fs" id="f-course"><option value="">Select</option><option>B.Ed</option><option>M.Ed</option><option>BPT</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>M.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option><option>D.El.Ed</option><option>B.P.Ed</option></select></div>
-              <div class="fg"><label class="fl">Batch Year</label><select class="fs" id="f-batch"><option>2025-26</option><option>2024-25</option><option>2023-24</option></select></div>
-              <div class="fg"><label class="fl">Enrollment No.</label><input class="fi" id="f-enroll" placeholder="University enrollment no."></div>
-              <div class="fg"><label class="fl">Roll Number</label><input class="fi" id="f-roll" placeholder="Roll number"></div>
-              <div class="fg"><label class="fl">Admission Date</label><input class="fi" type="date" id="f-admdate"></div>
-              <div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="f-remarks" placeholder="Additional notes…"></textarea></div>
-            </div>
-          </div>
-          <div class="tab-panel" id="tf">
-            <div class="form-grid">
-              <div class="fg"><label class="fl">Total Decided Fee (₹) *</label><input class="fi" type="number" id="f-total" placeholder="0" oninput="calcBal()"></div>
-              <div class="fg"><label class="fl">University Fee Share (₹)</label><input class="fi" type="number" id="f-univfee" placeholder="0"></div>
-              <div class="fg"><label class="fl">Initial Payment (₹)</label><input class="fi" type="number" id="f-paid" placeholder="0" oninput="calcBal()"></div>
-              <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="f-paymode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select></div>
-              <div class="fg"><label class="fl">UTR / Ref No.</label><input class="fi" id="f-utr" placeholder="Transaction ref"></div>
-              <div class="fg"><label class="fl">Balance Due (₹)</label><input class="fi" id="f-bal" readonly style="background:var(--slate-lt);font-weight:700;color:var(--rose)"></div>
-            </div>
-          </div>
-          <div class="tab-panel" id="td">
-            <div class="form-grid">
-              <div class="fg full" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-1"><span class="fl" style="margin:0">Aadhar Card</span></label>
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-2"><span class="fl" style="margin:0">10th Marksheet</span></label>
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-3"><span class="fl" style="margin:0">12th Marksheet</span></label>
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-4"><span class="fl" style="margin:0">Graduation Certificate</span></label>
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-5"><span class="fl" style="margin:0">Passport Photos</span></label>
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
-              </div>
-              <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea></div>
-            </div>
-          
-          <div class="tab-panel" id="ti">
-            <div style="padding:18px">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px">
-                <div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="inst-amt" placeholder="0"></div>
-                <div class="fg"><label class="fl">Due Date</label><input class="fi" type="date" id="inst-due"></div>
-                <div class="fg"><label class="fl">Remarks</label><input class="fi" id="inst-rem" placeholder="Optional"></div>
-                <button class="btn btn-p" onclick="addInstLine()" style="height:36px">+ Add</button>
-              </div>
-              <div id="inst-lines"></div>
-            </div>
-          </div>
-
-          <div class="form-footer">
-            <button class="btn btn-g" onclick="resetForm()">Clear</button>
-            <button class="btn btn-p" id="s-save-btn" onclick="saveStudent()">💾 Register Student</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- FEES -->
-      <div class="view" id="view-fees">
-        <div class="stats-row" style="grid-template-columns:repeat(3,1fr)" id="fee-stats"></div>
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">Fee Records</div></div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-qfee')">+ Receive Fee</button>
-          </div>
-          <div class="loading" id="fee-loading"><div class="spin"></div>Loading…</div>
-          <div class="tw" id="fee-tw" style="display:none"><table><thead><tr><th>Student</th><th>University</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- RECEIVE FEE -->
-      <div class="view" id="view-feereceive">
-        <div style="display:grid;grid-template-columns:1fr 290px;gap:16px">
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Record Fee Payment</div></div>
-            <div class="form-grid">
-              <div class="fg full"><label class="fl">Select Student *</label><select class="fs" id="fr-s" onchange="loadFeeInfo()"><option value="">Select student…</option></select></div>
-              <div class="fg"><label class="fl">Fee Type *</label><select class="fs" id="fr-type"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other Fee</option></select></div>
-              <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="fr-date"></div>
-              <div class="fg"><label class="fl">Amount (₹) *</label><input class="fi" type="number" id="fr-amt" placeholder="0"></div>
-              <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="fr-mode"><option>Cash</option><option>Bank Transfer / NEFT</option><option>UPI / PhonePe / GPay</option><option>Cheque</option><option>Direct to University Account</option></select></div>
-              <div class="fg"><label class="fl">UTR / Ref No.</label><input class="fi" id="fr-ref" placeholder="Optional"></div>
-              <div class="fg full"><label class="fl">Remarks</label><input class="fi" id="fr-rem" placeholder="Optional note"></div>
-            </div>
-            <div class="form-footer">
-              <button class="btn btn-g" onclick="clearFeeForm()">Clear</button>
-              <button class="btn btn-p" onclick="receivePayment()">✅ Confirm & Generate Receipt</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Fee Summary</div></div>
-            <div style="padding:18px" id="fr-info"><div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--ink)">Select a student</div></div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ASSOCIATE & REFERENCE -->
-      <div class="view" id="view-incentive">
-        <div class="stats-row" id="inc-stats" style="grid-template-columns:repeat(4,1fr)"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:15px">
-          <div class="info-box blue"><div style="font-size:24px;flex-shrink:0">🤝</div><div><h4 style="color:#0F44B5">Associate</h4><p>Person who <strong>helps complete the admission process</strong> — paperwork, follow-ups, documents. You pay them a <strong>service amount</strong>.</p></div></div>
-          <div class="info-box amber"><div style="font-size:24px;flex-shrink:0">👥</div><div><h4 style="color:#92400E">Reference</h4><p>Person who <strong>provides you the student lead</strong>. You pay them an <strong>incentive/commission</strong> for the referral.</p></div></div>
-        </div>
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div>
-            <div class="card-acts">
-              <button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">🤝 Associates</button>
-              <button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">👥 References</button>
-              <button class="btn btn-p btn-sm" onclick="openIncModal()">+ Add Record</button>
-            </div>
-          </div>
-          <div class="loading" id="inc-loading"><div class="spin"></div>Loading…</div>
-          <div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- UNIVERSITIES -->
-      <div class="view" id="view-universities">
-        <div class="card">
-          <div class="card-hd"><div class="card-title">Partner Universities</div><button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button></div>
-          <div class="univ-grid" id="univ-grid"></div>
-        </div>
-      </div>
-
-      <!-- DOCUMENTS -->
-      <div class="view" id="view-documents">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title">Issued Documents</div></div><button class="btn btn-p btn-sm" onclick="openM('m-doc')">+ Issue Document</button></div>
-          <div class="tw"><table><thead><tr><th>Student</th><th>Document Type</th><th>University</th><th>Date</th><th>Status</th><th>Delivered To</th></tr></thead><tbody id="doc-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- REPORTS -->
-      <div class="view" id="view-reports">
-        <div class="rep-card" onclick="dlReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">📋</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">💰</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">⏳</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">🤝</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate & Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-      </div>
-
-      <!-- SETTINGS -->
-      <div class="view" id="view-settings">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Change Password</div></div>
-            <div style="padding:18px">
-              <div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div>
-              <div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div>
-              <div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div>
-              <button class="btn btn-p" onclick="changePassword()">🔒 Update Password</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-hd"><div class="card-title">User Accounts</div><button class="btn btn-p btn-sm" onclick="openM('m-user')">+ Add User</button></div>
-            <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users-table"></tbody></table></div>
-          </div>
-        </div>
-      </div>
-      <!-- LEADS VIEW -->
-      <div class="view" id="view-leads">
-        <div class="stats-row" style="grid-template-columns:repeat(4,1fr)" id="lead-stats"></div>
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">📋 Leads (Inquiries)</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lead-flt" onchange="loadLeads()"><option value="">All Status</option><option>New</option><option>Contacted</option><option>Interested</option><option>Converted</option><option>Lost</option></select>
-              <button class="btn btn-p btn-sm" onclick="openAddLead()">+ Add Lead</button>
-            </div>
-          </div>
-          <div class="tw"><table><thead><tr><th>Name</th><th>Mobile</th><th>Course</th><th>University</th><th>Source</th><th>Status</th><th>Follow-up</th><th>Actions</th></tr></thead><tbody id="lead-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- FOLLOW-UPS VIEW -->
-      <div class="view" id="view-followups">
-        <div style="display:grid;grid-template-columns:1fr 300px;gap:16px">
-          <div class="card">
-            <div class="card-hd"><div class="card-title">📅 Upcoming Follow-ups</div>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="fu-days" onchange="loadFollowUps()"><option value="7">Next 7 days</option><option value="14">Next 14 days</option><option value="30">Next 30 days</option></select>
-            </div>
-            <div class="tw"><table><thead><tr><th>Student / Lead</th><th>Type</th><th>Note</th><th>Next Date</th></tr></thead><tbody id="fu-table"></tbody></table></div>
-          </div>
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Add Follow-up</div></div>
-            <div style="padding:18px">
-              <div class="fg" style="margin-bottom:10px"><label class="fl">Student *</label><select class="fs" id="fu-student"><option value="">Select…</option></select></div>
-              <div class="fg" style="margin-bottom:10px"><label class="fl">Type</label><select class="fs" id="fu-type"><option>Call</option><option>Visit</option><option>Email</option><option>WhatsApp</option><option>Meeting</option></select></div>
-              <div class="fg" style="margin-bottom:10px"><label class="fl">Note *</label><textarea class="ft" id="fu-note" placeholder="Details…" style="min-height:70px"></textarea></div>
-              <div class="fg" style="margin-bottom:14px"><label class="fl">Next Follow-up Date</label><input class="fi" type="date" id="fu-next"></div>
-              <button class="btn btn-p" style="width:100%" onclick="saveFollowUp()">Save Follow-up</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- OVERDUE VIEW -->
-      <div class="view" id="view-overdue">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title">⚠️ Overdue Installments</div><div class="card-sub">Aaj se pehle ke pending payments</div></div></div>
-          <div class="tw"><table><thead><tr><th>Student</th><th>Mobile</th><th>University</th><th>Amount</th><th>Due Date</th><th>Actions</th></tr></thead><tbody id="overdue-table"></tbody></table></div>
-        </div>
-      </div>
-
-      <!-- SESSIONS VIEW -->
-      <div class="view" id="view-sessions">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title">🎓 Academic Sessions</div><div class="card-sub">Session activate ya deactivate karo</div></div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-session')">+ New Session</button>
-          </div>
-          <div style="padding:16px" id="sessions-list"></div>
-        </div>
-      </div>
-
-      <!-- AUDIT LOGS VIEW -->
-      <div class="view" id="view-audit">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title">🔍 Audit Logs</div><div class="card-sub">Har action ka record</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-user" onchange="loadAuditLogs()"><option value="">All Users</option></select>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-module" onchange="loadAuditLogs()"><option value="">All Modules</option><option>Student</option><option>Lead</option><option>Fee</option><option>Payment</option><option>User</option><option>Auth</option></select>
-            </div>
-          </div>
-          <div id="audit-list" style="max-height:600px;overflow-y:auto"></div>
-        </div>
-      </div>
-
-      <!-- LOGIN HISTORY VIEW -->
-      <div class="view" id="view-loginhist">
-        <div class="card">
-          <div class="card-hd"><div><div class="card-title">🔐 Login History</div></div>
-            <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lh-user" onchange="loadLoginHistory()"><option value="">All Users</option></select>
-          </div>
-          <div class="tw"><table><thead><tr><th>User</th><th>Status</th><th>IP Address</th><th>Time</th></tr></thead><tbody id="lh-table"></tbody></table></div>
-        </div>
-            <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">📋</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+<!-- DASHBOARD -->
+<div class="view active" id="view-dashboard">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Dashboard</div>
+    </div>
+    <div style="padding:20px">
+      Dashboard Loaded Successfully
+    </div>
+  </div>
 </div>
+
+<!-- STUDENTS -->
+<div class="view" id="view-students">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Students</div>
+    </div>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Course</th>
+            <th>University</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="s-table"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ADD STUDENT -->
+<div class="view" id="view-addstudent">
+
+  <div class="card">
+
+    <div class="card-hd">
+      <div class="card-title">Add Student</div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="stab('tp',this)">Personal</button>
+      <button class="tab" onclick="stab('ta',this)">Academic</button>
+      <button class="tab" onclick="stab('tf',this)">Fee</button>
+      <button class="tab" onclick="stab('td',this)">Documents</button>
+      <button class="tab" onclick="stab('ti',this)">Installments</button>
+    </div>
+
+    <!-- PERSONAL TAB -->
+    <div class="tab-panel active" id="tp">
+      <div class="form-grid">
+
+        <div class="fg">
+          <label class="fl">Student Name</label>
+          <input class="fi" id="f-name">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Mobile</label>
+          <input class="fi" id="f-mobile">
+        </div>
+
+        <div class="fg full">
+          <label class="fl">Address</label>
+          <textarea class="ft" id="f-address"></textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ACADEMIC TAB -->
+    <div class="tab-panel" id="ta">
+      <div class="form-grid">
+
+        <div class="fg">
+          <label class="fl">University</label>
+          <select class="fs" id="f-univ"></select>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Course</label>
+          <select class="fs" id="f-course"></select>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FEE TAB -->
+    <div class="tab-panel" id="tf">
+      <div class="form-grid">
+
+        <div class="fg">
+          <label class="fl">Total Fee</label>
+          <input class="fi" type="number" id="f-total">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Paid Fee</label>
+          <input class="fi" type="number" id="f-paid">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- DOCUMENT TAB -->
+    <div class="tab-panel" id="td">
+
+      <div class="form-grid">
+
+        <div class="fg full">
+          <label class="fl">Documents</label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+
+            <label><input type="checkbox"> Aadhar Card</label>
+            <label><input type="checkbox"> 10th Marksheet</label>
+            <label><input type="checkbox"> 12th Marksheet</label>
+            <label><input type="checkbox"> Graduation</label>
+            <label><input type="checkbox"> Transfer Certificate</label>
+            <label><input type="checkbox"> Passport Photos</label>
+
+          </div>
+        </div>
+
+        <div class="fg full">
+          <label class="fl">Document Notes</label>
+          <textarea class="ft" id="f-docnotes"></textarea>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- INSTALLMENT TAB -->
+    <div class="tab-panel" id="ti">
+
+      <div class="form-grid">
+
+        <div class="fg">
+          <label class="fl">Installment Amount</label>
+          <input class="fi" type="number">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Due Date</label>
+          <input class="fi" type="date">
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="form-footer">
+      <button class="btn btn-g">Clear</button>
+      <button class="btn btn-p">Save Student</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- FEES -->
+<div class="view" id="view-fees">
+
+  <div class="card">
+
+    <div class="card-hd">
+      <div class="card-title">Fee Management</div>
+    </div>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Total</th>
+            <th>Paid</th>
+            <th>Balance</th>
+          </tr>
+        </thead>
+        <tbody id="fee-table"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- RECEIVE FEE -->
+<div class="view" id="view-feereceive">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Receive Fee</div>
+    </div>
+
+    <div class="form-grid">
+
+      <div class="fg full">
+        <label class="fl">Student</label>
+        <select class="fs"></select>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Amount</label>
+        <input class="fi" type="number">
+      </div>
 
     </div>
   </div>
+</div>
+
+<!-- REPORTS -->
+<div class="view" id="view-reports">
+
+  <div class="rep-card">
+    <div class="rep-ico">📊</div>
+    <div>
+      <div style="font-weight:700">Student Report</div>
+      <div class="cm">All students</div>
+    </div>
+  </div>
+
+  <div class="rep-card">
+    <div class="rep-ico">💰</div>
+    <div>
+      <div style="font-weight:700">Fee Report</div>
+      <div class="cm">Fee collection</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- UNIVERSITIES -->
+<div class="view" id="view-universities">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Universities</div>
+    </div>
+
+    <div id="univ-grid" style="padding:20px">
+      University Section
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENTS -->
+<div class="view" id="view-documents">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Documents</div>
+    </div>
+
+    <div style="padding:20px">
+      Document Section
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="view" id="view-settings">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">Settings</div>
+    </div>
+
+    <div style="padding:20px">
+      Settings Loaded
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- MODALS -->
@@ -926,29 +886,37 @@ async function loadUniversities(){
 
 // ─── NAV ───
 const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',sessions:'Academic Sessions',reports:'Reports',audit:'Audit Logs',loginhist:'Login History',settings:'Settings'};
-function nav(id,btn){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.getElementById('view-'+id).classList.add('active');
-  document.querySelectorAll('.nv').forEach(n=>n.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  const t=TITLES[id]||id;
-  document.getElementById('pg-title').textContent=t;
-  document.getElementById('pg-bc').textContent='Sky Eduworld › '+t;
-  if(id==='students')loadStudents();
-  else if(id==='fees')loadFees();
-  else if(id==='feereceive'){populateDropdowns();document.getElementById('fr-date').valueAsDate=new Date()}
-  else if(id==='incentive'){loadIncTab();loadIncStats()}
-  else if(id==='universities')renderUnivGrid();
-  else if(id==='documents')loadDocs();
-  else if(id==='settings')loadSettings();
-  else if(id==='addstudent'){resetForm();populateDropdowns()}
-  else if(id==='dashboard')reloadDashboard();
-  else if(id==='leads')loadLeads();
-  else if(id==='followups'){loadFollowUps();populateDropdowns();}
-  else if(id==='overdue')loadOverdue();
-  else if(id==='sessions')loadSessions();
-  else if(id==='audit')loadAuditLogs();
-  else if(id==='loginhist')loadLoginHistory();
+function nav(view,el){
+
+  document.querySelectorAll('.view').forEach(v=>{
+    v.classList.remove('active')
+  })
+
+  const target=document.getElementById('view-'+view)
+
+  if(target){
+    target.classList.add('active')
+  }
+
+  document.querySelectorAll('.nv').forEach(n=>{
+    n.classList.remove('active')
+  })
+
+  if(el){
+    el.classList.add('active')
+  }
+
+  const pg=document.getElementById('pg-title')
+
+  if(pg){
+    pg.innerText=view.charAt(0).toUpperCase()+view.slice(1)
+  }
+
+  const bc=document.getElementById('pg-bc')
+
+  if(bc){
+    bc.innerText='Sky Eduworld › '+view
+  }
 }
 
 async function reloadDashboard(){
@@ -977,10 +945,23 @@ function renderDashboard(d){
 }
 
 // ─── STUDENTS ───
-function stab(id,btn){
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(id).classList.add('active'); btn.classList.add('active');
+function stab(id,el){
+
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.remove('active')
+  })
+
+  document.querySelectorAll('.tab-panel').forEach(tp=>{
+    tp.classList.remove('active')
+  })
+
+  el.classList.add('active')
+
+  const target=document.getElementById(id)
+
+  if(target){
+    target.classList.add('active')
+  }
 }
 
 async function globalSearch(q){
