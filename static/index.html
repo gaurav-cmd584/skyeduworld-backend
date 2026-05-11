@@ -883,18 +883,34 @@ document.getElementById('l-user').addEventListener('keydown',e=>{if(e.key==='Ent
 
 // ─── INIT ───
 async function initApp(){
-  const [d]=await Promise.all([api('GET','/dashboard'),loadUniversities()]);
-  if(!d)return;
-  renderDashboard(d);
-  document.getElementById('fr-date').valueAsDate=new Date();
-  document.getElementById('ma-date').valueAsDate=new Date();
-  document.getElementById('mr-date').valueAsDate=new Date();
-  document.getElementById('qf-date').valueAsDate=new Date();
-  document.getElementById('id-date').valueAsDate=new Date();
-  document.getElementById('f-admdate').valueAsDate=new Date();
+  try {
+    const [d]=await Promise.all([api('GET','/dashboard'),loadUniversities()]);
+    if(!d)return;
+    renderDashboard(d);
+  } catch(e){ console.error('Dashboard error:',e); }
+  ['fr-date','ma-date','mr-date','qf-date','id-date','f-admdate'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.valueAsDate=new Date();
+  });
   allStudents=await api('GET','/students')||[];
-  document.getElementById('nb-s').textContent=allStudents.length;
+  const nbS=document.getElementById('nb-s'); if(nbS) nbS.textContent=allStudents.length;
   populateDropdowns();
+  // Phase 2: load session + notifications
+  try { await loadSessionInfo(); } catch(e){}
+  try { loadNotifications(); setInterval(loadNotifications,60000); } catch(e){}
+  // Phase 2: populate audit/lh dropdowns
+  if(isSA()){
+    try {
+      const users = await api('GET','/users')||[];
+      allUsers=users;
+      ['audit-user','lh-user'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.innerHTML='<option value="">All Users</option>'+users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
+      });
+      const fu=document.getElementById('flt-user');
+      if(fu) fu.innerHTML='<option value="">All Staff</option>'+users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
+    } catch(e){}
+  }
+  applyPermsPhase2();
 }
 
 async function loadUniversities(){
@@ -903,7 +919,7 @@ async function loadUniversities(){
 }
 
 // ─── NAV ───
-const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',reports:'Reports',settings:'Settings'};
+const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',sessions:'Academic Sessions',reports:'Reports',audit:'Audit Logs',loginhist:'Login History',settings:'Settings'};
 function nav(id,btn){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
@@ -1303,257 +1319,260 @@ window.addEventListener('load', async()=>{
   }catch(e){}
 });
 
+// ═══════════════════════════════════════════
+// PHASE 2 — Clean Implementation
+// ═══════════════════════════════════════════
 
-// ─── PHASE 2 ADDITIONS ───────────────────────────────────
-
+let allUsers = [];
 let pendingInst = [];
 
-// Override nav to handle new views
-const _origNav = nav;
-function nav(id, btn) {
-  _origNav(id, btn);
-  if(id==='leads') loadLeads();
-  else if(id==='followups') { loadFollowUps(); populateDropdowns(); }
-  else if(id==='overdue') loadOverdue();
-  else if(id==='sessions') loadSessions();
-  else if(id==='audit') loadAuditLogs();
-  else if(id==='loginhist') loadLoginHistory();
+function isSA(){ return currentUser && currentUser.role==='Super Admin'; }
+function isAdm(){ return currentUser && (currentUser.role==='Admin'||currentUser.role==='Super Admin'); }
+
+function applyPermsPhase2(){
+  if(!currentUser) return;
+  const p = currentUser.permissions||{};
+  if(!p.can_manage_leads && !isSA()){ const el=document.getElementById('nav-leads'); if(el) el.style.display='none'; }
+  if(!isSA()){ ['nav-sess','nav-audit','nav-lh'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';}); }
 }
 
-// Session indicator on load
-async function loadSessionIndicator() {
-  try {
-    const me = await api('GET', '/me');
-    const sessEl = document.getElementById('sb-sess');
-    if(!sessEl) return;
-    if(me && me.active_session) {
-      sessEl.textContent = '📚 ' + me.active_session.name;
-    } else {
-      sessEl.textContent = 'No active session';
-    }
-  if(me && me.unread_notifications > 0) {
-    document.getElementById('notif-badge').textContent = me.unread_notifications;
-    document.getElementById('notif-badge').classList.add('show');
+async function loadSessionInfo(){
+  const me = await api('GET','/me');
+  const sessEl = document.getElementById('sb-sess');
+  if(!sessEl) return;
+  if(me && me.active_session) sessEl.textContent = '📚 '+me.active_session.name;
+  else sessEl.textContent = 'No active session';
+  if(me && me.unread_notifications>0){
+    const b=document.getElementById('notif-badge'); if(b){b.textContent=me.unread_notifications;b.classList.add('show');}
   }
-  // populate audit/lh user dropdowns
-  if(isSA()) {
-    const users = allUsers.length ? allUsers : await api('GET','/users') || [];
-    ['audit-user','lh-user'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.innerHTML = '<option value="">All Users</option>' + users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
-    });
-  }
-  // hide restricted nav
-  if(!hasPerm('can_view_audit_logs') && !isSA()) {
-    ['nav-audit','nav-lh'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
-  }
-  if(!isSA()) { const el=document.getElementById('nav-sess'); if(el) el.style.display='none'; }
-}
-
-// Extend initApp
-const _origInit = initApp;
-async function initApp() {
-  await _origInit();
-  await loadSessionIndicator();
-  loadNotifications();
-  setInterval(loadNotifications, 60000);
-}
-
-// Override renderDashboard to add Phase 2 stats
-const _origRenderDash = renderDashboard;
-function renderDashboard(d) {
-  // Fix follow-ups card - clear loading state
-  const fuEl = document.getElementById('dash-followups');
-  if(fuEl) {
-    const fu = d.upcoming_followups || [];
-    fuEl.innerHTML = fu.length 
-      ? fu.map(f=>`<div class="fi-item"><div style="width:32px;height:32px;border-radius:50%;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">${f.follow_type==='Call'?'📞':f.follow_type==='WhatsApp'?'💬':'📧'}</div><div class="fi-info"><div class="fi-name">${f.student_name||f.lead_name||'—'}</div><div class="fi-course">${f.note||''}</div></div><div class="cm">${(f.next_date||'').slice(0,10)}</div></div>`).join('')
-      : '<div style="text-align:center;padding:20px;color:var(--slate)">✅ No upcoming follow-ups</div>';
-  }
-  _origRenderDash(d);
-  const s = d.stats || {};
-  if(s.overdue_count > 0) {
-    document.getElementById('overdue-alert').style.display = 'flex';
-    document.getElementById('overdue-text').textContent = s.overdue_count + ' overdue installments — ₹' + Math.round(s.overdue_amount).toLocaleString('en-IN') + ' pending';
-    document.getElementById('nb-od').textContent = s.overdue_count;
-  }
-  if(s.active_leads > 0) document.getElementById('nb-leads').textContent = s.active_leads;
-  // Upcoming follow-ups widget
-  const fu = d.upcoming_followups || [];
-
 }
 
 // NOTIFICATIONS
-async function loadNotifications() {
-  const data = await api('GET', '/notifications') || [];
-  const unread = data.filter(n=>!n.is_read).length;
-  const badge = document.getElementById('notif-badge');
-  badge.textContent = unread;
-  if(unread > 0) badge.classList.add('show'); else badge.classList.remove('show');
-  document.getElementById('notif-list').innerHTML = data.length ? data.map(n=>`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead(${n.id})"><div class="notif-title">${n.title}</div><div class="notif-msg">${n.message||''}</div><div style="font-size:10px;color:var(--slate);margin-top:3px">${(n.created_at||'').slice(0,16)}</div></div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';
+async function loadNotifications(){
+  try {
+    const data = await api('GET','/notifications')||[];
+    const unread = data.filter(n=>!n.is_read).length;
+    const badge = document.getElementById('notif-badge');
+    if(badge){ badge.textContent=unread; if(unread>0) badge.classList.add('show'); else badge.classList.remove('show'); }
+    const list = document.getElementById('notif-list');
+    if(list) list.innerHTML = data.length ? data.map(n=>`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead(${n.id})"><div class="notif-title">${n.title}</div><div class="notif-msg">${n.message||''}</div><div style="font-size:10px;color:var(--slate);margin-top:3px">${(n.created_at||'').slice(0,16)}</div></div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';
+  } catch(e){}
 }
-function toggleNotif() {
-  document.getElementById('notif-panel').classList.toggle('open');
-  if(document.getElementById('notif-panel').classList.contains('open')) loadNotifications();
-}
-document.addEventListener('click', e => { if(!document.getElementById('notif-wrap').contains(e.target)) document.getElementById('notif-panel').classList.remove('open'); });
-async function markAllRead() { await api('POST','/notifications/read-all'); loadNotifications(); }
-async function markNotifRead(id) { await api('POST',`/notifications/${id}/read`); loadNotifications(); }
+function toggleNotif(){ document.getElementById('notif-panel').classList.toggle('open'); if(document.getElementById('notif-panel').classList.contains('open')) loadNotifications(); }
+document.addEventListener('click',e=>{ const w=document.getElementById('notif-wrap'); if(w&&!w.contains(e.target)) document.getElementById('notif-panel').classList.remove('open'); });
+async function markAllRead(){ await api('POST','/notifications/read-all'); loadNotifications(); }
+async function markNotifRead(id){ await api('POST',`/notifications/${id}/read`); loadNotifications(); }
 
 // LEADS
-async function loadLeads() {
-  const status = document.getElementById('lead-flt').value;
-  const data = await api('GET', `/leads${status?'?status='+status:''}`) || [];
-  const counts = {New:0,Contacted:0,Interested:0,Converted:0,Lost:0};
-  data.forEach(l => counts[l.status] = (counts[l.status]||0) + 1);
-  document.getElementById('lead-stats').innerHTML = Object.entries(counts).map(([k,v])=>`<div class="sc ${k==='Converted'?'green':k==='Lost'?'rose':k==='Interested'?'gold':'blue'}"><div class="sc-lbl">${k}</div><div class="sc-val">${v}</div></div>`).join('');
-  document.getElementById('lead-table').innerHTML = data.map(l=>`<tr>
+async function loadLeads(){
+  const status = document.getElementById('lead-flt')?document.getElementById('lead-flt').value:'';
+  const data = await api('GET',`/leads${status?'?status='+status:''}`)||[];
+  const counts={New:0,Contacted:0,Interested:0,Converted:0,Lost:0};
+  data.forEach(l=>counts[l.status]=(counts[l.status]||0)+1);
+  const ls=document.getElementById('lead-stats');
+  if(ls) ls.innerHTML=Object.entries(counts).map(([k,v])=>`<div class="sc ${k==='Converted'?'green':k==='Lost'?'rose':k==='Interested'?'gold':'blue'}"><div class="sc-lbl">${k}</div><div class="sc-val">${v}</div></div>`).join('');
+  const lt=document.getElementById('lead-table');
+  if(lt) lt.innerHTML=data.map(l=>`<tr>
     <td><div class="av-cell">${avEl(l.name)}<div><div class="cp">${l.name}</div><div class="cm">${l.email||''}</div></div></div></td>
     <td class="cmo">${l.mobile||'—'}</td><td>${l.course||'—'}</td>
     <td class="cm">${(l.university||'—').split(' ').slice(0,2).join(' ')}</td>
     <td><span class="tag tsl">${l.source||'Walk-in'}</span></td>
-    <td><span class="tag ${l.status==='New'?'tg':l.status==='Converted'?'tgr':l.status==='Lost'?'tr':'ta'}">${l.status}</span></td>
+    <td><span class="tag ${l.status==='Converted'?'tgr':l.status==='Lost'?'tr':l.status==='New'?'tg':'ta'}">${l.status}</span></td>
     <td class="cm">${(l.follow_up_date||'—').slice(0,10)}</td>
     <td><div style="display:flex;gap:4px">
-      ${l.status!=='Converted'?`<button class="btn btn-em btn-sm" onclick="convertLead(${l.id},'${l.name.replace(/'/g,"\'")}')">→ Admit</button>`:''}
+      ${l.status!=='Converted'?`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="convertLead(${l.id},'${l.name.replace(/'/g,"\'")}')">→ Admit</button>`:''}
       <button class="btn btn-r btn-sm" onclick="deleteLead(${l.id})">🗑️</button>
     </div></td></tr>`).join('');
 }
-function openAddLead() {
-  document.getElementById('lead-id').value=''; document.getElementById('lead-modal-title').textContent='📋 Add Lead';
+function openAddLead(){
+  document.getElementById('lead-id').value='';
+  document.getElementById('lead-modal-title').textContent='📋 Add Lead';
   document.getElementById('lead-save-btn').textContent='Save Lead';
   ['lead-name','lead-mobile','lead-email','lead-fudate','lead-remarks'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lead-status').value='New';
-  populateDropdowns();
-  const uo = ['<option value="">Select</option>',...allUnivs.map(u=>`<option value="${u.name}">${u.name}</option>`)].join('');
-  document.getElementById('lead-univ').innerHTML = uo;
+  const uo=['<option value="">Select</option>',...allUnivs.map(u=>`<option value="${u.name}">${u.name}</option>`)].join('');
+  document.getElementById('lead-univ').innerHTML=uo;
   openM('m-lead');
 }
-async function saveLead() {
-  const id = document.getElementById('lead-id').value;
-  const name = document.getElementById('lead-name').value.trim();
-  if(!name) { toast('Name zaroori hai','er'); return; }
-  const body = {name, mobile:document.getElementById('lead-mobile').value, email:document.getElementById('lead-email').value, status:document.getElementById('lead-status').value, course:document.getElementById('lead-course').value, university:document.getElementById('lead-univ').value, source:document.getElementById('lead-source').value, follow_up_date:document.getElementById('lead-fudate').value||null, remarks:document.getElementById('lead-remarks').value};
-  const r = id ? await api('PUT',`/leads/${id}`,body) : await api('POST','/leads',body);
-  if(!r) return; closeM('m-lead'); loadLeads(); toast(id?'Lead updated!':'✅ Lead added!','ok');
+async function saveLead(){
+  const id=document.getElementById('lead-id').value;
+  const name=document.getElementById('lead-name').value.trim();
+  if(!name){toast('Name zaroori hai','er');return;}
+  const body={name,mobile:document.getElementById('lead-mobile').value,email:document.getElementById('lead-email').value,status:document.getElementById('lead-status').value,course:document.getElementById('lead-course').value,university:document.getElementById('lead-univ').value,source:document.getElementById('lead-source').value,follow_up_date:document.getElementById('lead-fudate').value||null,remarks:document.getElementById('lead-remarks').value};
+  const r=id?await api('PUT',`/leads/${id}`,body):await api('POST','/leads',body);
+  if(!r)return; closeM('m-lead'); loadLeads(); toast(id?'Lead updated!':'✅ Lead added!','ok');
 }
-async function convertLead(id, name) {
-  if(!confirm(`${name} ko student mein convert karna chahte ho?`)) return;
-  const r = await api('POST',`/leads/${id}/convert`);
-  if(!r) return; toast('✅ Student created! Edit karke details bhar do.','ok'); loadLeads(); reloadDashboard();
-  if(r.student_id) setTimeout(()=>editStudent(r.student_id), 600);
+async function convertLead(id,name){
+  if(!confirm(`${name} ko student mein convert karna chahte ho?`))return;
+  const r=await api('POST',`/leads/${id}/convert`);
+  if(!r)return; toast('✅ Student created!','ok'); loadLeads(); reloadDashboard();
+  if(r.student_id) setTimeout(()=>editStudent(r.student_id),600);
 }
-async function deleteLead(id) { if(!confirm('Delete?')) return; if(await api('DELETE',`/leads/${id}`)) { loadLeads(); toast('Deleted','ok'); } }
+async function deleteLead(id){ if(!confirm('Delete?'))return; if(await api('DELETE',`/leads/${id}`)){loadLeads();toast('Deleted','ok');} }
 
 // FOLLOW-UPS
-async function loadFollowUps() {
-  const days = document.getElementById('fu-days').value;
-  const data = await api('GET',`/followups/upcoming?days=${days}`) || [];
-  document.getElementById('fu-table').innerHTML = data.length ? data.map(f=>`<tr><td class="cp">${f.student_name||f.lead_name||'—'}</td><td><span class="tag tg">${f.follow_type||'Call'}</span></td><td class="cm">${f.note}</td><td class="cm" style="color:var(--sky)">${(f.next_date||'').slice(0,10)}</td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--slate)">No upcoming follow-ups</td></tr>';
+async function loadFollowUps(){
+  const days=document.getElementById('fu-days')?document.getElementById('fu-days').value:7;
+  const data=await api('GET',`/followups/upcoming?days=${days}`)||[];
+  const ft=document.getElementById('fu-table');
+  if(ft) ft.innerHTML=data.length?data.map(f=>`<tr><td class="cp">${f.student_name||f.lead_name||'—'}</td><td><span class="tag tg">${f.follow_type||'Call'}</span></td><td class="cm">${f.note}</td><td class="cm" style="color:var(--sky)">${(f.next_date||'').slice(0,10)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--slate)">No upcoming follow-ups</td></tr>';
 }
-async function saveFollowUp() {
-  const sid = document.getElementById('fu-student').value;
-  const note = document.getElementById('fu-note').value.trim();
-  if(!sid||!note) { toast('Student aur Note zaroori hai','er'); return; }
-  const r = await api('POST',`/students/${sid}/followups`,{note, follow_type:document.getElementById('fu-type').value, next_date:document.getElementById('fu-next').value||null});
-  if(!r) return; toast('✅ Follow-up saved!','ok'); document.getElementById('fu-note').value=''; document.getElementById('fu-next').value=''; loadFollowUps();
+async function saveFollowUp(){
+  const sid=document.getElementById('fu-student').value;
+  const note=document.getElementById('fu-note').value.trim();
+  if(!sid||!note){toast('Student aur Note zaroori hai','er');return;}
+  const r=await api('POST',`/students/${sid}/followups`,{note,follow_type:document.getElementById('fu-type').value,next_date:document.getElementById('fu-next').value||null});
+  if(!r)return; toast('✅ Follow-up saved!','ok'); document.getElementById('fu-note').value=''; document.getElementById('fu-next').value=''; loadFollowUps();
 }
 
 // OVERDUE
-async function loadOverdue() {
-  const data = await api('GET','/installments/overdue') || [];
-  document.getElementById('overdue-table').innerHTML = data.length ? data.map(r=>`<tr><td class="cp">${r.student_name}</td><td class="cmo">${r.mobile||'—'}</td><td>${(r.university||'').split(' ').slice(0,2).join(' ')}</td><td class="cp" style="color:var(--rose)">${fmt(r.amount)}</td><td class="cm" style="color:var(--rose)">${(r.due_date||'').slice(0,10)}</td><td><button class="btn btn-p btn-sm" onclick="quickFeeFor(${r.student_id})">💸 Pay</button></td></tr>`).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate)">✅ No overdue installments!</td></tr>';
+async function loadOverdue(){
+  const data=await api('GET','/installments/overdue')||[];
+  const ot=document.getElementById('overdue-table');
+  if(ot) ot.innerHTML=data.length?data.map(r=>`<tr><td class="cp">${r.student_name}</td><td class="cmo">${r.mobile||'—'}</td><td>${(r.university||'').split(' ').slice(0,2).join(' ')}</td><td class="cp" style="color:var(--rose)">${fmt(r.amount)}</td><td class="cm" style="color:var(--rose)">${(r.due_date||'').slice(0,10)}</td><td><button class="btn btn-p btn-sm" onclick="quickFeeFor(${r.student_id})">💸 Pay</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate)">✅ No overdue installments!</td></tr>';
 }
 
 // SESSIONS
-async function loadSessions() {
-  const data = await api('GET','/sessions') || [];
-  document.getElementById('sessions-list').innerHTML = data.map(s=>`<div class="sess-card ${s.is_active?'active-sess':''}"><div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${(s.start_date||'').slice(0,10)} — ${(s.end_date||'').slice(0,10)}</div></div><div style="display:flex;align-items:center;gap:8px">${s.is_active?'<span class="tag tgr">🟢 Active</span>':`<button class="btn btn-em btn-sm" onclick="activateSession(${s.id})">Activate</button>`}${!s.is_active?`<button class="btn btn-r btn-sm" onclick="deleteSession(${s.id})">🗑️</button>`:''}</div></div>`).join('');
+async function loadSessions(){
+  const data=await api('GET','/sessions')||[];
+  const sl=document.getElementById('sessions-list');
+  if(sl) sl.innerHTML=data.map(s=>`<div class="sess-card ${s.is_active?'active-sess':''}"><div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${(s.start_date||'').slice(0,10)} — ${(s.end_date||'').slice(0,10)}</div></div><div style="display:flex;align-items:center;gap:8px">${s.is_active?'<span class="tag tgr">🟢 Active</span>':`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="activateSession(${s.id})">Activate</button>`}${!s.is_active?`<button class="btn btn-r btn-sm" onclick="deleteSession(${s.id})">🗑️</button>`:''}</div></div>`).join('');
 }
-async function addSession() {
-  const name = document.getElementById('sess-name').value.trim();
-  if(!name) { toast('Session name zaroori hai','er'); return; }
-  const r = await api('POST','/sessions',{name, start_date:document.getElementById('sess-start').value||null, end_date:document.getElementById('sess-end').value||null});
-  if(!r) return; closeM('m-session'); loadSessions(); toast('✅ Session created!','ok'); document.getElementById('sess-name').value='';
+async function addSession(){
+  const name=document.getElementById('sess-name').value.trim();
+  if(!name){toast('Session name zaroori hai','er');return;}
+  const r=await api('POST','/sessions',{name,start_date:document.getElementById('sess-start').value||null,end_date:document.getElementById('sess-end').value||null});
+  if(!r)return; closeM('m-session'); loadSessions(); toast('✅ Session created!','ok'); document.getElementById('sess-name').value='';
 }
-async function activateSession(id) {
-  if(!confirm('Yeh session activate karna chahte ho?')) return;
-  if(await api('POST',`/sessions/${id}/activate`)) { loadSessions(); toast('✅ Session activated!','ok'); loadSessionIndicator(); }
+async function activateSession(id){
+  if(!confirm('Yeh session activate karna chahte ho?'))return;
+  if(await api('POST',`/sessions/${id}/activate`)){loadSessions();toast('✅ Activated!','ok');loadSessionInfo();}
 }
-async function deleteSession(id) { if(!confirm('Delete session?')) return; if(await api('DELETE',`/sessions/${id}`)) { loadSessions(); toast('Deleted','ok'); } }
-
-// INSTALLMENTS in student form
-function addInstLine() {
-  const amt = parseFloat(document.getElementById('inst-amt').value)||0;
-  const due = document.getElementById('inst-due').value;
-  if(!amt) { toast('Amount daalo','er'); return; }
-  pendingInst.push({amount:amt, due_date:due, remarks:document.getElementById('inst-rem').value});
-  document.getElementById('inst-amt').value=''; document.getElementById('inst-due').value=''; document.getElementById('inst-rem').value='';
-  renderInstLines();
-}
-function renderInstLines() {
-  document.getElementById('inst-lines').innerHTML = pendingInst.map((inst,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:6px"><span style="flex:1">${fmt(inst.amount)} — ${inst.due_date||'No date'}</span><button class="btn btn-r btn-sm" onclick="pendingInst.splice(${i},1);renderInstLines()">✕</button></div>`).join('');
-}
-
-// Save installments after student save
-const _origSaveStudent = saveStudent;
-async function saveStudent() {
-  const nameEl = document.getElementById('f-name');
-  const mobileEl = document.getElementById('f-mobile');
-  if(!nameEl.value.trim()||!mobileEl.value.trim()) { toast('Name aur Mobile zaroori hai','er'); return; }
-  // Call original
-  const origEditId = editingId;
-  await _origSaveStudent();
-  // Save pending installments if any
-  if(pendingInst.length > 0) {
-    // Get the student id - either editingId or last created
-    const students = await api('GET','/students?q='+encodeURIComponent(nameEl.value.trim()));
-    const s = students && students[0];
-    if(s) { for(const inst of pendingInst) await api('POST',`/students/${s.id}/installments`,inst); }
-    pendingInst = [];
-  }
-}
+async function deleteSession(id){ if(!confirm('Delete?'))return; if(await api('DELETE',`/sessions/${id}`)){loadSessions();toast('Deleted','ok');} }
 
 // AUDIT LOGS
-async function loadAuditLogs() {
-  const uid = document.getElementById('audit-user') ? document.getElementById('audit-user').value : '';
-  const mod = document.getElementById('audit-module') ? document.getElementById('audit-module').value : '';
-  let url = '/audit-logs?limit=100'; if(uid) url+=`&user_id=${uid}`; if(mod) url+=`&module=${mod}`;
-  const data = await api('GET', url) || [];
-  const icons = {Add:'➕',Edit:'✏️',Delete:'🗑️',Payment:'💰',Login:'🔐',Logout:'🚪',FollowUp:'📅',Convert:'🔄',Upload:'📎'};
-  document.getElementById('audit-list').innerHTML = data.length ? data.map(a=>`<div class="audit-item"><div class="audit-ico" style="background:var(--sky-lt)">${icons[a.action_type]||'📋'}</div><div style="flex:1"><div class="cp">${a.action_type} — ${a.module_name||'—'}</div><div class="cm">${a.detail||''} ${a.record_id?'#'+a.record_id:''}</div></div><div style="text-align:right"><div class="cm">${a.user_name||'—'}</div><div class="cm">${(a.created_at||'').slice(0,16)}</div></div></div>`).join('') : '<div style="text-align:center;padding:30px;color:var(--slate)">No logs found</div>';
+async function loadAuditLogs(){
+  const uid=document.getElementById('audit-user')?document.getElementById('audit-user').value:'';
+  const mod=document.getElementById('audit-module')?document.getElementById('audit-module').value:'';
+  let url='/audit-logs?limit=100'; if(uid) url+=`&user_id=${uid}`; if(mod) url+=`&module=${mod}`;
+  const data=await api('GET',url)||[];
+  const icons={Add:'➕',Edit:'✏️',Delete:'🗑️',Payment:'💰',Login:'🔐',Logout:'🚪',FollowUp:'📅',Convert:'🔄',Upload:'📎'};
+  const al=document.getElementById('audit-list');
+  if(al) al.innerHTML=data.length?data.map(a=>`<div class="audit-item"><div class="audit-ico" style="background:var(--sky-lt);border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${icons[a.action_type]||'📋'}</div><div style="flex:1"><div class="cp">${a.action_type} — ${a.module_name||'—'}</div><div class="cm">${a.detail||''} ${a.record_id?'#'+a.record_id:''}</div></div><div style="text-align:right"><div class="cm">${a.user_name||'—'}</div><div class="cm">${(a.created_at||'').slice(0,16)}</div></div></div>`).join(''):'<div style="text-align:center;padding:30px;color:var(--slate)">No logs found</div>';
 }
 
 // LOGIN HISTORY
-async function loadLoginHistory() {
-  const uid = document.getElementById('lh-user') ? document.getElementById('lh-user').value : '';
-  const data = await api('GET', `/login-history${uid?'?user_id='+uid:''}`) || [];
-  document.getElementById('lh-table').innerHTML = data.map(r=>`<tr><td class="cp">${r.user_name||'—'}</td><td>${r.status==='Success'?'<span class="tag tgr">✅ Success</span>':'<span class="tag tr">❌ Failed</span>'}</td><td class="cmo">${r.ip_address||'—'}</td><td class="cm">${(r.created_at||'').slice(0,16)}</td></tr>`).join('');
+async function loadLoginHistory(){
+  const uid=document.getElementById('lh-user')?document.getElementById('lh-user').value:'';
+  const data=await api('GET',`/login-history${uid?'?user_id='+uid:''}`)||[];
+  const lt=document.getElementById('lh-table');
+  if(lt) lt.innerHTML=data.map(r=>`<tr><td class="cp">${r.user_name||'—'}</td><td>${r.status==='Success'?'<span class="tag tgr">✅ Success</span>':'<span class="tag tr">❌ Failed</span>'}</td><td class="cmo">${r.ip_address||'—'}</td><td class="cm">${(r.created_at||'').slice(0,16)}</td></tr>`).join('');
 }
 
-// Extra perm checks on load
-const _origApplyPerms = applyPermissionsToUI;
-function applyPermissionsToUI() {
-  _origApplyPerms();
-  if(!hasPerm('can_manage_leads') && !isSA()) { const el=document.getElementById('nav-leads'); if(el) el.style.display='none'; }
+// INSTALLMENTS in student form
+function addInstLine(){
+  const amt=parseFloat(document.getElementById('inst-amt').value)||0;
+  const due=document.getElementById('inst-due').value;
+  if(!amt){toast('Amount daalo','er');return;}
+  pendingInst.push({amount:amt,due_date:due,remarks:document.getElementById('inst-rem').value});
+  document.getElementById('inst-amt').value=''; document.getElementById('inst-due').value=''; document.getElementById('inst-rem').value='';
+  renderInstLines();
+}
+function renderInstLines(){
+  const il=document.getElementById('inst-lines');
+  if(il) il.innerHTML=pendingInst.map((inst,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:6px"><span style="flex:1">${fmt(inst.amount)} — ${inst.due_date||'No date'}</span><button class="btn btn-r btn-sm" onclick="pendingInst.splice(${i},1);renderInstLines()">✕</button></div>`).join('');
 }
 
-// Add upcoming followups card to dashboard HTML
-function addFollowupCard() {
-  const dashGrid = document.querySelector('#view-dashboard > div:last-child > div:first-child');
-  if(dashGrid && !document.getElementById('dash-followups')) {
-    const card = document.createElement('div'); card.className='card';
-    card.innerHTML = '<div class="card-hd"><div class="card-title">📅 Upcoming Follow-ups (7 days)</div></div><div id="dash-followups"><div class="loading"><div class="spin"></div>Loading…</div></div>';
-    dashGrid.appendChild(card);
+// Add installments to student form if tab exists
+function addInstTabIfNeeded(){
+  const tabsEl = document.querySelector('.tabs');
+  if(tabsEl && !document.getElementById('ti') && !tabsEl.querySelector('[onclick*="ti"]')){
+    const btn=document.createElement('button');
+    btn.className='tab'; btn.textContent='Installments';
+    btn.setAttribute('onclick',"stab('ti',this)");
+    tabsEl.appendChild(btn);
+    const panel=document.createElement('div');
+    panel.className='tab-panel'; panel.id='ti';
+    panel.innerHTML='<div style="padding:18px"><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px"><div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="inst-amt" placeholder="0"></div><div class="fg"><label class="fl">Due Date</label><input class="fi" type="date" id="inst-due"></div><div class="fg"><label class="fl">Remarks</label><input class="fi" id="inst-rem" placeholder="Optional"></div><button class="btn btn-p" onclick="addInstLine()" style="height:36px">+ Add</button></div><div id="inst-lines"></div></div>';
+    const formFooter = document.querySelector('.form-footer');
+    if(formFooter) formFooter.parentNode.insertBefore(panel, formFooter);
   }
 }
 
-// Override initApp to add followup card
-const __origInit = initApp;
-async function initApp() {
-  addFollowupCard();
-  await __origInit();
+// Override saveStudent to save installments too
+const _saveStudentOrig = saveStudent;
+async function saveStudent(){
+  const nameVal = document.getElementById('f-name').value.trim();
+  await _saveStudentOrig();
+  if(pendingInst.length>0){
+    const students = await api('GET','/students?q='+encodeURIComponent(nameVal));
+    if(students&&students[0]){
+      for(const inst of pendingInst) await api('POST',`/students/${students[0].id}/installments`,inst);
+      pendingInst=[];
+    }
+  }
 }
+
+// Add user management extra permissions
+const _origSaveUser = typeof saveUser === 'function' ? saveUser : null;
+async function saveUser(){
+  const editId=document.getElementById('mu-id').value;
+  const un=document.getElementById('nu-u').value.trim();
+  const name=document.getElementById('nu-n').value.trim();
+  const pass=document.getElementById('nu-p').value;
+  if(!un||!name){toast('Username aur Name zaroori hai','er');return;}
+  if(!editId&&!pass){toast('Password zaroori hai','er');return;}
+  const perms={
+    can_add_student:document.getElementById('p-add').checked,
+    can_edit_student:document.getElementById('p-edit').checked,
+    can_delete_student:document.getElementById('p-del').checked,
+    can_view_payments:document.getElementById('p-vpay').checked,
+    can_add_payment:document.getElementById('p-apay').checked,
+    can_view_all_students:document.getElementById('p-vall').checked,
+    can_view_associates:document.getElementById('p-vassoc').checked,
+    can_manage_associates:document.getElementById('p-massoc').checked,
+    can_view_references:document.getElementById('p-vref').checked,
+    can_manage_references:document.getElementById('p-mref').checked,
+    can_view_documents:document.getElementById('p-vdoc').checked,
+    can_upload_document:document.getElementById('p-udoc').checked,
+    can_view_reports:document.getElementById('p-vrep').checked,
+    can_manage_universities:document.getElementById('p-muniv').checked,
+    can_manage_leads:document.getElementById('p-leads')?document.getElementById('p-leads').checked:false,
+    can_view_audit_logs:document.getElementById('p-audit')?document.getElementById('p-audit').checked:false,
+  };
+  const univIds=[...document.querySelectorAll('input[name="nu-univ"]:checked')].map(x=>parseInt(x.value));
+  let r;
+  if(editId){
+    const body={full_name:name,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds};
+    if(pass) body.new_password=pass;
+    r=await api('PUT',`/users/${editId}`,body);
+  } else {
+    r=await api('POST','/users',{username:un,full_name:name,password:pass,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds});
+  }
+  if(!r)return; closeM('m-user'); loadSettings(); toast(editId?'✅ User updated!':'✅ User added!','ok');
+}
+
+// On page load - also add inst tab
+window.addEventListener('load', async()=>{
+  try {
+    const r=await fetch('/api/me',{credentials:'same-origin'});
+    if(r.ok){
+      currentUser=await r.json();
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app').style.display='block';
+      document.getElementById('sb-av').textContent=ini(currentUser.full_name);
+      document.getElementById('sb-name').textContent=currentUser.full_name;
+      document.getElementById('sb-role').textContent=currentUser.role;
+      const sessEl=document.getElementById('sb-sess');
+      if(sessEl) sessEl.textContent=currentUser.active_session?'📚 '+currentUser.active_session.name:'No active session';
+      await initApp();
+      addInstTabIfNeeded();
+    } else {
+      const sessEl=document.getElementById('sb-sess');
+      if(sessEl) sessEl.textContent='';
+    }
+  } catch(e){ console.error(e); }
+});
 
 </script>
 </body>
