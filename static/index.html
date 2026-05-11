@@ -526,6 +526,24 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">🤝</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate & Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
       </div>
 
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title">Change Password</div></div>
+            <div style="padding:18px">
+              <div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div>
+              <div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div>
+              <div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div>
+              <button class="btn btn-p" onclick="changePassword()">🔒 Update Password</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title">User Accounts</div><button class="btn btn-p btn-sm" onclick="openM('m-user')">+ Add User</button></div>
+            <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users-table"></tbody></table></div>
+          </div>
+        </div>
+      </div>
       <!-- LEADS VIEW -->
       <div class="view" id="view-leads">
         <div class="stats-row" style="grid-template-columns:repeat(4,1fr)" id="lead-stats"></div>
@@ -604,25 +622,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         </div>
             <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">📋</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
 </div>
-
-      <!-- SETTINGS -->
-      <div class="view" id="view-settings">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Change Password</div></div>
-            <div style="padding:18px">
-              <div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div>
-              <div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div>
-              <div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div>
-              <button class="btn btn-p" onclick="changePassword()">🔒 Update Password</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-hd"><div class="card-title">User Accounts</div><button class="btn btn-p btn-sm" onclick="openM('m-user')">+ Add User</button></div>
-            <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users-table"></tbody></table></div>
-          </div>
-        </div>
-      </div>
 
     </div>
   </div>
