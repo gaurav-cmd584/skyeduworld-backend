@@ -231,16 +231,20 @@ def login():
     ip = request.remote_addr or 'unknown'
     user = q("SELECT * FROM users WHERE username=%s", (d.get('username',''),), one=True)
     if not user or user['password'] != hash_pw(d.get('password','')):
-        q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
-          (user['id'] if user else None, d.get('username',''), 'Failed', ip), commit=True)
-        if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
+        try:
+            q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
+              (user['id'] if user else None, d.get('username',''), 'Failed', ip), commit=True)
+            if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
+        except Exception: pass
         return jsonify({'error':'Invalid username or password'}), 401
     if not user.get('is_active',True):
         return jsonify({'error':'Account disabled. Contact admin.'}), 401
     token = str(uuid.uuid4())
     q("UPDATE users SET session_token=%s, failed_logins=0, last_login=NOW() WHERE id=%s", (token, user['id']), commit=True)
-    q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
-      (user['id'], user['username'], 'Success', ip), commit=True)
+    try:
+        q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
+          (user['id'], user['username'], 'Success', ip), commit=True)
+    except Exception: pass
     session.permanent = True
     session['user_id'] = user['id']; session['username'] = user['username']
     session['role'] = user['role']; session['session_token'] = token
@@ -285,10 +289,14 @@ def dashboard():
     stats['assoc_ref_paid'] = assoc_total + ref_total
     today_col = q(f"SELECT COALESCE(SUM(fp.amount),0) AS t FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE DATE(fp.created_at)=CURRENT_DATE {fs}", fp, one=True)
     stats['today_collection'] = float(today_col['t'])
-    pending_inst = q(f"SELECT COUNT(*) AS c, COALESCE(SUM(fi.amount),0) AS total FROM fee_installments fi JOIN students s ON s.id=fi.student_id WHERE fi.status='Pending' AND fi.due_date <= CURRENT_DATE {fs}", fp, one=True)
-    stats['overdue_count'] = pending_inst['c']; stats['overdue_amount'] = float(pending_inst['total'])
-    leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted'" + ("" if is_super_admin() else " AND created_by=%s"), () if is_super_admin() else (uid,), one=True)
-    stats['active_leads'] = leads_count['c']
+    try:
+        pending_inst = q(f"SELECT COUNT(*) AS c, COALESCE(SUM(fi.amount),0) AS total FROM fee_installments fi JOIN students s ON s.id=fi.student_id WHERE fi.status='Pending' AND fi.due_date <= CURRENT_DATE {fs}", fp, one=True)
+        stats['overdue_count'] = pending_inst['c']; stats['overdue_amount'] = float(pending_inst['total'])
+    except Exception: stats['overdue_count'] = 0; stats['overdue_amount'] = 0
+    try:
+        leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted'" + ("" if is_super_admin() else " AND created_by=%s"), () if is_super_admin() else (uid,), one=True)
+        stats['active_leads'] = leads_count['c']
+    except Exception: stats['active_leads'] = 0
     recent = q(f"SELECT s.*, u.full_name AS created_by_name FROM students s LEFT JOIN users u ON u.id=s.created_by WHERE TRUE {fs} ORDER BY s.id DESC LIMIT 6", fp)
     fee_tracker = q(f"SELECT * FROM students WHERE TRUE {fs} AND total_fee > paid ORDER BY (total_fee-paid) DESC LIMIT 5", fp)
     if is_super_admin():
@@ -298,7 +306,9 @@ def dashboard():
     user_summary = []
     if is_super_admin():
         user_summary = [serialize(r) for r in q("SELECT u.id, u.full_name, u.role, u.last_login, COUNT(s.id) AS student_count, COALESCE(SUM(s.paid),0) AS total_collected, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding FROM users u LEFT JOIN students s ON s.created_by=u.id GROUP BY u.id,u.full_name,u.role,u.last_login ORDER BY student_count DESC")]
-    followups = q("SELECT f.*, s.name AS student_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id WHERE f.next_date >= CURRENT_DATE AND f.next_date <= CURRENT_DATE+7 AND f.created_by=%s ORDER BY f.next_date LIMIT 5", (uid,))
+    try:
+        followups = q("SELECT f.*, s.name AS student_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id WHERE f.next_date >= CURRENT_DATE AND f.next_date <= CURRENT_DATE+7 AND f.created_by=%s ORDER BY f.next_date LIMIT 5", (uid,))
+    except Exception: followups = []
     return jsonify({'stats':{k:float(v) if isinstance(v,(int,float)) else v for k,v in stats.items()},
                     'recent':[serialize(r) for r in recent],'fee_tracker':[serialize(r) for r in fee_tracker],
                     'universities':univs,'user_summary':user_summary,'permissions':perms,
