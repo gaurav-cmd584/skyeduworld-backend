@@ -1446,9 +1446,11 @@ async function loadOverdue(){
 
 // SESSIONS
 async function loadSessions(){
+  const sl2=document.getElementById('sessions-list');
+  if(sl2) sl2.innerHTML='<div style="text-align:center;padding:20px;color:var(--slate)"><div class="spin" style="width:18px;height:18px;border:2px solid #E2E8F0;border-top-color:#1A6CF6;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></div> Loading…</div>';
   const data=await api('GET','/sessions')||[];
   const sl=document.getElementById('sessions-list');
-  if(sl) sl.innerHTML=data.map(s=>`<div class="sess-card ${s.is_active?'active-sess':''}"><div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${(s.start_date||'').slice(0,10)} — ${(s.end_date||'').slice(0,10)}</div></div><div style="display:flex;align-items:center;gap:8px">${s.is_active?'<span class="tag tgr">🟢 Active</span>':`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="activateSession(${s.id})">Activate</button>`}${!s.is_active?`<button class="btn btn-r btn-sm" onclick="deleteSession(${s.id})">🗑️</button>`:''}</div></div>`).join('');
+  if(sl) sl.innerHTML=data.length===0?'<div style="text-align:center;padding:20px;color:var(--slate)">No sessions yet. Click + New Session.</div>':data.map(s=>`<div class="sess-card ${(s.is_active==true||s.is_active==1||s.is_active=='true')?'active-sess':''}"><div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${(s.start_date||'').slice(0,10)} — ${(s.end_date||'').slice(0,10)}</div></div><div style="display:flex;align-items:center;gap:8px">${(s.is_active==true||s.is_active==1||s.is_active=='true')?'<span class="tag tgr">🟢 Active</span>':`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="activateSession(${s.id})">Activate</button>`}${!(s.is_active==true||s.is_active==1||s.is_active=='true')?`<button class="btn btn-r btn-sm" onclick="deleteSession(${s.id})">🗑️</button>`:''}</div></div>`).join('');
 }
 async function addSession(){
   const name=document.getElementById('sess-name').value.trim();
