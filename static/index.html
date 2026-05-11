@@ -1029,71 +1029,26 @@ async function globalSearch(q){
   loadStudents(q);
 }
 
-async function loadStudents(){
-
-  const loading=document.getElementById('s-loading')
-  const wrap=document.getElementById('s-table-wrap')
-  const tbody=document.getElementById('s-table')
-
-  if(loading) loading.style.display='block'
-  if(wrap) wrap.style.display='none'
-
-  try{
-
-    const res=await api('GET','/students')
-
-    if(!Array.isArray(res)){
-      throw new Error('Invalid response')
-    }
-
-    tbody.innerHTML=''
-
-    if(res.length===0){
-
-      tbody.innerHTML=`
-        <tr>
-          <td colspan="8" style="padding:30px;text-align:center">
-            No students found
-          </td>
-        </tr>
-      `
-
-    }else{
-
-      res.forEach(s=>{
-
-        const balance=(Number(s.total_fee||0)-Number(s.paid||0))
-
-        tbody.innerHTML+=`
-          <tr>
-            <td>${s.name||''}</td>
-            <td>${s.father||''}</td>
-            <td>${s.course||''}</td>
-            <td>${s.university||''}</td>
-            <td>${s.mobile||''}</td>
-            <td>${s.status||''}</td>
-            <td>₹${balance}</td>
-            <td>
-              <button class="btn btn-g btn-sm">
-                View
-              </button>
-            </td>
-          </tr>
-        `
-      })
-    }
-
-    if(loading) loading.style.display='none'
-    if(wrap) wrap.style.display='block'
-
-  }catch(err){
-
-    console.error(err)
-
-    if(loading){
-      loading.innerHTML='Failed to load students'
-    }
-  }
+async function loadStudents(q){
+  document.getElementById('s-loading').style.display='flex';
+  document.getElementById('s-table-wrap').style.display='none';
+  const search=q||document.getElementById('g-srch').value||'';
+  const univ=document.getElementById('flt-u').value||'';
+  const stat=document.getElementById('flt-s').value||'';
+  let url='/students?q='+encodeURIComponent(search);
+  if(univ)url+='&university='+encodeURIComponent(univ);
+  if(stat)url+='&status='+encodeURIComponent(stat);
+  const data=await api('GET',url);
+  allStudents=data||[];
+  document.getElementById('nb-s').textContent=allStudents.length;
+  document.getElementById('s-sub').textContent=`${allStudents.length} student${allStudents.length!==1?'s':''} found`;
+  document.getElementById('s-loading').style.display='none';
+  document.getElementById('s-table-wrap').style.display='block';
+  document.getElementById('s-table').innerHTML=allStudents.map(s=>{
+    const b=s.total_fee-s.paid;
+    return`<tr><td><div class="av-cell">${av(s.name)}<div><div class="cp">${s.name}</div><div class="cm">${s.mobile}</div></div></div></td><td class="cm">${s.father||'—'}</td><td><span class="tag tg">${s.course||'—'}</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.university||'—'}</td><td class="cmo">${s.mobile}</td><td>${stag(s.status)}</td><td class="cmo" style="color:${b>0?'var(--rose)':'var(--em)'};font-weight:600">${fmt(b)}</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editStudent(${s.id})">✏️</button><button class="btn btn-g btn-sm" onclick="showLastReceipt(${s.id})">🧾</button><button class="btn btn-r btn-sm" onclick="delStudent(${s.id})">🗑️</button></td></tr>`;
+  }).join('');
+  populateDropdowns();
 }
 
 function calcBal(){
