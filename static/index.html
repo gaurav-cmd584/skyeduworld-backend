@@ -270,18 +270,11 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <button class="nv" onclick="nav('fees',this)"><span class="ni">💰</span>Fee Management</button>
       <button class="nv" onclick="nav('feereceive',this)"><span class="ni">🧾</span>Receive Fee</button>
       <button class="nv" onclick="nav('incentive',this)"><span class="ni">🤝</span>Associate & Ref</button>
-      <div class="sb-sec">Leads & CRM</div>
-      <button class="nv" id="nav-leads" onclick="nav('leads',this)"><span class="ni">📋</span>Leads<span class="nb" id="nb-leads" style="background:var(--rose)">0</span></button>
-      <button class="nv" onclick="nav('followups',this)"><span class="ni">📅</span>Follow-ups</button>
-      <button class="nv" onclick="nav('overdue',this)"><span class="ni">⚠️</span>Overdue<span class="nb" id="nb-od" style="background:var(--rose)">0</span></button>
       <div class="sb-sec">Academics</div>
       <button class="nv" onclick="nav('universities',this)"><span class="ni">🏫</span>Universities</button>
       <button class="nv" onclick="nav('documents',this)"><span class="ni">📄</span>Documents</button>
       <button class="nv" onclick="nav('reports',this)"><span class="ni">📈</span>Reports</button>
       <div class="sb-sec">Admin</div>
-      <button class="nv" id="nav-sess" onclick="nav('sessions',this)"><span class="ni">🎓</span>Sessions</button>
-      <button class="nv" id="nav-audit" onclick="nav('audit',this)"><span class="ni">🔍</span>Audit Logs</button>
-      <button class="nv" id="nav-lh" onclick="nav('loginhist',this)"><span class="ni">🔐</span>Login History</button>
       <button class="nv" onclick="nav('settings',this)"><span class="ni">⚙️</span>Settings</button>
     </div>
     <div class="sb-foot">
@@ -910,7 +903,7 @@ async function loadUniversities(){
 }
 
 // ─── NAV ───
-const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',sessions:'Academic Sessions',reports:'Reports',audit:'Audit Logs',loginhist:'Login History',settings:'Settings'};
+const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',reports:'Reports',settings:'Settings'};
 function nav(id,btn){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
@@ -938,14 +931,6 @@ async function reloadDashboard(){
 // ─── DASHBOARD ───
 function renderDashboard(d){
   const s=d.stats;
-  // Update overdue/leads badges
-  const s2 = d.stats || {};
-  if(s2.overdue_count > 0) {
-    document.getElementById('overdue-alert').style.display = 'flex';
-    document.getElementById('overdue-text').textContent = s2.overdue_count + ' overdue installments — ₹' + Math.round(s2.overdue_amount||0).toLocaleString('en-IN') + ' pending';
-    const nbOd = document.getElementById('nb-od'); if(nbOd) nbOd.textContent = s2.overdue_count;
-  }
-  const nbLeads = document.getElementById('nb-leads'); if(nbLeads && s2.active_leads) nbLeads.textContent = s2.active_leads;
   document.getElementById('dash-stats').innerHTML=`
     <div class="sc blue"><div class="sc-ico blue">👥</div><div class="sc-lbl">Total Students</div><div class="sc-val">${s.student_count}</div><div class="sc-sub">Enrolled</div></div>
     <div class="sc gold"><div class="sc-ico gold">💰</div><div class="sc-lbl">Fee Collected</div><div class="sc-val">${fmt(s.total_collected)}</div><div class="sc-sub">All time</div></div>
@@ -1337,12 +1322,15 @@ function nav(id, btn) {
 
 // Session indicator on load
 async function loadSessionIndicator() {
-  const me = await api('GET', '/me');
-  if(me && me.active_session) {
-    document.getElementById('sb-sess').textContent = '📚 ' + me.active_session.name;
-  } else {
-    document.getElementById('sb-sess').textContent = 'No session';
-  }
+  try {
+    const me = await api('GET', '/me');
+    const sessEl = document.getElementById('sb-sess');
+    if(!sessEl) return;
+    if(me && me.active_session) {
+      sessEl.textContent = '📚 ' + me.active_session.name;
+    } else {
+      sessEl.textContent = 'No active session';
+    }
   if(me && me.unread_notifications > 0) {
     document.getElementById('notif-badge').textContent = me.unread_notifications;
     document.getElementById('notif-badge').classList.add('show');
@@ -1374,6 +1362,14 @@ async function initApp() {
 // Override renderDashboard to add Phase 2 stats
 const _origRenderDash = renderDashboard;
 function renderDashboard(d) {
+  // Fix follow-ups card - clear loading state
+  const fuEl = document.getElementById('dash-followups');
+  if(fuEl) {
+    const fu = d.upcoming_followups || [];
+    fuEl.innerHTML = fu.length 
+      ? fu.map(f=>`<div class="fi-item"><div style="width:32px;height:32px;border-radius:50%;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">${f.follow_type==='Call'?'📞':f.follow_type==='WhatsApp'?'💬':'📧'}</div><div class="fi-info"><div class="fi-name">${f.student_name||f.lead_name||'—'}</div><div class="fi-course">${f.note||''}</div></div><div class="cm">${(f.next_date||'').slice(0,10)}</div></div>`).join('')
+      : '<div style="text-align:center;padding:20px;color:var(--slate)">✅ No upcoming follow-ups</div>';
+  }
   _origRenderDash(d);
   const s = d.stats || {};
   if(s.overdue_count > 0) {
@@ -1384,8 +1380,7 @@ function renderDashboard(d) {
   if(s.active_leads > 0) document.getElementById('nb-leads').textContent = s.active_leads;
   // Upcoming follow-ups widget
   const fu = d.upcoming_followups || [];
-  const fuEl = document.getElementById('dash-followups');
-  if(fuEl) fuEl.innerHTML = fu.length ? fu.map(f=>`<div class="fi-item"><div style="width:32px;height:32px;border-radius:50%;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;flex-shrink:0">${f.follow_type==='Call'?'📞':'📧'}</div><div class="fi-info"><div class="fi-name">${f.student_name||'Lead'}</div><div class="fi-course">${f.note}</div></div><div class="cm">${(f.next_date||'').slice(0,10)}</div></div>`).join('') : '<div style="text-align:center;padding:20px;color:var(--slate)">✅ No upcoming follow-ups</div>';
+
 }
 
 // NOTIFICATIONS
