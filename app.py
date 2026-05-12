@@ -276,7 +276,7 @@ def me():
 @app.route('/api/dashboard')
 @login_required
 def dashboard():
-    uid = session['user_id']; fs, fp = student_filter(uid)
+    uid = session['user_id']; fs, fp = student_filter(uid, 's')
     stats = q(f"SELECT COUNT(*) AS student_count, COALESCE(SUM(paid),0) AS total_collected, COALESCE(SUM(total_fee-paid),0) AS outstanding, COALESCE(SUM(univ_fee),0) AS univ_fee_total FROM students WHERE TRUE {fs}", fp, one=True)
     perms = get_user_perms(uid)
     assoc_total = ref_total = 0
@@ -321,7 +321,7 @@ def get_students():
     uid = session['user_id']; search = request.args.get('q','').strip()
     univ = request.args.get('university',''); status = request.args.get('status','')
     target_user = request.args.get('user_id'); sess_id = request.args.get('session_id')
-    fs, fp = student_filter(uid)
+    fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.*, u.full_name AS created_by_name, ac.name AS session_name FROM students s LEFT JOIN users u ON u.id=s.created_by LEFT JOIN academic_sessions ac ON ac.id=s.session_id WHERE TRUE {fs}"
     params = list(fp)
     if is_super_admin() and target_user: sql += " AND s.created_by=%s"; params.append(int(target_user))
