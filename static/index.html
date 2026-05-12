@@ -767,17 +767,41 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 
 <!-- Add User -->
 <div class="modal-bg" id="m-user">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-hd"><div class="modal-title">👤 Add User</div><button class="mcls" onclick="closeM('m-user')">✕</button></div>
+  <div class="modal" style="max-width:620px">
+    <div class="modal-hd"><div class="modal-title" id="m-user-title">👤 Add User</div><button class="mcls" onclick="closeM('m-user')">✕</button></div>
+    <input type="hidden" id="mu-id" value="">
     <div class="form-grid">
       <div class="fg"><label class="fl">Username *</label><input class="fi" id="nu-u" placeholder="Login username"></div>
       <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="nu-n" placeholder="Full name"></div>
-      <div class="fg"><label class="fl">Password *</label><input class="fi" type="password" id="nu-p" placeholder="Password"></div>
+      <div class="fg"><label class="fl">Password *</label><input class="fi" type="password" id="nu-p" placeholder="Min 6 chars (blank = no change on edit)"></div>
       <div class="fg"><label class="fl">Role</label><select class="fs" id="nu-r"><option>Staff</option><option>Admin</option><option>Super Admin</option></select></div>
+    </div>
+    <div style="padding:0 18px 12px">
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin:8px 0 6px">🔐 Permissions</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+        <label><input type="checkbox" id="p-add"> Add Student</label>
+        <label><input type="checkbox" id="p-edit"> Edit Student</label>
+        <label><input type="checkbox" id="p-del"> Delete Student</label>
+        <label><input type="checkbox" id="p-vall"> View All Students</label>
+        <label><input type="checkbox" id="p-vpay"> View Payments</label>
+        <label><input type="checkbox" id="p-apay"> Add Payment</label>
+        <label><input type="checkbox" id="p-vassoc"> View Associates</label>
+        <label><input type="checkbox" id="p-massoc"> Manage Associates</label>
+        <label><input type="checkbox" id="p-vref"> View References</label>
+        <label><input type="checkbox" id="p-mref"> Manage References</label>
+        <label><input type="checkbox" id="p-vdoc"> View Documents</label>
+        <label><input type="checkbox" id="p-udoc"> Upload Documents</label>
+        <label><input type="checkbox" id="p-vrep"> View Reports</label>
+        <label><input type="checkbox" id="p-muniv"> Manage Universities</label>
+        <label><input type="checkbox" id="p-leads"> Manage Leads</label>
+        <label><input type="checkbox" id="p-audit"> View Audit Logs</label>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 6px">🏫 Assigned Universities <span style="font-weight:400;color:var(--slate);font-size:11px">(blank = all)</span></div>
+      <div id="nu-univ-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;max-height:140px;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--rs);padding:8px"></div>
     </div>
     <div class="form-footer">
       <button class="btn btn-g" onclick="closeM('m-user')">Cancel</button>
-      <button class="btn btn-p" onclick="addUser()">Add User</button>
+      <button class="btn btn-p" onclick="saveUser()">Save User</button>
     </div>
   </div>
 </div>
@@ -1613,6 +1637,19 @@ window.addEventListener('load', () => {
   });
   console.log('✅ View nesting fixed');
 });
+  // Populate university checkboxes when m-user modal opens
+const _origOpenM = openM;
+openM = function(id){
+  _origOpenM(id);
+  if(id === 'm-user'){
+    const list = document.getElementById('nu-univ-list');
+    if(list && allUnivs && allUnivs.length){
+      list.innerHTML = allUnivs.map(u => 
+        `<label><input type="checkbox" name="nu-univ" value="${u.id}"> ${u.name}</label>`
+      ).join('');
+    }
+  }
+};
 // On page load - also add inst tab
 window.addEventListener('load', async()=>{
   try {
