@@ -1597,7 +1597,22 @@ async function saveUser(){
   }
   if(!r)return; closeM('m-user'); loadSettings(); toast(editId?'✅ User updated!':'✅ User added!','ok');
 }
-
+// ── HTML nesting bug auto-fix ──
+window.addEventListener('load', () => {
+  const content = document.querySelector('.content');
+  if (!content) return;
+  const wrong = ['view-fees','view-feereceive','view-incentive','view-leads',
+                 'view-followups','view-overdue','view-sessions','view-audit',
+                 'view-loginhist','view-universities','view-documents',
+                 'view-reports','view-settings'];
+  wrong.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement.id === 'view-addstudent') {
+      content.appendChild(el);
+    }
+  });
+  console.log('✅ View nesting fixed');
+});
 // On page load - also add inst tab
 window.addEventListener('load', async()=>{
   try {
