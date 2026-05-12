@@ -399,7 +399,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
             <button class="tab" onclick="stab('td',this)">Documents</button>
             <button class="tab" onclick="stab('ti',this)">Installments</button>
           </div>
-
           <div class="tab-panel active" id="tp">
             <div class="form-grid">
               <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="f-name" placeholder="Student full name"></div>
@@ -413,7 +412,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg full"><label class="fl">Address</label><textarea class="ft" id="f-address" placeholder="Full address…"></textarea></div>
             </div>
           </div>
-
           <div class="tab-panel" id="ta">
             <div class="form-grid">
               <div class="fg"><label class="fl">University *</label><select class="fs" id="f-univ"><option value="">Select university</option></select></div>
@@ -425,8 +423,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="f-remarks" placeholder="Additional notes…"></textarea></div>
             </div>
           </div>
-
-          <div class="tab-panel" id="tf">
+          <div class="tab-panel" id="ti">
             <div class="form-grid">
               <div class="fg"><label class="fl">Total Decided Fee (₹) *</label><input class="fi" type="number" id="f-total" placeholder="0" oninput="calcBal()"></div>
               <div class="fg"><label class="fl">University Fee Share (₹)</label><input class="fi" type="number" id="f-univfee" placeholder="0"></div>
@@ -436,7 +433,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg"><label class="fl">Balance Due (₹)</label><input class="fi" id="f-bal" readonly style="background:var(--slate-lt);font-weight:700;color:var(--rose)"></div>
             </div>
           </div>
-
           <div class="tab-panel" id="td">
             <div class="form-grid">
               <div class="fg full" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -446,10 +442,13 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-4"><span class="fl" style="margin:0">Graduation Certificate</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-5"><span class="fl" style="margin:0">Passport Photos</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
-              </div>
-              <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea></div>
-            </div>
-          </div>
+
+              <div class="fg full">
+      <label class="fl">Document Notes</label>
+      <textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea>
+    </div>
+  </div>
+</div>
 
           <div class="tab-panel" id="ti">
             <div style="padding:18px">
@@ -462,7 +461,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div id="inst-lines"></div>
             </div>
           </div>
-
           <div class="form-footer">
             <button class="btn btn-g" onclick="resetForm()">Clear</button>
             <button class="btn btn-p" id="s-save-btn" onclick="saveStudent()">💾 Register Student</button>
