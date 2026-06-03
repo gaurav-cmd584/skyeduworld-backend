@@ -365,9 +365,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           </div>
          <div class="loading" id="s-loading"><div class="spin"></div>Loading students…</div>
           <div class="tw" id="s-table-wrap" style="display:none">
-
   <table>
-
     <thead>
       <tr>
         <th>Student</th>
@@ -380,14 +378,12 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <th>Actions</th>
       </tr>
     </thead>
-
     <tbody id="s-table"></tbody>
-
   </table>
-
 </div>
       </div>
      </div>
+
       <!-- ADD/EDIT STUDENT -->
      <div class="view" id="view-addstudent">
         <div class="card">
@@ -442,14 +438,10 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-4"><span class="fl" style="margin:0">Graduation Certificate</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-5"><span class="fl" style="margin:0">Passport Photos</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
-
-<label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
               </div>
               <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea></div>
             </div>
           </div>
-
-          <div class="tab-panel" id="ti">
 
           <div class="tab-panel" id="ti">
             <div style="padding:18px">
@@ -532,7 +524,13 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <!-- UNIVERSITIES -->
       <div class="view" id="view-universities">
         <div class="card">
-          <div class="card-hd"><div class="card-title">Partner Universities</div><button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button></div>
+          <div class="card-hd">
+            <div>
+              <div class="card-title">Partner Universities</div>
+              <div class="card-sub">Super Admin ko har card par 🗑️ delete button dikhega</div>
+            </div>
+            <button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button>
+          </div>
           <div class="univ-grid" id="univ-grid"></div>
         </div>
       </div>
@@ -551,6 +549,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <div class="rep-card" onclick="dlReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">💰</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
         <div class="rep-card" onclick="dlReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">⏳</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
         <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">🤝</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate & Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">📋</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
       </div>
 
       <!-- SETTINGS -->
@@ -571,6 +570,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           </div>
         </div>
       </div>
+
       <!-- LEADS VIEW -->
       <div class="view" id="view-leads">
         <div class="stats-row" style="grid-template-columns:repeat(4,1fr)" id="lead-stats"></div>
@@ -647,8 +647,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           </div>
           <div class="tw"><table><thead><tr><th>User</th><th>Status</th><th>IP Address</th><th>Time</th></tr></thead><tbody id="lh-table"></tbody></table></div>
         </div>
-            <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">📋</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-</div>
+      </div>
 
     </div>
   </div>
@@ -826,7 +825,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
   </div>
 </div>
 
-
 <!-- ADD LEAD MODAL -->
 <div class="modal-bg" id="m-lead">
   <div class="modal" style="max-width:520px"><div class="modal-hd"><div class="modal-title" id="lead-modal-title">📋 Add Lead</div><button class="mcls" onclick="closeM('m-lead')">✕</button></div>
@@ -951,10 +949,8 @@ async function initApp(){
   allStudents=await api('GET','/students')||[];
   const nbS=document.getElementById('nb-s'); if(nbS) nbS.textContent=allStudents.length;
   populateDropdowns();
-  // Phase 2: load session + notifications
   try { await loadSessionInfo(); } catch(e){}
   try { loadNotifications(); setInterval(loadNotifications,60000); } catch(e){}
-  // Phase 2: populate audit/lh dropdowns
   if(isSA()){
     try {
       const users = await api('GET','/users')||[];
@@ -963,8 +959,6 @@ async function initApp(){
         const el=document.getElementById(id);
         if(el) el.innerHTML='<option value="">All Users</option>'+users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
       });
-      const fu=document.getElementById('flt-user');
-      if(fu) fu.innerHTML='<option value="">All Staff</option>'+users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
     } catch(e){}
   }
   applyPermsPhase2();
@@ -987,11 +981,7 @@ function nav(id,btn){
   document.getElementById('pg-bc').textContent='Sky Eduworld › '+t;
   if(id==='students')loadStudents();
   else if(id==='fees')loadFees();
-  else if(id==='feereceive'){
-  populateDropdowns();
-  const frDate = document.getElementById('fr-date');
-  if(frDate) frDate.valueAsDate = new Date();
-}
+  else if(id==='feereceive'){populateDropdowns();const frDate=document.getElementById('fr-date');if(frDate)frDate.valueAsDate=new Date();}
   else if(id==='incentive'){loadIncTab();loadIncStats()}
   else if(id==='universities')renderUnivGrid();
   else if(id==='documents')loadDocs();
@@ -1289,7 +1279,17 @@ async function delRef(id){if(!confirm('Delete this record?'))return;await api('D
 async function renderUnivGrid(){
   const data=await api('GET','/universities');
   if(!data)return;
-  document.getElementById('univ-grid').innerHTML=data.map(u=>`<div class="uc" style="border-top-color:${u.color}"><div class="uc-name">${u.name}</div><div class="uc-state">${u.state||'—'}</div><div class="uc-cnt" style="color:${u.color}">${u.student_count||0} <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div></div>`).join('');
+  document.getElementById('univ-grid').innerHTML=data.map(u=>`
+    <div class="uc" style="border-top-color:${u.color}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px">
+        <div>
+          <div class="uc-name">${u.name}</div>
+          <div class="uc-state">${u.state||'—'}</div>
+        </div>
+        ${isSA()?`<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" onclick="delUniversity(${u.id},${JSON.stringify(u.name)},${u.student_count||0})" title="Delete University">🗑️</button>`:''}
+      </div>
+      <div class="uc-cnt" style="color:${u.color}">${u.student_count||0} <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div>
+    </div>`).join('');
 }
 
 async function addUniversity(){
@@ -1300,6 +1300,20 @@ async function addUniversity(){
   closeM('m-univ');
   document.getElementById('au-name').value='';document.getElementById('au-state').value='';
   await loadUniversities(); renderUnivGrid();toast('✅ University added!','ok');
+}
+
+// ── NEW: University Delete Function ──
+async function delUniversity(id, name, count){
+  if(count > 0){
+    if(!confirm(`"${name}" mein ${count} student(s) enrolled hain.\n\nPhir bhi delete karna chahte ho?\n(Students ka data safe rahega, sirf university list se hategi)`))return;
+  } else {
+    if(!confirm(`"${name}" university delete karna chahte ho?`))return;
+  }
+  const r = await api('DELETE', `/universities/${id}`);
+  if(!r) return;
+  await loadUniversities();
+  renderUnivGrid();
+  toast('✅ University delete ho gayi!', 'ok');
 }
 
 // ─── DOCUMENTS ───
@@ -1334,17 +1348,6 @@ async function changePassword(){
   if(!r)return;
   toast('✅ Password updated!','ok');
   ['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
-}
-
-async function addUser(){
-  const un=document.getElementById('nu-u').value.trim();
-  const name=document.getElementById('nu-n').value.trim();
-  const pass=document.getElementById('nu-p').value;
-  if(!un||!name||!pass){toast('Fill all fields','er');return}
-  const r=await api('POST','/users',{username:un,full_name:name,password:pass,role:document.getElementById('nu-r').value});
-  if(!r)return;
-  closeM('m-user');loadSettings();toast('✅ User added!','ok');
-  ['nu-u','nu-n','nu-p'].forEach(id=>document.getElementById(id).value='');
 }
 
 async function delUser(id){
@@ -1387,7 +1390,7 @@ window.addEventListener('load', async()=>{
 });
 
 // ═══════════════════════════════════════════
-// PHASE 2 — Clean Implementation
+// PHASE 2
 // ═══════════════════════════════════════════
 
 let allUsers = [];
@@ -1538,7 +1541,7 @@ async function loadLoginHistory(){
   if(lt) lt.innerHTML=data.map(r=>`<tr><td class="cp">${r.user_name||'—'}</td><td>${r.status==='Success'?'<span class="tag tgr">✅ Success</span>':'<span class="tag tr">❌ Failed</span>'}</td><td class="cmo">${r.ip_address||'—'}</td><td class="cm">${(r.created_at||'').slice(0,16)}</td></tr>`).join('');
 }
 
-// INSTALLMENTS in student form
+// INSTALLMENTS
 function addInstLine(){
   const amt=parseFloat(document.getElementById('inst-amt').value)||0;
   const due=document.getElementById('inst-due').value;
@@ -1552,23 +1555,6 @@ function renderInstLines(){
   if(il) il.innerHTML=pendingInst.map((inst,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:6px"><span style="flex:1">${fmt(inst.amount)} — ${inst.due_date||'No date'}</span><button class="btn btn-r btn-sm" onclick="pendingInst.splice(${i},1);renderInstLines()">✕</button></div>`).join('');
 }
 
-// Add installments to student form if tab exists
-function addInstTabIfNeeded(){
-  const tabsEl = document.querySelector('.tabs');
-  if(tabsEl && !document.getElementById('ti') && !tabsEl.querySelector('[onclick*="ti"]')){
-    const btn=document.createElement('button');
-    btn.className='tab'; btn.textContent='Installments';
-    btn.setAttribute('onclick',"stab('ti',this)");
-    tabsEl.appendChild(btn);
-    const panel=document.createElement('div');
-    panel.className='tab-panel'; panel.id='ti';
-    panel.innerHTML='<div style="padding:18px"><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px"><div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="inst-amt" placeholder="0"></div><div class="fg"><label class="fl">Due Date</label><input class="fi" type="date" id="inst-due"></div><div class="fg"><label class="fl">Remarks</label><input class="fi" id="inst-rem" placeholder="Optional"></div><button class="btn btn-p" onclick="addInstLine()" style="height:36px">+ Add</button></div><div id="inst-lines"></div></div>';
-    const formFooter = document.querySelector('.form-footer');
-    if(formFooter) formFooter.parentNode.insertBefore(panel, formFooter);
-  }
-}
-
-// Override saveStudent to save installments too
 const _saveStudentOrig = saveStudent;
 async function saveStudent(){
   const nameVal = document.getElementById('f-name').value.trim();
@@ -1582,8 +1568,6 @@ async function saveStudent(){
   }
 }
 
-// Add user management extra permissions
-const _origSaveUser = typeof saveUser === 'function' ? saveUser : null;
 async function saveUser(){
   const editId=document.getElementById('mu-id').value;
   const un=document.getElementById('nu-u').value.trim();
@@ -1620,36 +1604,20 @@ async function saveUser(){
   }
   if(!r)return; closeM('m-user'); loadSettings(); toast(editId?'✅ User updated!':'✅ User added!','ok');
 }
-// ── HTML nesting bug auto-fix ──
-window.addEventListener('load', () => {
-  const content = document.querySelector('.content');
-  if (!content) return;
-  const wrong = ['view-fees','view-feereceive','view-incentive','view-leads',
-                 'view-followups','view-overdue','view-sessions','view-audit',
-                 'view-loginhist','view-universities','view-documents',
-                 'view-reports','view-settings'];
-  wrong.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement.id === 'view-addstudent') {
-      content.appendChild(el);
-    }
-  });
-  console.log('✅ View nesting fixed');
-});
-  // Populate university checkboxes when m-user modal opens
+
 const _origOpenM = openM;
 openM = function(id){
   _origOpenM(id);
   if(id === 'm-user'){
     const list = document.getElementById('nu-univ-list');
     if(list && allUnivs && allUnivs.length){
-      list.innerHTML = allUnivs.map(u => 
+      list.innerHTML = allUnivs.map(u =>
         `<label><input type="checkbox" name="nu-univ" value="${u.id}"> ${u.name}</label>`
       ).join('');
     }
   }
 };
-// On page load - also add inst tab
+
 window.addEventListener('load', async()=>{
   try {
     const r=await fetch('/api/me',{credentials:'same-origin'});
@@ -1663,7 +1631,6 @@ window.addEventListener('load', async()=>{
       const sessEl=document.getElementById('sb-sess');
       if(sessEl) sessEl.textContent=currentUser.active_session?'📚 '+currentUser.active_session.name:'No active session';
       await initApp();
-      addInstTabIfNeeded();
     } else {
       const sessEl=document.getElementById('sb-sess');
       if(sessEl) sessEl.textContent='';
