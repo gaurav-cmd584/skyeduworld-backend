@@ -467,7 +467,7 @@ async function loadStudents(q){
   document.getElementById('nb-s').textContent=allStudents.length;
   document.getElementById('s-sub').textContent=allStudents.length+' student'+(allStudents.length!==1?'s':'')+' found';
   document.getElementById('s-loading').style.display='none';document.getElementById('s-table-wrap').style.display='block';
-  document.getElementById('s-table').innerHTML=allStudents.map(function(s){const b=s.total_fee-s.paid;return'<tr><td><div class="av-cell">'+av(s.name)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+s.mobile+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button><button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button></td></tr>';}).join('');
+  document.getElementById('s-table').innerHTML=allStudents.map(function(s){const b=s.total_fee-s.paid;return'<tr><td><div class="av-cell">'+av(s.name)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+s.mobile+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap">'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('');
   populateDropdowns();
 }
 function calcBal(){const t=parseFloat(document.getElementById('f-total').value)||0;const p=parseFloat(document.getElementById('f-paid').value)||0;document.getElementById('f-bal').value='\u20b9 '+Math.max(0,t-p).toLocaleString('en-IN');}
@@ -617,6 +617,7 @@ async function loadSettings(){
   }).join('');
 }
 async function editUser(id){
+  const fresh=await api('GET','/users');if(fresh)allUsers=fresh;
   const u=allUsers.find(function(x){return x.id===id;});if(!u)return;
   document.getElementById('mu-id').value=id;
   document.getElementById('m-user-title').textContent='Edit User: '+u.full_name;
@@ -653,7 +654,37 @@ async function changePassword(){
   const r=await api('POST','/change-password',{old_password:old,new_password:nw});if(!r)return;toast('Password updated!','ok');['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
 }
 async function delUser(id){if(!confirm('Delete this user?'))return;const r=await api('DELETE','/users/'+id);if(!r)return;loadSettings();toast('User deleted','ok');}
-function applyPermsPhase2(){if(!currentUser)return;const p=currentUser.permissions||{};if(!p.can_manage_leads&&!isSA()){const el=document.getElementById('nav-leads');if(el)el.style.display='none';}if(!isSA()){['nav-sess','nav-audit','nav-lh'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}}
+function applyPermsPhase2(){
+  if(!currentUser)return;
+  const p=currentUser.permissions||{};
+  const sa=isSA(),adm=isAdm();
+  // Helper: hide nav button by its onclick target
+  function hideNav(target){document.querySelectorAll('.nv').forEach(function(n){if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+target+"'"))n.style.display='none';});}
+  function showNav(target){document.querySelectorAll('.nv').forEach(function(n){if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+target+"'"))n.style.display='';});}
+  // Reset all first
+  document.querySelectorAll('.nv').forEach(function(n){n.style.display='';});
+  if(sa)return; // Super Admin sees everything
+  // Hide SA-only items
+  ['nav-sess','nav-audit','nav-lh'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+  // Leads
+  if(!p.can_manage_leads){hideNav('leads');hideNav('followups');hideNav('overdue');}
+  // Payments
+  if(!p.can_view_payments){hideNav('fees');}
+  if(!p.can_add_payment){hideNav('feereceive');}
+  // Associates/References
+  if(!p.can_view_associates&&!p.can_view_references){hideNav('incentive');}
+  // Documents
+  if(!p.can_view_documents){hideNav('documents');}
+  // Reports
+  if(!p.can_view_reports){hideNav('reports');}
+  // Universities
+  if(!p.can_manage_universities){hideNav('universities');}
+  // Add Student button in sidebar
+  if(!p.can_add_student){hideNav('addstudent');}
+  // Audit logs (can be granted to non-SA)
+  if(!p.can_view_audit_logs){var el=document.getElementById('nav-audit');if(el)el.style.display='none';}
+  else{var el=document.getElementById('nav-audit');if(el)el.style.display='';}
+}
 async function loadSessionInfo(){const me=await api('GET','/me');const sessEl=document.getElementById('sb-sess');if(!sessEl)return;if(me&&me.active_session)sessEl.textContent='Session: '+me.active_session.name;else sessEl.textContent='No active session';if(me&&me.unread_notifications>0){const b=document.getElementById('notif-badge');if(b){b.textContent=me.unread_notifications;b.classList.add('show');}}}
 async function loadNotifications(){try{const data=await api('GET','/notifications')||[];const unread=data.filter(n=>!n.is_read).length;const badge=document.getElementById('notif-badge');if(badge){badge.textContent=unread;if(unread>0)badge.classList.add('show');else badge.classList.remove('show');}const list=document.getElementById('notif-list');if(list)list.innerHTML=data.length?data.map(function(n){return'<div class="notif-item '+(n.is_read?'':'unread')+'" onclick="markNotifRead('+n.id+')"><div class="notif-title">'+n.title+'</div><div class="notif-msg">'+(n.message||'')+'</div><div style="font-size:10px;color:var(--slate);margin-top:3px">'+(n.created_at||'').slice(0,16)+'</div></div>';}).join(''):'<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';}catch(e){}}
 function toggleNotif(){document.getElementById('notif-panel').classList.toggle('open');if(document.getElementById('notif-panel').classList.contains('open'))loadNotifications();}
