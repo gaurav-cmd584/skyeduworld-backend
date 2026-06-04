@@ -364,7 +364,17 @@ function toast(msg,type){
   t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3500);
 }
 function openM(id){document.getElementById(id).classList.add('open');populateDropdowns();}
-function closeM(id){document.getElementById(id).classList.remove('open');}
+function closeM(id){
+  document.getElementById(id).classList.remove('open');
+  if(id==='m-user'){
+    document.getElementById('mu-id').value='';
+    document.getElementById('m-user-title').textContent='Add User';
+    document.getElementById('nu-u').disabled=false;
+    document.getElementById('nu-p').placeholder='Min 6 chars';
+    ['nu-u','nu-n','nu-p'].forEach(function(i){var el=document.getElementById(i);if(el)el.value='';});
+    document.querySelectorAll('#m-user input[type=checkbox]').forEach(function(c){c.checked=false;});
+  }
+}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function isSA(){return currentUser&&currentUser.role==='Super Admin';}
 function isAdm(){return currentUser&&(currentUser.role==='Admin'||currentUser.role==='Super Admin');}
@@ -596,7 +606,47 @@ async function issueDoc(){
   const r=await api('POST','/documents',{student,doc_type:document.getElementById('id-dt').value,university:s?.university||'',issue_date:document.getElementById('id-date').value,status:'Delivered',delivered_to:document.getElementById('id-to').value||'Student'});
   if(!r)return;closeM('m-doc');loadDocs();toast('Document issued!','ok');
 }
-async function loadSettings(){const data=await api('GET','/users')||[];document.getElementById('users-table').innerHTML=data.map(function(u){return'<tr><td class="cmo">'+u.username+'</td><td class="cp">'+u.full_name+'</td><td><span class="tag '+(u.role==='Super Admin'?'tgr':u.role==='Admin'?'tg':'tsl')+'">'+u.role+'</span></td><td>'+(u.username!=='admin'?'<button class="btn btn-r btn-sm" onclick="delUser('+u.id+')">&#128465;</button>':'<span class="cm">Owner</span>')+'</td></tr>';}).join('');}
+async function loadSettings(){
+  const data=await api('GET','/users')||[];
+  allUsers=data;
+  document.getElementById('users-table').innerHTML=data.map(function(u){
+    var actions=u.username==='admin'
+      ?'<span class="cm">Owner</span>'
+      :'<div style="display:flex;gap:4px"><button class="btn btn-g btn-sm" data-uid="'+u.id+'" onclick="editUser(parseInt(this.dataset.uid))">&#9999; Edit</button><button class="btn btn-r btn-sm" data-uid="'+u.id+'" onclick="delUser(parseInt(this.dataset.uid))">&#128465;</button></div>';
+    return'<tr><td class="cmo">'+u.username+'</td><td class="cp">'+u.full_name+'</td><td><span class="tag '+(u.role==='Super Admin'?'tgr':u.role==='Admin'?'tg':'tsl')+'">'+u.role+'</span></td><td>'+actions+'</td></tr>';
+  }).join('');
+}
+async function editUser(id){
+  const u=allUsers.find(function(x){return x.id===id;});if(!u)return;
+  document.getElementById('mu-id').value=id;
+  document.getElementById('m-user-title').textContent='Edit User: '+u.full_name;
+  document.getElementById('nu-u').value=u.username;document.getElementById('nu-u').disabled=true;
+  document.getElementById('nu-n').value=u.full_name;
+  document.getElementById('nu-p').value='';document.getElementById('nu-p').placeholder='Leave blank to keep current';
+  document.getElementById('nu-r').value=u.role||'Staff';
+  var p=u.permissions||{};
+  var pmap={
+    'p-add':'can_add_student','p-edit':'can_edit_student','p-del':'can_delete_student',
+    'p-vall':'can_view_all_students','p-vpay':'can_view_payments','p-apay':'can_add_payment',
+    'p-vassoc':'can_view_associates','p-massoc':'can_manage_associates',
+    'p-vref':'can_view_references','p-mref':'can_manage_references',
+    'p-vdoc':'can_view_documents','p-udoc':'can_upload_document',
+    'p-vrep':'can_view_reports','p-muniv':'can_manage_universities',
+    'p-leads':'can_manage_leads','p-audit':'can_view_audit_logs'
+  };
+  Object.keys(pmap).forEach(function(elId){
+    var el=document.getElementById(elId);
+    if(el)el.checked=!!(p[pmap[elId]]);
+  });
+  var list=document.getElementById('nu-univ-list');
+  if(list&&allUnivs.length){
+    var assigned=u.assigned_university_ids||[];
+    list.innerHTML=allUnivs.map(function(uv){
+      return'<label><input type="checkbox" name="nu-univ" value="'+uv.id+'"'+(assigned.includes(uv.id)?' checked':'')+'>'+uv.name+'</label>';
+    }).join('');
+  }
+  document.getElementById('m-user').classList.add('open');
+}
 async function changePassword(){
   const old=document.getElementById('cp-old').value,nw=document.getElementById('cp-new').value,cf=document.getElementById('cp-cf').value;
   if(!old||!nw){toast('Fill all fields','er');return;}if(nw!==cf){toast('Passwords do not match','er');return;}
