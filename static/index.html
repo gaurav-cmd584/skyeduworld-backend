@@ -184,21 +184,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .content{overflow-x:hidden}
 .card{max-width:100%}
 .tw{overflow-x:auto;max-width:100%}
-.ms-wrap{position:relative}
-.ms-trigger{width:100%;padding:8px 11px;border:1.5px solid var(--bd);border-radius:var(--rs);font-family:inherit;font-size:12.5px;cursor:pointer;background:var(--wh);text-align:left;display:flex;justify-content:space-between;align-items:center;transition:border .13s;color:var(--ink)}
-.ms-trigger:hover,.ms-trigger:focus{border-color:var(--sky);outline:none}
-.ms-dropdown{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--wh);border:1.5px solid var(--sky);border-radius:var(--rs);box-shadow:0 6px 20px rgba(0,0,0,.13);z-index:9999;display:none}
-.ms-dropdown.open{display:block}
-.ms-body{max-height:200px;overflow-y:auto}
-.ms-item{padding:6px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--ink)}
-.ms-item:hover{background:var(--sky-lt)}
-.ms-item input[type=checkbox]{cursor:pointer;accent-color:var(--sky);width:13px;height:13px;flex-shrink:0}
-.ms-bar{padding:5px 8px;border-bottom:1px solid var(--bd);background:var(--slate-lt);display:flex;gap:6px}
-.ms-bar button{font-size:11px;color:var(--sky);background:none;border:none;cursor:pointer;padding:1px 4px;border-radius:3px}
-.ms-bar button:hover{background:var(--sky-lt)}
-.ms-srch{padding:6px 8px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:#fff}
-.ms-srch input{width:100%;border:1px solid var(--bd);border-radius:4px;padding:4px 7px;font-size:12px;outline:none;font-family:inherit}
-.ms-srch input:focus{border-color:var(--sky)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -922,60 +907,20 @@ async function changePassword(){
 }
 async function delUser(id){if(!confirm('Delete this user?'))return;const r=await api('DELETE','/users/'+id);if(!r)return;loadSettings();toast('User deleted','ok');}
 
-
-// ── MULTI-SELECT ──
-function buildMS(id,opts,ph,lbl){
-  var items=opts.map(function(o){
-    var safe=o.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    return'<label class="ms-item"><input type="checkbox" value="'+safe+'" onchange="_mslbl(\''+id+'\')"> '+escH(o)+'</label>';
-  }).join('');
-  var labelHtml=lbl?'<label class="fl">'+escH(lbl)+'</label>':'';
-  return'<div class="fg">'+labelHtml
-    +'<div class="ms-wrap" id="ms-'+id+'" data-ph="'+escH(ph)+'">'
-    +'<button type="button" class="ms-trigger" onclick="toggleMs(\''+id+\')">'
-    +'<span id="ms-lbl-'+id+'" style="color:var(--slate)">'+escH(ph)+'</span>'
-    +'<span style="font-size:9px;color:var(--slate);margin-left:4px">&#9660;</span></button>'
-    +'<div class="ms-dropdown" id="ms-dd-'+id+'">'
-    +'<div class="ms-srch"><input type="text" placeholder="Search\u2026" oninput="filterMs(\''+id+'\',this.value)"></div>'
-    +'<div class="ms-bar"><button type="button" onclick="msAll(\''+id+'\')">&#9745; All</button><button type="button" onclick="msClear(\''+id+'\')">&#9744; Clear</button></div>'
-    +'<div class="ms-body" id="ms-list-'+id+'">'+items+'</div>'
-    +'</div></div></div>';
-}
-function getMS(id){
-  return Array.prototype.map.call(document.querySelectorAll('#ms-'+id+' .ms-body input:checked'),function(c){return c.value;});
-}
-function toggleMs(id){
-  document.querySelectorAll('.ms-dropdown').forEach(function(d){if(d.id!=='ms-dd-'+id)d.classList.remove('open');});
-  var dd=document.getElementById('ms-dd-'+id);if(dd)dd.classList.toggle('open');
-}
-function filterMs(id,q){
-  var list=document.getElementById('ms-list-'+id);if(!list)return;
-  Array.prototype.forEach.call(list.querySelectorAll('.ms-item'),function(item){
-    item.style.display=item.textContent.toLowerCase().includes(q.toLowerCase())?'':'none';
-  });
-}
-function msAll(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-list-'+id+' input'),function(c){c.checked=true;});_mslbl(id);}
-function msClear(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-list-'+id+' input'),function(c){c.checked=false;});_mslbl(id);}
-function _mslbl(id){
-  var sel=getMS(id);
-  var lbl=document.getElementById('ms-lbl-'+id);
-  var wrap=document.getElementById('ms-'+id);
-  var ph=wrap?wrap.getAttribute('data-ph'):'All';
-  if(!lbl)return;
-  if(sel.length===0){lbl.textContent=ph;lbl.style.color='var(--slate)';lbl.style.fontWeight='';}
-  else if(sel.length===1){lbl.textContent=sel[0];lbl.style.color='var(--ink)';lbl.style.fontWeight='';}
-  else{lbl.textContent=sel.length+' selected';lbl.style.color='var(--sky)';lbl.style.fontWeight='700';}
-}
-document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap')){document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});}});
-
 // ── REPORT SYSTEM ──
-let currentRpt=null,rptFmt='csv';
+let currentRpt=null, rptFmt='csv';
+
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
 function escH(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
 function setRptFmt(fmt){
   rptFmt=fmt;
-  ['csv','excel','pdf'].forEach(function(f){const btn=document.getElementById('fmt-'+f);if(btn)btn.className='btn btn-sm '+(f===fmt?'btn-p':'btn-g');});
+  ['csv','excel','pdf'].forEach(function(f){
+    const btn=document.getElementById('fmt-'+f);
+    if(btn)btn.className='btn btn-sm '+(f===fmt?'btn-p':'btn-g');
+  });
 }
+
 function openReport(type){
   currentRpt=type;rptFmt='csv';setRptFmt('csv');
   const cfg=RPT_CFG[type];if(!cfg)return;
@@ -984,6 +929,7 @@ function openReport(type){
   document.getElementById('rpt-filters').innerHTML=cfg.filtersHTML();
   document.getElementById('m-report').classList.add('open');
 }
+
 async function generateReport(){
   const btn=document.getElementById('rpt-dl-btn');
   btn.disabled=true;btn.textContent='\u23f3 Preparing\u2026';
@@ -998,110 +944,118 @@ async function generateReport(){
   }catch(e){toast('Error: '+e.message,'er');}
   btn.disabled=false;btn.textContent='\u2b07\ufe0f Download';
 }
+
 function dlCSV(headers,rows,fname){
-  const lines=[headers.join(',')].concat(rows.map(function(r){return r.map(function(x){return'"'+String(x||'').replace(/"/g,'""')+'"';}).join(',');}));
+  const lines=[headers.join(',')].concat(rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}));
   const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();URL.revokeObjectURL(a.href);
 }
+
 function dlExcel(headers,rows,fname,sheet){
   if(typeof XLSX==='undefined'){toast('Excel library load nahi hui, 2 sec baad try karo','er');return;}
   const ws=XLSX.utils.aoa_to_sheet([headers].concat(rows));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet||'Report');XLSX.writeFile(wb,fname);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet||'Report');
+  XLSX.writeFile(wb,fname);
 }
+
 function dlPDF(headers,rows,title){
   const w=window.open('','_blank','width=1000,height=700');
   const ths=headers.map(function(h){return'<th>'+escH(h)+'</th>';}).join('');
   const trs=rows.map(function(r){return'<tr>'+r.map(function(c){return'<td>'+escH(c)+'</td>';}).join('')+'</tr>';}).join('');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escH(title)+'</title>'
     +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}'
-    +'.hdr{background:#0F172A;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:12px}'
+    +'.hdr{background:#0F172A;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;margin-bottom:0}'
     +'.hdr h2{font-size:14px;font-weight:700}.hdr p{font-size:10px;opacity:.6;margin-top:3px}'
     +'table{width:100%;border-collapse:collapse;border:1px solid #E2E8F0}'
     +'thead th{background:#1A6CF6;color:#fff;padding:7px 10px;text-align:left;font-size:10px;font-weight:600}'
     +'tbody td{padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px}'
-    +'tbody tr:nth-child(even)td{background:#F8FAFC}'
-    +'.foot{margin-top:8px;font-size:10px;color:#64748B}'
-    +'.btns{margin-top:12px;display:flex;gap:8px}'
-    +'@media print{.btns{display:none}}</style></head>'
-    +'<body><div class="hdr"><h2>\ud83c\udf93 Sky Eduworld \u2014 '+escH(title)+'</h2>'
-    +'<p>Generated: '+new Date().toLocaleString('en-IN')+' &nbsp;|\u00a0 Total Records: '+rows.length+'</p></div>'
+    +'tbody tr:nth-child(even) td{background:#F8FAFC}'
+    +'.footer{margin-top:8px;font-size:10px;color:#64748B}'
+    +'@media print{body{padding:8px}.no-print{display:none}}</style></head>'
+    +'<body><div class="hdr"><h2>\ud83c\udf93 Sky Eduworld &mdash; '+escH(title)+'</h2>'
+    +'<p>Generated: '+new Date().toLocaleString('en-IN')+' &nbsp;|&nbsp; Total Records: '+rows.length+'</p></div>'
     +'<table><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>'
-    +'<div class="foot">Sky Eduworld Management System \u2014 Confidential</div>'
-    +'<div class="btns"><button onclick="window.print()" style="padding:8px 18px;background:#1A6CF6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">\ud83d\udda8\ufe0f Print / Save PDF</button>'
-    +'<button onclick="window.close()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px">Close</button></div>'
+    +'<div class="footer">Sky Eduworld Management System &mdash; Confidential</div>'
+    +'<div class="no-print" style="margin-top:12px;display:flex;gap:8px">'
+    +'<button onclick="window.print()" style="padding:8px 18px;background:#1A6CF6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">\ud83d\udda8\ufe0f Print / Save as PDF</button>'
+    +'<button onclick="window.close()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px">Close</button>'
+    +'</div>'
     +'<script>setTimeout(function(){window.print();},400);<\/script>'
     +'</body></html>');
   w.document.close();
 }
 
-const COURSES=['B.Ed','M.Ed','BPT','MBA','BBA','B.Com','M.Com','BA','MA','BCA','MCA','B.Sc','M.Sc','D.El.Ed','B.P.Ed'];
-const BATCHES=['2025-26','2024-25','2023-24'];
-function unames(){return allUnivs.map(function(u){return u.name;});}
+const COURSE_OPTS='<option value="">All Courses</option><option>B.Ed</option><option>M.Ed</option><option>BPT</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>M.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option><option>D.El.Ed</option><option>B.P.Ed</option>';
+const BATCH_OPTS='<option value="">All Batches</option><option>2025-26</option><option>2024-25</option><option>2023-24</option>';
+function univOpts(){return'<option value="">All Universities</option>'+allUnivs.map(function(u){return'<option>'+u.name+'</option>';}).join('');}
 
 const RPT_CFG={
   students:{
     title:'All Students Report',
     sub:'Personal, academic and fee details of all students',
     filtersHTML:function(){return''
-      +buildMS('rf-univ',unames(),'All Universities','University')
-      +buildMS('rf-course',COURSES,'All Courses','Course')
-      +buildMS('rf-batch',BATCHES,'All Batches','Batch')
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>'
       +'<div class="fg"><label class="fl">Status</label><select class="fs" id="rf-status"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select></div>'
       +'<div class="fg"><label class="fl">Adm Date From</label><input class="fi" type="date" id="rf-from"></div>'
       +'<div class="fg"><label class="fl">Adm Date To</label><input class="fi" type="date" id="rf-to"></div>';},
     getData:async function(){
-      var us=getMS('rf-univ'),cs=getMS('rf-course'),bs=getMS('rf-batch'),st=v('rf-status'),fr=v('rf-from'),to=v('rf-to');
-      var data=await api('GET','/students?q=')||[];
-      if(us.length)data=data.filter(function(s){return us.includes(s.university);});
-      if(cs.length)data=data.filter(function(s){return cs.includes(s.course);});
-      if(bs.length)data=data.filter(function(s){return bs.includes(s.batch);});
-      if(st)data=data.filter(function(s){return s.status===st;});
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch'),st=v('rf-status'),fr=v('rf-from'),to=v('rf-to');
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      if(st)url+='&status='+encodeURIComponent(st);
+      var data=await api('GET',url)||[];
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
       if(fr)data=data.filter(function(s){return s.adm_date&&s.adm_date>=fr;});
       if(to)data=data.filter(function(s){return s.adm_date&&s.adm_date<=to;});
       return{title:'All_Students',
         headers:['ID','Name','Father','Mother','Mobile','Email','Course','University','Batch','Enrollment No','Roll No','Adm Date','Total Fee','Paid','Balance','Status'],
-        rows:data.map(function(s){return[s.id,s.name,s.father||'',s.mother||'',s.mobile||'',s.email||'',s.course||'',s.university||'',s.batch||'',s.enroll_no||'',s.roll_no||'',s.adm_date||'',s.total_fee||0,s.paid||0,(parseFloat(s.total_fee||0)-parseFloat(s.paid||0)),s.status||''];})};
+        rows:data.map(function(s){return[s.id,s.name,s.father||'',s.mother||'',s.mobile||'',s.email||'',s.course||'',s.university||'',s.batch||'',s.enroll_no||'',s.roll_no||'',s.adm_date||'',s.total_fee||0,s.paid||0,(s.total_fee||0)-(s.paid||0),s.status||''];})};
     }
   },
   fees:{
     title:'Fee Collection Report',
     sub:'Studentwise fee paid, balance and payment status',
     filtersHTML:function(){return''
-      +buildMS('rf-univ',unames(),'All Universities','University')
-      +buildMS('rf-course',COURSES,'All Courses','Course')
-      +buildMS('rf-batch',BATCHES,'All Batches','Batch')
-      +'<div class="fg"><label class="fl">Fee Status</label><select class="fs" id="rf-feest"><option value="">All</option><option value="paid">Fully Paid</option><option value="partial">Partially Paid</option><option value="pending">Not Paid</option></select></div>';},
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Fee Status</label><select class="fs" id="rf-feest"><option value="">All</option><option value="paid">Fully Paid</option><option value="partial">Partially Paid</option><option value="pending">Not Paid (0)</option></select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>';},
     getData:async function(){
-      var us=getMS('rf-univ'),cs=getMS('rf-course'),bs=getMS('rf-batch'),fs=v('rf-feest');
-      var data=await api('GET','/students?q=')||[];
-      if(us.length)data=data.filter(function(s){return us.includes(s.university);});
-      if(cs.length)data=data.filter(function(s){return cs.includes(s.course);});
-      if(bs.length)data=data.filter(function(s){return bs.includes(s.batch);});
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch'),fs=v('rf-feest');
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      var data=await api('GET',url)||[];
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
       if(fs==='paid')data=data.filter(function(s){return parseFloat(s.total_fee)>0&&parseFloat(s.paid)>=parseFloat(s.total_fee);});
       else if(fs==='partial')data=data.filter(function(s){return parseFloat(s.paid)>0&&parseFloat(s.paid)<parseFloat(s.total_fee);});
       else if(fs==='pending')data=data.filter(function(s){return parseFloat(s.paid||0)===0;});
       return{title:'Fee_Collection',
-        headers:['Student','Father','Mobile','University','Course','Batch','Total Fee','Paid','Balance','Status'],
-        rows:data.map(function(s){var b=parseFloat(s.total_fee||0)-parseFloat(s.paid||0);return[s.name,s.father||'',s.mobile||'',s.university||'',s.course||'',s.batch||'',s.total_fee||0,s.paid||0,b,(b<=0&&parseFloat(s.total_fee)>0)?'Cleared':'Pending'];})};
+        headers:['Student','Father','Mobile','University','Course','Batch','Total Fee','Paid','Balance','Fee Status'],
+        rows:data.map(function(s){var bal=(parseFloat(s.total_fee||0)-parseFloat(s.paid||0));return[s.name,s.father||'',s.mobile||'',s.university||'',s.course||'',s.batch||'',s.total_fee||0,s.paid||0,bal,(bal<=0&&parseFloat(s.total_fee)>0)?'Cleared':'Pending'];})};
     }
   },
   outstanding:{
     title:'Outstanding Balance Report',
     sub:'Students with pending fee dues, sorted by amount',
     filtersHTML:function(){return''
-      +buildMS('rf-univ',unames(),'All Universities','University')
-      +buildMS('rf-course',COURSES,'All Courses','Course')
-      +buildMS('rf-batch',BATCHES,'All Batches','Batch')
-      +'<div class="fg"><label class="fl">Min Balance (\u20b9)</label><input class="fi" type="number" id="rf-minbal" placeholder="0 = sab outstanding"></div>';},
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Min Balance (\u20b9)</label><input class="fi" type="number" id="rf-minbal" placeholder="0 = all outstanding"></div>';},
     getData:async function(){
-      var us=getMS('rf-univ'),cs=getMS('rf-course'),bs=getMS('rf-batch');
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch');
       var minBal=parseFloat(document.getElementById('rf-minbal')?document.getElementById('rf-minbal').value||'0':'0')||0;
-      var data=await api('GET','/students?q=')||[];
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      var data=await api('GET',url)||[];
       data=data.filter(function(s){return(parseFloat(s.total_fee||0)-parseFloat(s.paid||0))>minBal;});
-      if(us.length)data=data.filter(function(s){return us.includes(s.university);});
-      if(cs.length)data=data.filter(function(s){return cs.includes(s.course);});
-      if(bs.length)data=data.filter(function(s){return bs.includes(s.batch);});
-      data.sort(function(a,b){return(parseFloat(b.total_fee||0)-parseFloat(b.paid||0))-(parseFloat(a.total_fee||0)-parseFloat(a.paid||0));});
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
+      data.sort(function(a,b){return((parseFloat(b.total_fee||0)-parseFloat(b.paid||0))-(parseFloat(a.total_fee||0)-parseFloat(a.paid||0)));});
       return{title:'Outstanding_Balance',
         headers:['Student','Mobile','University','Course','Batch','Total Fee','Paid','Outstanding'],
         rows:data.map(function(s){return[s.name,s.mobile||'',s.university||'',s.course||'',s.batch||'',s.total_fee||0,s.paid||0,(parseFloat(s.total_fee||0)-parseFloat(s.paid||0))];})};
@@ -1112,45 +1066,53 @@ const RPT_CFG={
     sub:'All payments made to associates and references',
     filtersHTML:function(){return''
       +'<div class="fg"><label class="fl">Type</label><select class="fs" id="rf-artype"><option value="both">Both (Associate + Reference)</option><option value="associate">Associates Only</option><option value="reference">References Only</option></select></div>'
-      +buildMS('rf-mode',['Cash','Bank Transfer','UPI / PhonePe','Cheque'],'All Modes','Payment Mode')
+      +'<div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="rf-mode"><option value="">All Modes</option><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div>'
       +'<div class="fg"><label class="fl">Payment Date From</label><input class="fi" type="date" id="rf-from"></div>'
       +'<div class="fg"><label class="fl">Payment Date To</label><input class="fi" type="date" id="rf-to"></div>';},
     getData:async function(){
-      var type=v('rf-artype')||'both',modes=getMS('rf-mode'),fr=v('rf-from'),to=v('rf-to');
+      var type=v('rf-artype')||'both',mode=v('rf-mode'),fr=v('rf-from'),to=v('rf-to');
       var rows=[];
-      function applyF(arr){
-        if(modes.length)arr=arr.filter(function(x){return modes.includes(x.pay_mode);});
-        if(fr)arr=arr.filter(function(x){return x.pay_date&&x.pay_date>=fr;});
-        if(to)arr=arr.filter(function(x){return x.pay_date&&x.pay_date<=to;});
-        return arr;
+      if(type==='both'||type==='associate'){
+        var assocs=await api('GET','/associates')||[];
+        if(mode)assocs=assocs.filter(function(a){return a.pay_mode===mode;});
+        if(fr)assocs=assocs.filter(function(a){return a.pay_date&&a.pay_date>=fr;});
+        if(to)assocs=assocs.filter(function(a){return a.pay_date&&a.pay_date<=to;});
+        assocs.forEach(function(a){rows.push(['Associate',a.name,a.phone||'',a.student||'',a.work_done||'',a.amount||0,a.pay_date||'',a.pay_mode||'',a.utr||'',a.status||'',a.notes||'']);});
       }
-      if(type==='both'||type==='associate'){applyF(await api('GET','/associates')||[]).forEach(function(a){rows.push(['Associate',a.name,a.phone||'',a.student||'',a.work_done||'',a.amount||0,a.pay_date||'',a.pay_mode||'',a.utr||'',a.status||'',a.notes||'']);});}
-      if(type==='both'||type==='reference'){applyF(await api('GET','/references')||[]).forEach(function(r){rows.push(['Reference',r.name,r.phone||'',r.student||'','Referral',r.amount||0,r.pay_date||'',r.pay_mode||'',r.utr||'',r.status||'',r.notes||'']);});}
-      return{title:'Associate_Reference',headers:['Type','Name','Phone','Student','Work','Amount','Pay Date','Mode','UTR','Status','Notes'],rows:rows};
+      if(type==='both'||type==='reference'){
+        var refs=await api('GET','/references')||[];
+        if(mode)refs=refs.filter(function(r){return r.pay_mode===mode;});
+        if(fr)refs=refs.filter(function(r){return r.pay_date&&r.pay_date>=fr;});
+        if(to)refs=refs.filter(function(r){return r.pay_date&&r.pay_date<=to;});
+        refs.forEach(function(r){rows.push(['Reference',r.name,r.phone||'',r.student||'','Referral',r.amount||0,r.pay_date||'',r.pay_mode||'',r.utr||'',r.status||'',r.notes||'']);});
+      }
+      return{title:'Associate_Reference',
+        headers:['Type','Name','Phone','Student','Work/Reason','Amount','Pay Date','Mode','UTR/Ref','Status','Notes'],
+        rows:rows};
     }
   },
   leads:{
     title:'Leads Report',
     sub:'All inquiries with source, status and conversion details',
     filtersHTML:function(){return''
-      +buildMS('rf-lstatus',['New','Contacted','Interested','Converted','Lost'],'All Status','Lead Status')
-      +buildMS('rf-source',['Walk-in','Phone','WhatsApp','Reference','Social Media'],'All Sources','Source')
-      +buildMS('rf-univ',unames(),'All Universities','University')
-      +buildMS('rf-course',COURSES,'All Courses','Course')
+      +'<div class="fg"><label class="fl">Status</label><select class="fs" id="rf-lstatus"><option value="">All Status</option><option>New</option><option>Contacted</option><option>Interested</option><option>Converted</option><option>Lost</option></select></div>'
+      +'<div class="fg"><label class="fl">Source</label><select class="fs" id="rf-source"><option value="">All Sources</option><option>Walk-in</option><option>Phone</option><option>WhatsApp</option><option>Reference</option><option>Social Media</option></select></div>'
+      +'<div class="fg"><label class="fl">University Interest</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course Interest</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
       +'<div class="fg"><label class="fl">Date From</label><input class="fi" type="date" id="rf-from"></div>'
       +'<div class="fg"><label class="fl">Date To</label><input class="fi" type="date" id="rf-to"></div>';},
     getData:async function(){
-      var sts=getMS('rf-lstatus'),srcs=getMS('rf-source'),us=getMS('rf-univ'),cs=getMS('rf-course'),fr=v('rf-from'),to=v('rf-to');
-      var data=await api('GET','/leads')||[];
-      if(sts.length)data=data.filter(function(l){return sts.includes(l.status);});
-      if(srcs.length)data=data.filter(function(l){return srcs.includes(l.source);});
-      if(us.length)data=data.filter(function(l){return us.includes(l.university);});
-      if(cs.length)data=data.filter(function(l){return cs.includes(l.course);});
+      var st=v('rf-lstatus'),src=v('rf-source'),u=v('rf-univ'),c=v('rf-course'),fr=v('rf-from'),to=v('rf-to');
+      var url='/leads';if(st)url+='?status='+encodeURIComponent(st);
+      var data=await api('GET',url)||[];
+      if(src)data=data.filter(function(l){return l.source===src;});
+      if(u)data=data.filter(function(l){return l.university===u;});
+      if(c)data=data.filter(function(l){return l.course===c;});
       if(fr)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)>=fr;});
       if(to)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)<=to;});
       return{title:'Leads',
-        headers:['Name','Mobile','Email','Course','University','Source','Status','Follow-up Date','Remarks','Created'],
-        rows:data.map(function(l){return[l.name,l.mobile||'',l.email||'',l.course||'',l.university||'',l.source||'',l.status||'',(l.follow_up_date||'').slice(0,10),l.remarks||'',l.created_at?l.created_at.slice(0,10):''];})};
+        headers:['Name','Mobile','Email','Course','University','Source','Status','Follow-up Date','Remarks','Created Date'],
+        rows:data.map(function(l){return[l.name,l.mobile||'',l.email||'',l.course||'',l.university||'',l.source||'',l.status||'',(l.follow_up_date||'').slice(0,10),l.remarks||'',l.created_at?(l.created_at.slice(0,10)):''];})};
     }
   }
 };
