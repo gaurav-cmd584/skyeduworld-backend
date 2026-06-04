@@ -17,8 +17,6 @@
   --r:10px;--rs:7px;--sw:224px;
 }
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#EFF3F8;color:var(--ink);font-size:13px;min-height:100vh}
-
-/* LOGIN */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0F172A}
 .login-box{background:var(--wh);border-radius:16px;padding:40px;width:360px}
 .l-logo{text-align:center;margin-bottom:28px}
@@ -32,8 +30,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#EFF3F8;color:var(--
 .btn-login:hover{background:var(--sky-dk)}
 .l-err{background:#FFF1F4;border:1px solid #fecdd3;color:#9F1239;padding:9px 12px;border-radius:var(--rs);font-size:12px;margin-top:12px;display:none}
 .l-hint{font-size:11px;color:var(--slate);text-align:center;margin-top:14px}
-
-/* APP SHELL */
 #app{display:none;min-height:100vh}
 .sidebar{width:var(--sw);background:var(--ink);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50;overflow-y:auto}
 .sb-brand{padding:18px 14px 15px;border-bottom:1px solid rgba(255,255,255,0.08)}
@@ -55,7 +51,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#EFF3F8;color:var(--
 .urole{font-size:10px;color:rgba(255,255,255,0.4)}
 .lb-btn{margin-left:auto;font-size:14px;color:rgba(255,255,255,0.35);cursor:pointer;background:none;border:none;padding:2px}
 .lb-btn:hover{color:rgba(255,255,255,0.7)}
-
 .main{margin-left:var(--sw);display:flex;flex-direction:column;min-height:100vh}
 .topbar{background:var(--wh);border-bottom:1px solid var(--bd);padding:0 22px;height:55px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 .pg-title{font-size:16px;font-weight:700;color:var(--ink)}
@@ -65,25 +60,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#EFF3F8;color:var(--
 .srch input{border:none;background:none;outline:none;font-size:12.5px;color:var(--ink);width:100%;font-family:inherit}
 .srch input::placeholder{color:var(--slate)}
 .content{padding:20px 22px;flex:1}
-
-/* LOADING */
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--slate);gap:10px;font-size:13px}
 .spin{width:18px;height:18px;border:2px solid var(--bd);border-top-color:var(--sky);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* VIEWS */
 .view{display:none;animation:fi .2s ease}
 .view.active{display:block}
 @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-
-/* CARDS */
 .card{background:var(--wh);border-radius:var(--r);border:1px solid var(--bd);overflow:hidden;margin-bottom:16px}
 .card-hd{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .card-title{font-size:13.5px;font-weight:700;color:var(--ink)}
 .card-sub{font-size:11px;color:var(--slate);margin-top:2px}
 .card-acts{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-
-/* STAT CARDS */
 .stats-row{display:grid;gap:13px;margin-bottom:18px}
 .sc{background:var(--wh);border-radius:var(--r);border:1px solid var(--bd);padding:15px;position:relative;overflow:hidden}
 .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
@@ -94,16 +81,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#EFF3F8;color:var(--
 .sc-sub{font-size:11px;color:var(--slate);margin-top:2px}
 .sc-ico{position:absolute;right:13px;top:13px;width:34px;height:34px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;font-size:17px}
 .sc-ico.blue{background:var(--sky-lt)}.sc-ico.gold{background:var(--gold-lt)}.sc-ico.green{background:var(--em-lt)}.sc-ico.rose{background:var(--rose-lt)}
-
-/* BUTTONS */
 .btn{padding:7px 14px;border-radius:var(--rs);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .13s;display:inline-flex;align-items:center;gap:5px}
 .btn-p{background:var(--sky);color:#fff}.btn-p:hover{background:var(--sky-dk)}
 .btn-g{background:transparent;color:var(--slate);border:1px solid var(--bd)}.btn-g:hover{background:var(--slate-lt);color:var(--ink)}
 .btn-r{background:transparent;color:var(--rose);border:1px solid #fecdd3}.btn-r:hover{background:var(--rose-lt)}
 .btn-sm{padding:5px 10px;font-size:11px}
 .btn:disabled{opacity:.55;cursor:not-allowed}
-
-/* TABLE */
 .tw{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap}
@@ -112,13 +95,9 @@ tbody tr:hover{background:#FAFCFF}
 tbody tr:last-child{border-bottom:none}
 tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .cp{font-weight:600;color:var(--ink)}.cm{font-size:11px;color:var(--slate)}.cmo{font-family:'Courier New',monospace;font-size:12px}
-
-/* TAGS */
 .tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .tg{background:#EAF1FF;color:#0F44B5}.tgr{background:#ECFDF5;color:#065F46}
 .ta{background:#FFF8EC;color:#92400E}.tr{background:#FFF1F4;color:#9F1239}.tsl{background:#F1F5F9;color:#475569}
-
-/* FORM */
 .fg{display:flex;flex-direction:column;gap:4px}
 .fl{font-size:11px;font-weight:600;color:var(--ink2)}
 .fi,.fs,.ft{padding:8px 11px;border:1.5px solid var(--bd);border-radius:var(--rs);font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--wh);outline:none;width:100%;transition:border .13s}
@@ -127,8 +106,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px}
 .full{grid-column:1/-1}
 .form-footer{padding:14px 18px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:9px}
-
-/* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:none;align-items:center;justify-content:center;z-index:200;overflow-y:auto;padding:20px}
 .modal-bg.open{display:flex}
 .modal{background:var(--wh);border-radius:14px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;animation:mup .2s ease}
@@ -137,20 +114,14 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .modal-title{font-size:14.5px;font-weight:700;color:var(--ink)}
 .mcls{width:28px;height:28px;border-radius:6px;border:1px solid var(--bd);background:none;cursor:pointer;font-size:16px;color:var(--slate);display:flex;align-items:center;justify-content:center}
 .mcls:hover{background:var(--rose-lt);color:var(--rose);border-color:#fecdd3}
-
-/* TABS */
 .tabs{display:flex;gap:2px;padding:12px 16px 0;border-bottom:1px solid var(--bd);overflow-x:auto}
 .tab{padding:7px 14px;border-radius:7px 7px 0 0;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--slate);border:none;background:none;font-family:inherit;border-bottom:2.5px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .tab.active{color:var(--sky);border-bottom-color:var(--sky)}
 .tab-panel{display:none}.tab-panel.active{display:block}
-
-/* TOAST */
 #toasts{position:fixed;bottom:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
 .toast{background:var(--ink);color:#fff;padding:10px 16px;border-radius:var(--rs);font-size:12.5px;font-weight:500;animation:tin .3s ease;max-width:300px;pointer-events:auto}
 .toast.ok{background:#065F46}.toast.er{background:#9F1239}
 @keyframes tin{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-
-/* RECEIPT */
 .rcpt-hd{background:var(--ink);padding:16px 20px;color:#fff}
 .rcpt-logo{font-size:15px;font-weight:700}
 .rcpt-id{font-size:11px;opacity:.55;margin-top:7px;font-family:'Courier New',monospace}
@@ -158,56 +129,39 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .rcpt-row:last-child{border-bottom:none}
 .rcpt-row .k{color:var(--slate)}.rcpt-row .v{font-weight:600;color:var(--ink)}
 .rcpt-total{background:var(--sky-lt);padding:12px 16px;border-radius:var(--rs);display:flex;justify-content:space-between;align-items:center;margin:12px 20px}
-
-/* INFO BOX */
 .info-box{border-radius:var(--r);padding:13px 16px;display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
 .info-box.blue{background:var(--sky-lt);border:1px solid #BFDBFE}
 .info-box.amber{background:#FFF8EC;border:1px solid #FDE68A}
 .info-box h4{font-size:12.5px;font-weight:700;margin-bottom:3px}
 .info-box p{font-size:11.5px;color:var(--ink2);line-height:1.6}
-
-/* PROGRESS BAR */
 .pb{height:4px;background:var(--bd);border-radius:99px;overflow:hidden;margin-top:5px}
 .pb-fill{height:100%;border-radius:99px;background:var(--sky)}
-
-/* AVATAR */
 .av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0}
 .av-cell{display:flex;align-items:center;gap:9px}
-
-/* REPORT CARD */
 .rep-card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:15px 18px;margin-bottom:11px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .13s}
 .rep-card:hover{border-color:#BFDBFE;background:var(--sky-lt)}
 .rep-ico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
-
-/* QUICK ACTIONS */
 .qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 18px}
 .qa-btn{background:var(--slate-lt);border:1px solid var(--bd);border-radius:var(--rs);padding:11px;cursor:pointer;display:flex;align-items:center;gap:9px;font-family:inherit;transition:all .13s}
 .qa-btn:hover{background:var(--sky-lt);border-color:#BFDBFE}
 .qa-ico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
 .qa-lbl{font-size:12px;font-weight:600;color:var(--ink2)}
-
-/* FEE TRACKER */
 .fi-item{padding:11px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:11px}
 .fi-item:last-child{border-bottom:none}
 .fi-info{flex:1;min-width:0}
 .fi-name{font-size:13px;font-weight:600;color:var(--ink)}
 .fi-course{font-size:11px;color:var(--slate)}
-
-/* UNIV GRID */
 .univ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;padding:18px}
 .uc{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:15px;border-top:3px solid}
 .uc-name{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}
 .uc-state{font-size:11px;color:var(--slate);margin-bottom:9px}
 .uc-cnt{font-size:22px;font-weight:700}
-
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
   .main{margin-left:0}
   .stats-row{grid-template-columns:1fr 1fr!important}
   .univ-grid{grid-template-columns:1fr 1fr}
 }
-
-/* PHASE 2 ADDITIONS */
 .notif-btn{position:relative;width:34px;height:34px;border-radius:var(--rs);background:var(--slate-lt);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
 .notif-btn:hover{background:var(--sky-lt);border-color:#BFDBFE}
 .notif-badge{position:absolute;top:-4px;right:-4px;background:var(--rose);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:99px;min-width:16px;text-align:center;display:none}
@@ -225,8 +179,6 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .sess-card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .sess-card.active-sess{border-color:var(--em);background:var(--em-lt)}
 .audit-item{padding:10px 16px;border-bottom:1px solid var(--bd);display:flex;gap:12px;align-items:flex-start}
-.audit-ico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.tpu{background:#F5F3FF;color:#5B21B6}
 .sc.purple::before{background:#7C3AED}
 .sc-ico.purple{background:#F5F3FF}
 .content{overflow-x:hidden}
@@ -235,12 +187,10 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 </style>
 </head>
 <body>
-
-<!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
     <div class="l-logo">
-      <div class="l-icon">🎓</div>
+      <div class="l-icon">&#127891;</div>
       <h1>Sky Eduworld</h1>
       <p>Management System</p>
     </div>
@@ -248,144 +198,105 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
     <input class="inp" type="text" id="l-user" placeholder="Username" autocomplete="username">
     <label class="lbl">Password</label>
     <input class="inp" type="password" id="l-pass" placeholder="Password" autocomplete="current-password">
-    <button class="btn-login" id="l-btn" onclick="doLogin()">Login →</button>
+    <button class="btn-login" id="l-btn" onclick="doLogin()">Login &#8594;</button>
     <div class="l-err" id="l-err"></div>
     <p class="l-hint">Default: admin / sky@2024</p>
   </div>
 </div>
-
-<!-- APP -->
 <div id="app">
   <nav class="sidebar">
     <div class="sb-brand">
       <div class="sb-logo">
-        <div class="sb-icon">🎓</div>
+        <div class="sb-icon">&#127891;</div>
         <div><div class="sb-name">Sky Eduworld</div><div class="sb-sub">Mgmt System</div>
-          <div id="sb-sess" style="font-size:10px;color:#10B981;background:rgba(16,185,129,0.15);padding:2px 7px;border-radius:99px;margin-top:4px;display:inline-block">Loading…</div></div>
+          <div id="sb-sess" style="font-size:10px;color:#10B981;background:rgba(16,185,129,0.15);padding:2px 7px;border-radius:99px;margin-top:4px;display:inline-block">Loading&#8230;</div></div>
       </div>
     </div>
     <div class="sb-nav">
       <div class="sb-sec">Main</div>
-      <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">📊</span>Dashboard</button>
-      <button class="nv" onclick="nav('students',this)"><span class="ni">👤</span>Students<span class="nb" id="nb-s">0</span></button>
-      <button class="nv" onclick="nav('addstudent',this)"><span class="ni">➕</span>Add Student</button>
+      <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">&#128202;</span>Dashboard</button>
+      <button class="nv" onclick="nav('students',this)"><span class="ni">&#128100;</span>Students<span class="nb" id="nb-s">0</span></button>
+      <button class="nv" onclick="nav('addstudent',this)"><span class="ni">&#10133;</span>Add Student</button>
       <div class="sb-sec">Finance</div>
-      <button class="nv" onclick="nav('fees',this)"><span class="ni">💰</span>Fee Management</button>
-      <button class="nv" onclick="nav('feereceive',this)"><span class="ni">🧾</span>Receive Fee</button>
-      <button class="nv" onclick="nav('incentive',this)"><span class="ni">🤝</span>Associate & Ref</button>
+      <button class="nv" onclick="nav('fees',this)"><span class="ni">&#128176;</span>Fee Management</button>
+      <button class="nv" onclick="nav('feereceive',this)"><span class="ni">&#129534;</span>Receive Fee</button>
+      <button class="nv" onclick="nav('incentive',this)"><span class="ni">&#129309;</span>Associate &amp; Ref</button>
       <div class="sb-sec">Leads &amp; CRM</div>
-      <button class="nv" id="nav-leads" onclick="nav('leads',this)"><span class="ni">📋</span>Leads<span class="nb" id="nb-leads" style="background:var(--rose)">0</span></button>
-      <button class="nv" onclick="nav('followups',this)"><span class="ni">📅</span>Follow-ups</button>
-      <button class="nv" onclick="nav('overdue',this)"><span class="ni">⚠️</span>Overdue<span class="nb" id="nb-od" style="background:var(--rose)">0</span></button>
+      <button class="nv" id="nav-leads" onclick="nav('leads',this)"><span class="ni">&#128203;</span>Leads<span class="nb" id="nb-leads" style="background:var(--rose)">0</span></button>
+      <button class="nv" onclick="nav('followups',this)"><span class="ni">&#128197;</span>Follow-ups</button>
+      <button class="nv" onclick="nav('overdue',this)"><span class="ni">&#9888;&#65039;</span>Overdue<span class="nb" id="nb-od" style="background:var(--rose)">0</span></button>
       <div class="sb-sec">Academics</div>
-      <button class="nv" onclick="nav('universities',this)"><span class="ni">🏫</span>Universities</button>
-      <button class="nv" onclick="nav('documents',this)"><span class="ni">📄</span>Documents</button>
-      <button class="nv" onclick="nav('reports',this)"><span class="ni">📈</span>Reports</button>
-      <button class="nv" id="nav-sess" onclick="nav('sessions',this)"><span class="ni">🎓</span>Sessions</button>
-      <button class="nv" id="nav-audit" onclick="nav('audit',this)"><span class="ni">🔍</span>Audit Logs</button>
-      <button class="nv" id="nav-lh" onclick="nav('loginhist',this)"><span class="ni">🔐</span>Login History</button>
+      <button class="nv" onclick="nav('universities',this)"><span class="ni">&#127979;</span>Universities</button>
+      <button class="nv" onclick="nav('documents',this)"><span class="ni">&#128196;</span>Documents</button>
+      <button class="nv" onclick="nav('reports',this)"><span class="ni">&#128200;</span>Reports</button>
+      <button class="nv" id="nav-sess" onclick="nav('sessions',this)"><span class="ni">&#127891;</span>Sessions</button>
+      <button class="nv" id="nav-audit" onclick="nav('audit',this)"><span class="ni">&#128269;</span>Audit Logs</button>
+      <button class="nv" id="nav-lh" onclick="nav('loginhist',this)"><span class="ni">&#128272;</span>Login History</button>
       <div class="sb-sec">Admin</div>
-      <button class="nv" onclick="nav('settings',this)"><span class="ni">⚙️</span>Settings</button>
+      <button class="nv" onclick="nav('settings',this)"><span class="ni">&#9881;&#65039;</span>Settings</button>
     </div>
     <div class="sb-foot">
       <div class="user-card">
         <div class="uav" id="sb-av">AD</div>
         <div><div class="uname" id="sb-name">Admin</div><div class="urole" id="sb-role">Super Admin</div></div>
-        <button class="lb-btn" onclick="doLogout()" title="Logout">⏻</button>
+        <button class="lb-btn" onclick="doLogout()" title="Logout">&#9211;</button>
       </div>
     </div>
   </nav>
-
   <div class="main">
     <div class="topbar">
       <div>
         <div class="pg-title" id="pg-title">Dashboard</div>
-        <div class="pg-bc" id="pg-bc">Sky Eduworld › Overview</div>
+        <div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div>
       </div>
       <div class="topbar-r">
-        <div style="position:relative" id="notif-wrap"><button class="notif-btn" onclick="toggleNotif()">🔔<span class="notif-badge" id="notif-badge">0</span></button><div class="notif-dropdown" id="notif-panel"><div class="notif-hd"><span style="font-size:13px;font-weight:700">Notifications</span><button class="btn btn-g btn-sm" onclick="markAllRead()">Mark all read</button></div><div id="notif-list"></div></div></div>
+        <div style="position:relative" id="notif-wrap">
+          <button class="notif-btn" onclick="toggleNotif()">&#128276;<span class="notif-badge" id="notif-badge">0</span></button>
+          <div class="notif-dropdown" id="notif-panel">
+            <div class="notif-hd"><span style="font-size:13px;font-weight:700">Notifications</span><button class="btn btn-g btn-sm" onclick="markAllRead()">Mark all read</button></div>
+            <div id="notif-list"></div>
+          </div>
+        </div>
         <div class="srch">
-          <span style="color:var(--slate);font-size:14px">🔍</span>
-          <input type="text" placeholder="Search students…" id="g-srch" oninput="globalSearch(this.value)">
+          <span style="color:var(--slate);font-size:14px">&#128269;</span>
+          <input type="text" placeholder="Search students&#8230;" id="g-srch" oninput="globalSearch(this.value)">
         </div>
       </div>
     </div>
-
     <div class="content">
-
-      <!-- DASHBOARD -->
       <div class="view active" id="view-dashboard">
-        <div id="overdue-alert" style="display:none" class="overdue-banner" onclick="nav('overdue',null)"><span style="font-size:18px">⚠️</span><div><span id="overdue-text" style="font-weight:600;color:#9F1239"></span></div><span style="margin-left:auto;font-size:11px;color:var(--rose)">View →</span></div>
-      <div class="stats-row" id="dash-stats" style="grid-template-columns:repeat(4,1fr)"></div>
+        <div id="overdue-alert" style="display:none" class="overdue-banner" onclick="nav('overdue',null)"><span style="font-size:18px">&#9888;&#65039;</span><div><span id="overdue-text" style="font-weight:600;color:#9F1239"></span></div><span style="margin-left:auto;font-size:11px;color:var(--rose)">View &rarr;</span></div>
+        <div class="stats-row" id="dash-stats" style="grid-template-columns:repeat(4,1fr)"></div>
         <div style="display:grid;grid-template-columns:1fr 310px;gap:16px">
           <div>
             <div class="card">
-              <div class="card-hd">
-                <div><div class="card-title">Recent Admissions</div></div>
-                <div class="card-acts">
-                  <button class="btn btn-g btn-sm" onclick="nav('students',null)">View All</button>
-                  <button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ Add</button>
-                </div>
-              </div>
+              <div class="card-hd"><div><div class="card-title">Recent Admissions</div></div><div class="card-acts"><button class="btn btn-g btn-sm" onclick="nav('students',null)">View All</button><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ Add</button></div></div>
               <div class="tw"><table><thead><tr><th>Student</th><th>Course / University</th><th>Date</th><th>Fee</th><th></th></tr></thead><tbody id="dash-recent"></tbody></table></div>
             </div>
             <div class="card">
               <div class="card-hd"><div class="card-title">Quick Actions</div></div>
               <div class="qa-grid">
-                <button class="qa-btn" onclick="nav('feereceive',null)"><div class="qa-ico" style="background:var(--sky-lt)">💸</div><span class="qa-lbl">Receive Fee</span></button>
-                <button class="qa-btn" onclick="nav('addstudent',null)"><div class="qa-ico" style="background:var(--em-lt)">👤</div><span class="qa-lbl">New Student</span></button>
-                <button class="qa-btn" onclick="nav('incentive',null)"><div class="qa-ico" style="background:var(--gold-lt)">🤝</div><span class="qa-lbl">Associate / Ref</span></button>
-                <button class="qa-btn" onclick="nav('reports',null)"><div class="qa-ico" style="background:var(--rose-lt)">📊</div><span class="qa-lbl">Reports</span></button>
+                <button class="qa-btn" onclick="nav('feereceive',null)"><div class="qa-ico" style="background:var(--sky-lt)">&#128184;</div><span class="qa-lbl">Receive Fee</span></button>
+                <button class="qa-btn" onclick="nav('addstudent',null)"><div class="qa-ico" style="background:var(--em-lt)">&#128100;</div><span class="qa-lbl">New Student</span></button>
+                <button class="qa-btn" onclick="nav('incentive',null)"><div class="qa-ico" style="background:var(--gold-lt)">&#129309;</div><span class="qa-lbl">Associate / Ref</span></button>
+                <button class="qa-btn" onclick="nav('reports',null)"><div class="qa-ico" style="background:var(--rose-lt)">&#128202;</div><span class="qa-lbl">Reports</span></button>
               </div>
             </div>
           </div>
           <div>
-            <div class="card" style="margin-bottom:14px">
-              <div class="card-hd"><div><div class="card-title">Fee Tracker</div></div></div>
-              <div id="fee-tracker"></div>
-            </div>
-            <div class="card">
-              <div class="card-hd"><div class="card-title">Universities</div></div>
-              <div id="univ-mini" style="padding:6px 0"></div>
-            </div>
+            <div class="card" style="margin-bottom:14px"><div class="card-hd"><div><div class="card-title">Fee Tracker</div></div></div><div id="fee-tracker"></div></div>
+            <div class="card"><div class="card-hd"><div class="card-title">Universities</div></div><div id="univ-mini" style="padding:6px 0"></div></div>
           </div>
         </div>
       </div>
-
-      <!-- STUDENTS -->
       <div class="view" id="view-students">
         <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading…</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select>
-              <button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button>
-            </div>
-          </div>
-         <div class="loading" id="s-loading"><div class="spin"></div>Loading students…</div>
-          <div class="tw" id="s-table-wrap" style="display:none">
-  <table>
-    <thead>
-      <tr>
-        <th>Student</th>
-        <th>Father</th>
-        <th>Course</th>
-        <th>University</th>
-        <th>Mobile</th>
-        <th>Status</th>
-        <th>Balance</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="s-table"></tbody>
-  </table>
-</div>
+          <div class="card-hd"><div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading&#8230;</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button></div></div>
+          <div class="loading" id="s-loading"><div class="spin"></div>Loading students&#8230;</div>
+          <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="s-table"></tbody></table></div>
+        </div>
       </div>
-     </div>
-
-      <!-- ADD/EDIT STUDENT -->
-     <div class="view" id="view-addstudent">
+      <div class="view" id="view-addstudent">
         <div class="card">
           <div class="card-hd"><div><div class="card-title" id="as-title">New Student Registration</div><div class="card-sub">Fill all required fields</div></div></div>
           <div class="tabs">
@@ -405,7 +316,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg"><label class="fl">Aadhar No.</label><input class="fi" id="f-aadhar" placeholder="XXXX XXXX XXXX"></div>
               <div class="fg"><label class="fl">Father's Name *</label><input class="fi" id="f-father" placeholder="Father's full name"></div>
               <div class="fg"><label class="fl">Mother's Name</label><input class="fi" id="f-mother" placeholder="Optional"></div>
-              <div class="fg full"><label class="fl">Address</label><textarea class="ft" id="f-address" placeholder="Full address…"></textarea></div>
+              <div class="fg full"><label class="fl">Address</label><textarea class="ft" id="f-address" placeholder="Full address&#8230;"></textarea></div>
             </div>
           </div>
           <div class="tab-panel" id="ta">
@@ -416,17 +327,17 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg"><label class="fl">Enrollment No.</label><input class="fi" id="f-enroll" placeholder="University enrollment no."></div>
               <div class="fg"><label class="fl">Roll Number</label><input class="fi" id="f-roll" placeholder="Roll number"></div>
               <div class="fg"><label class="fl">Admission Date</label><input class="fi" type="date" id="f-admdate"></div>
-              <div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="f-remarks" placeholder="Additional notes…"></textarea></div>
+              <div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="f-remarks" placeholder="Additional notes&#8230;"></textarea></div>
             </div>
           </div>
           <div class="tab-panel" id="tf">
             <div class="form-grid">
-              <div class="fg"><label class="fl">Total Decided Fee (₹) *</label><input class="fi" type="number" id="f-total" placeholder="0" oninput="calcBal()"></div>
-              <div class="fg"><label class="fl">University Fee Share (₹)</label><input class="fi" type="number" id="f-univfee" placeholder="0"></div>
-              <div class="fg"><label class="fl">Initial Payment (₹)</label><input class="fi" type="number" id="f-paid" placeholder="0" oninput="calcBal()"></div>
+              <div class="fg"><label class="fl">Total Decided Fee (&#8377;) *</label><input class="fi" type="number" id="f-total" placeholder="0" oninput="calcBal()"></div>
+              <div class="fg"><label class="fl">University Fee Share (&#8377;)</label><input class="fi" type="number" id="f-univfee" placeholder="0"></div>
+              <div class="fg"><label class="fl">Initial Payment (&#8377;)</label><input class="fi" type="number" id="f-paid" placeholder="0" oninput="calcBal()"></div>
               <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="f-paymode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select></div>
               <div class="fg"><label class="fl">UTR / Ref No.</label><input class="fi" id="f-utr" placeholder="Transaction ref"></div>
-              <div class="fg"><label class="fl">Balance Due (₹)</label><input class="fi" id="f-bal" readonly style="background:var(--slate-lt);font-weight:700;color:var(--rose)"></div>
+              <div class="fg"><label class="fl">Balance Due (&#8377;)</label><input class="fi" id="f-bal" readonly style="background:var(--slate-lt);font-weight:700;color:var(--rose)"></div>
             </div>
           </div>
           <div class="tab-panel" id="td">
@@ -439,14 +350,13 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-5"><span class="fl" style="margin:0">Passport Photos</span></label>
                 <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dc-6"><span class="fl" style="margin:0">Transfer Certificate</span></label>
               </div>
-              <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs…"></textarea></div>
+              <div class="fg full"><label class="fl">Document Notes</label><textarea class="ft" id="f-docnotes" placeholder="Note any missing docs&#8230;"></textarea></div>
             </div>
           </div>
-
           <div class="tab-panel" id="ti">
             <div style="padding:18px">
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:14px">
-                <div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="inst-amt" placeholder="0"></div>
+                <div class="fg"><label class="fl">Amount (&#8377;)</label><input class="fi" type="number" id="inst-amt" placeholder="0"></div>
                 <div class="fg"><label class="fl">Due Date</label><input class="fi" type="date" id="inst-due"></div>
                 <div class="fg"><label class="fl">Remarks</label><input class="fi" id="inst-rem" placeholder="Optional"></div>
                 <button class="btn btn-p" onclick="addInstLine()" style="height:36px">+ Add</button>
@@ -456,103 +366,67 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           </div>
           <div class="form-footer">
             <button class="btn btn-g" onclick="resetForm()">Clear</button>
-            <button class="btn btn-p" id="s-save-btn" onclick="saveStudent()">💾 Register Student</button>
+            <button class="btn btn-p" id="s-save-btn" onclick="saveStudent()">&#128190; Register Student</button>
           </div>
         </div>
       </div>
-
-      <!-- FEES -->
       <div class="view" id="view-fees">
         <div class="stats-row" style="grid-template-columns:repeat(3,1fr)" id="fee-stats"></div>
         <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">Fee Records</div></div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-qfee')">+ Receive Fee</button>
-          </div>
-          <div class="loading" id="fee-loading"><div class="spin"></div>Loading…</div>
+          <div class="card-hd"><div><div class="card-title">Fee Records</div></div><button class="btn btn-p btn-sm" onclick="openM('m-qfee')">+ Receive Fee</button></div>
+          <div class="loading" id="fee-loading"><div class="spin"></div>Loading&#8230;</div>
           <div class="tw" id="fee-tw" style="display:none"><table><thead><tr><th>Student</th><th>University</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-table"></tbody></table></div>
         </div>
       </div>
-
-      <!-- RECEIVE FEE -->
       <div class="view" id="view-feereceive">
         <div style="display:grid;grid-template-columns:1fr 290px;gap:16px">
           <div class="card">
             <div class="card-hd"><div class="card-title">Record Fee Payment</div></div>
             <div class="form-grid">
-              <div class="fg full"><label class="fl">Select Student *</label><select class="fs" id="fr-s" onchange="loadFeeInfo()"><option value="">Select student…</option></select></div>
+              <div class="fg full"><label class="fl">Select Student *</label><select class="fs" id="fr-s" onchange="loadFeeInfo()"><option value="">Select student&#8230;</option></select></div>
               <div class="fg"><label class="fl">Fee Type *</label><select class="fs" id="fr-type"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other Fee</option></select></div>
               <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="fr-date"></div>
-              <div class="fg"><label class="fl">Amount (₹) *</label><input class="fi" type="number" id="fr-amt" placeholder="0"></div>
+              <div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="fr-amt" placeholder="0"></div>
               <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="fr-mode"><option>Cash</option><option>Bank Transfer / NEFT</option><option>UPI / PhonePe / GPay</option><option>Cheque</option><option>Direct to University Account</option></select></div>
               <div class="fg"><label class="fl">UTR / Ref No.</label><input class="fi" id="fr-ref" placeholder="Optional"></div>
               <div class="fg full"><label class="fl">Remarks</label><input class="fi" id="fr-rem" placeholder="Optional note"></div>
             </div>
-            <div class="form-footer">
-              <button class="btn btn-g" onclick="clearFeeForm()">Clear</button>
-              <button class="btn btn-p" onclick="receivePayment()">✅ Confirm & Generate Receipt</button>
-            </div>
+            <div class="form-footer"><button class="btn btn-g" onclick="clearFeeForm()">Clear</button><button class="btn btn-p" onclick="receivePayment()">&#9989; Confirm &amp; Generate Receipt</button></div>
           </div>
-          <div class="card">
-            <div class="card-hd"><div class="card-title">Fee Summary</div></div>
-            <div style="padding:18px" id="fr-info"><div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--ink)">Select a student</div></div></div>
-          </div>
+          <div class="card"><div class="card-hd"><div class="card-title">Fee Summary</div></div><div style="padding:18px" id="fr-info"><div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">&#128203;</div><div style="font-weight:600;color:var(--ink)">Select a student</div></div></div></div>
         </div>
       </div>
-
-      <!-- ASSOCIATE & REFERENCE -->
       <div class="view" id="view-incentive">
         <div class="stats-row" id="inc-stats" style="grid-template-columns:repeat(4,1fr)"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:15px">
-          <div class="info-box blue"><div style="font-size:24px;flex-shrink:0">🤝</div><div><h4 style="color:#0F44B5">Associate</h4><p>Person who <strong>helps complete the admission process</strong> — paperwork, follow-ups, documents. You pay them a <strong>service amount</strong>.</p></div></div>
-          <div class="info-box amber"><div style="font-size:24px;flex-shrink:0">👥</div><div><h4 style="color:#92400E">Reference</h4><p>Person who <strong>provides you the student lead</strong>. You pay them an <strong>incentive/commission</strong> for the referral.</p></div></div>
+          <div class="info-box blue"><div style="font-size:24px;flex-shrink:0">&#129309;</div><div><h4 style="color:#0F44B5">Associate</h4><p>Person who <strong>helps complete the admission process</strong> &mdash; paperwork, follow-ups, documents. You pay them a <strong>service amount</strong>.</p></div></div>
+          <div class="info-box amber"><div style="font-size:24px;flex-shrink:0">&#128101;</div><div><h4 style="color:#92400E">Reference</h4><p>Person who <strong>provides you the student lead</strong>. You pay them an <strong>incentive/commission</strong> for the referral.</p></div></div>
         </div>
         <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div>
-            <div class="card-acts">
-              <button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">🤝 Associates</button>
-              <button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">👥 References</button>
-              <button class="btn btn-p btn-sm" onclick="openIncModal()">+ Add Record</button>
-            </div>
-          </div>
-          <div class="loading" id="inc-loading"><div class="spin"></div>Loading…</div>
+          <div class="card-hd"><div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div><div class="card-acts"><button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">&#129309; Associates</button><button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">&#128101; References</button><button class="btn btn-p btn-sm" onclick="openIncModal()">+ Add Record</button></div></div>
+          <div class="loading" id="inc-loading"><div class="spin"></div>Loading&#8230;</div>
           <div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div>
         </div>
       </div>
-
-      <!-- UNIVERSITIES -->
       <div class="view" id="view-universities">
         <div class="card">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">Partner Universities</div>
-              <div class="card-sub">Super Admin ko har card par 🗑️ delete button dikhega</div>
-            </div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button>
-          </div>
+          <div class="card-hd"><div class="card-title">Partner Universities</div><button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button></div>
           <div class="univ-grid" id="univ-grid"></div>
         </div>
       </div>
-
-      <!-- DOCUMENTS -->
       <div class="view" id="view-documents">
         <div class="card">
           <div class="card-hd"><div><div class="card-title">Issued Documents</div></div><button class="btn btn-p btn-sm" onclick="openM('m-doc')">+ Issue Document</button></div>
           <div class="tw"><table><thead><tr><th>Student</th><th>Document Type</th><th>University</th><th>Date</th><th>Status</th><th>Delivered To</th></tr></thead><tbody id="doc-table"></tbody></table></div>
         </div>
       </div>
-
-      <!-- REPORTS -->
       <div class="view" id="view-reports">
-        <div class="rep-card" onclick="dlReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">📋</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">💰</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">⏳</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">🤝</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate & Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">📋</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">&#128203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">&#128176;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">&#9203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">&#129309;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">&#128203;</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
       </div>
-
-      <!-- SETTINGS -->
       <div class="view" id="view-settings">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="card">
@@ -561,7 +435,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
               <div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div>
               <div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div>
               <div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div>
-              <button class="btn btn-p" onclick="changePassword()">🔒 Update Password</button>
+              <button class="btn btn-p" onclick="changePassword()">&#128274; Update Password</button>
             </div>
           </div>
           <div class="card">
@@ -570,356 +444,121 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           </div>
         </div>
       </div>
-
-      <!-- LEADS VIEW -->
       <div class="view" id="view-leads">
         <div class="stats-row" style="grid-template-columns:repeat(4,1fr)" id="lead-stats"></div>
         <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">📋 Leads (Inquiries)</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lead-flt" onchange="loadLeads()"><option value="">All Status</option><option>New</option><option>Contacted</option><option>Interested</option><option>Converted</option><option>Lost</option></select>
-              <button class="btn btn-p btn-sm" onclick="openAddLead()">+ Add Lead</button>
-            </div>
-          </div>
+          <div class="card-hd"><div><div class="card-title">&#128203; Leads (Inquiries)</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lead-flt" onchange="loadLeads()"><option value="">All Status</option><option>New</option><option>Contacted</option><option>Interested</option><option>Converted</option><option>Lost</option></select><button class="btn btn-p btn-sm" onclick="openAddLead()">+ Add Lead</button></div></div>
           <div class="tw"><table><thead><tr><th>Name</th><th>Mobile</th><th>Course</th><th>University</th><th>Source</th><th>Status</th><th>Follow-up</th><th>Actions</th></tr></thead><tbody id="lead-table"></tbody></table></div>
         </div>
       </div>
-
-      <!-- FOLLOW-UPS VIEW -->
       <div class="view" id="view-followups">
         <div style="display:grid;grid-template-columns:1fr 300px;gap:16px">
           <div class="card">
-            <div class="card-hd"><div class="card-title">📅 Upcoming Follow-ups</div>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="fu-days" onchange="loadFollowUps()"><option value="7">Next 7 days</option><option value="14">Next 14 days</option><option value="30">Next 30 days</option></select>
-            </div>
+            <div class="card-hd"><div class="card-title">&#128197; Upcoming Follow-ups</div><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="fu-days" onchange="loadFollowUps()"><option value="7">Next 7 days</option><option value="14">Next 14 days</option><option value="30">Next 30 days</option></select></div>
             <div class="tw"><table><thead><tr><th>Student / Lead</th><th>Type</th><th>Note</th><th>Next Date</th></tr></thead><tbody id="fu-table"></tbody></table></div>
           </div>
           <div class="card">
             <div class="card-hd"><div class="card-title">Add Follow-up</div></div>
             <div style="padding:18px">
-              <div class="fg" style="margin-bottom:10px"><label class="fl">Student *</label><select class="fs" id="fu-student"><option value="">Select…</option></select></div>
+              <div class="fg" style="margin-bottom:10px"><label class="fl">Student *</label><select class="fs" id="fu-student"><option value="">Select&#8230;</option></select></div>
               <div class="fg" style="margin-bottom:10px"><label class="fl">Type</label><select class="fs" id="fu-type"><option>Call</option><option>Visit</option><option>Email</option><option>WhatsApp</option><option>Meeting</option></select></div>
-              <div class="fg" style="margin-bottom:10px"><label class="fl">Note *</label><textarea class="ft" id="fu-note" placeholder="Details…" style="min-height:70px"></textarea></div>
+              <div class="fg" style="margin-bottom:10px"><label class="fl">Note *</label><textarea class="ft" id="fu-note" placeholder="Details&#8230;" style="min-height:70px"></textarea></div>
               <div class="fg" style="margin-bottom:14px"><label class="fl">Next Follow-up Date</label><input class="fi" type="date" id="fu-next"></div>
               <button class="btn btn-p" style="width:100%" onclick="saveFollowUp()">Save Follow-up</button>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- OVERDUE VIEW -->
       <div class="view" id="view-overdue">
         <div class="card">
-          <div class="card-hd"><div><div class="card-title">⚠️ Overdue Installments</div><div class="card-sub">Aaj se pehle ke pending payments</div></div></div>
+          <div class="card-hd"><div><div class="card-title">&#9888;&#65039; Overdue Installments</div><div class="card-sub">Aaj se pehle ke pending payments</div></div></div>
           <div class="tw"><table><thead><tr><th>Student</th><th>Mobile</th><th>University</th><th>Amount</th><th>Due Date</th><th>Actions</th></tr></thead><tbody id="overdue-table"></tbody></table></div>
         </div>
       </div>
-
-      <!-- SESSIONS VIEW -->
       <div class="view" id="view-sessions">
         <div class="card">
-          <div class="card-hd"><div><div class="card-title">🎓 Academic Sessions</div><div class="card-sub">Session activate ya deactivate karo</div></div>
-            <button class="btn btn-p btn-sm" onclick="openM('m-session')">+ New Session</button>
-          </div>
+          <div class="card-hd"><div><div class="card-title">&#127891; Academic Sessions</div><div class="card-sub">Session activate ya deactivate karo</div></div><button class="btn btn-p btn-sm" onclick="openM('m-session')">+ New Session</button></div>
           <div style="padding:16px" id="sessions-list"></div>
         </div>
       </div>
-
-      <!-- AUDIT LOGS VIEW -->
       <div class="view" id="view-audit">
         <div class="card">
-          <div class="card-hd"><div><div class="card-title">🔍 Audit Logs</div><div class="card-sub">Har action ka record</div></div>
-            <div class="card-acts">
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-user" onchange="loadAuditLogs()"><option value="">All Users</option></select>
-              <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-module" onchange="loadAuditLogs()"><option value="">All Modules</option><option>Student</option><option>Lead</option><option>Fee</option><option>Payment</option><option>User</option><option>Auth</option></select>
-            </div>
-          </div>
+          <div class="card-hd"><div><div class="card-title">&#128269; Audit Logs</div><div class="card-sub">Har action ka record</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-user" onchange="loadAuditLogs()"><option value="">All Users</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="audit-module" onchange="loadAuditLogs()"><option value="">All Modules</option><option>Student</option><option>Lead</option><option>Fee</option><option>Payment</option><option>User</option><option>Auth</option></select></div></div>
           <div id="audit-list" style="max-height:600px;overflow-y:auto"></div>
         </div>
       </div>
-
-      <!-- LOGIN HISTORY VIEW -->
       <div class="view" id="view-loginhist">
         <div class="card">
-          <div class="card-hd"><div><div class="card-title">🔐 Login History</div></div>
-            <select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lh-user" onchange="loadLoginHistory()"><option value="">All Users</option></select>
-          </div>
+          <div class="card-hd"><div><div class="card-title">&#128272; Login History</div></div><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="lh-user" onchange="loadLoginHistory()"><option value="">All Users</option></select></div>
           <div class="tw"><table><thead><tr><th>User</th><th>Status</th><th>IP Address</th><th>Time</th></tr></thead><tbody id="lh-table"></tbody></table></div>
         </div>
       </div>
-
     </div>
   </div>
 </div>
 
 <!-- MODALS -->
-
-<!-- Quick Receive Fee -->
-<div class="modal-bg" id="m-qfee">
-  <div class="modal">
-    <div class="modal-hd"><div class="modal-title">💸 Receive Fee</div><button class="mcls" onclick="closeM('m-qfee')">✕</button></div>
-    <div class="form-grid">
-      <div class="fg full"><label class="fl">Student *</label><select class="fs" id="qf-s"></select></div>
-      <div class="fg"><label class="fl">Amount (₹) *</label><input class="fi" type="number" id="qf-amt" placeholder="0"></div>
-      <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="qf-date"></div>
-      <div class="fg"><label class="fl">Fee Type</label><select class="fs" id="qf-type"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other</option></select></div>
-      <div class="fg"><label class="fl">Mode</label><select class="fs" id="qf-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select></div>
-      <div class="fg full"><label class="fl">UTR / Ref</label><input class="fi" id="qf-ref" placeholder="Optional"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-qfee')">Cancel</button>
-      <button class="btn btn-p" onclick="quickFee()">✅ Confirm & Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Associate Modal -->
-<div class="modal-bg" id="m-associate">
-  <div class="modal">
-    <div class="modal-hd">
-      <div style="display:flex;align-items:center;gap:9px">
-        <div style="width:30px;height:30px;border-radius:7px;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;font-size:15px">🤝</div>
-        <div><div class="modal-title">Add Associate Payment</div><div style="font-size:11px;color:var(--slate)">Helped complete the admission</div></div>
-      </div>
-      <button class="mcls" onclick="closeM('m-associate')">✕</button>
-    </div>
-    <div class="form-grid">
-      <div class="fg"><label class="fl">Associate Name *</label><input class="fi" id="ma-name" placeholder="e.g. Harish Ji"></div>
-      <div class="fg"><label class="fl">Mobile</label><input class="fi" id="ma-phone" placeholder="Phone number"></div>
-      <div class="fg full"><label class="fl">Student (work done for) *</label><select class="fs" id="ma-s"></select></div>
-      <div class="fg full"><label class="fl">Work Done / Task *</label><input class="fi" id="ma-work" placeholder="e.g. Document submission, University follow-up…"></div>
-      <div class="fg"><label class="fl">Amount (₹) *</label><input class="fi" type="number" id="ma-amt" placeholder="0"></div>
-      <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="ma-date"></div>
-      <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="ma-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div>
-      <div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="ma-utr" placeholder="Optional"></div>
-      <div class="fg full"><label class="fl">Notes</label><input class="fi" id="ma-notes" placeholder="Optional…"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-associate')">Cancel</button>
-      <button class="btn btn-p" onclick="saveAssociate()">💾 Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Reference Modal -->
-<div class="modal-bg" id="m-reference">
-  <div class="modal">
-    <div class="modal-hd">
-      <div style="display:flex;align-items:center;gap:9px">
-        <div style="width:30px;height:30px;border-radius:7px;background:#FFF8EC;display:flex;align-items:center;justify-content:center;font-size:15px">👥</div>
-        <div><div class="modal-title">Add Reference Incentive</div><div style="font-size:11px;color:var(--slate)">Provided the student lead</div></div>
-      </div>
-      <button class="mcls" onclick="closeM('m-reference')">✕</button>
-    </div>
-    <div class="form-grid">
-      <div class="fg"><label class="fl">Reference Person *</label><input class="fi" id="mr-name" placeholder="e.g. Deepak Ji"></div>
-      <div class="fg"><label class="fl">Mobile</label><input class="fi" id="mr-phone" placeholder="Phone number"></div>
-      <div class="fg full"><label class="fl">Student Referred *</label><select class="fs" id="mr-s"></select></div>
-      <div class="fg"><label class="fl">University</label><select class="fs" id="mr-u"></select></div>
-      <div class="fg"><label class="fl">Incentive Amount (₹) *</label><input class="fi" type="number" id="mr-amt" placeholder="0"></div>
-      <div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="mr-date"></div>
-      <div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="mr-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div>
-      <div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="mr-utr" placeholder="Optional"></div>
-      <div class="fg full"><label class="fl">Notes</label><input class="fi" id="mr-notes" placeholder="Optional…"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-reference')">Cancel</button>
-      <button class="btn btn-p" onclick="saveReference()">💾 Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Issue Document -->
-<div class="modal-bg" id="m-doc">
-  <div class="modal" style="max-width:480px">
-    <div class="modal-hd"><div class="modal-title">📄 Issue Document</div><button class="mcls" onclick="closeM('m-doc')">✕</button></div>
-    <div class="form-grid">
-      <div class="fg full"><label class="fl">Student *</label><select class="fs" id="id-s"></select></div>
-      <div class="fg full"><label class="fl">Document Type *</label><select class="fs" id="id-dt"><option>Admission Letter</option><option>Admission Confirmation Letter</option><option>Course Work Letter</option><option>Course Work Marksheet</option><option>Examination Hall Ticket</option><option>Degree Certificate</option><option>Migration Certificate</option><option>Provisional Certificate</option></select></div>
-      <div class="fg"><label class="fl">Issue Date *</label><input class="fi" type="date" id="id-date"></div>
-      <div class="fg"><label class="fl">Delivered To</label><input class="fi" id="id-to" placeholder="Person who collected"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-doc')">Cancel</button>
-      <button class="btn btn-p" onclick="issueDoc()">Issue Document</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add University -->
-<div class="modal-bg" id="m-univ">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-hd"><div class="modal-title">🏫 Add University</div><button class="mcls" onclick="closeM('m-univ')">✕</button></div>
-    <div class="form-grid">
-      <div class="fg full"><label class="fl">University Name *</label><input class="fi" id="au-name" placeholder="Full name"></div>
-      <div class="fg"><label class="fl">State</label><input class="fi" id="au-state" placeholder="State"></div>
-      <div class="fg"><label class="fl" style="margin-bottom:6px">Color</label><input class="fi" type="color" id="au-color" value="#1A6CF6" style="height:38px;padding:4px 8px;cursor:pointer"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-univ')">Cancel</button>
-      <button class="btn btn-p" onclick="addUniversity()">Save University</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add User -->
-<div class="modal-bg" id="m-user">
-  <div class="modal" style="max-width:620px">
-    <div class="modal-hd"><div class="modal-title" id="m-user-title">👤 Add User</div><button class="mcls" onclick="closeM('m-user')">✕</button></div>
-    <input type="hidden" id="mu-id" value="">
-    <div class="form-grid">
-      <div class="fg"><label class="fl">Username *</label><input class="fi" id="nu-u" placeholder="Login username"></div>
-      <div class="fg"><label class="fl">Full Name *</label><input class="fi" id="nu-n" placeholder="Full name"></div>
-      <div class="fg"><label class="fl">Password *</label><input class="fi" type="password" id="nu-p" placeholder="Min 6 chars (blank = no change on edit)"></div>
-      <div class="fg"><label class="fl">Role</label><select class="fs" id="nu-r"><option>Staff</option><option>Admin</option><option>Super Admin</option></select></div>
-    </div>
-    <div style="padding:0 18px 12px">
-      <div style="font-size:12px;font-weight:700;color:var(--ink);margin:8px 0 6px">🔐 Permissions</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
-        <label><input type="checkbox" id="p-add"> Add Student</label>
-        <label><input type="checkbox" id="p-edit"> Edit Student</label>
-        <label><input type="checkbox" id="p-del"> Delete Student</label>
-        <label><input type="checkbox" id="p-vall"> View All Students</label>
-        <label><input type="checkbox" id="p-vpay"> View Payments</label>
-        <label><input type="checkbox" id="p-apay"> Add Payment</label>
-        <label><input type="checkbox" id="p-vassoc"> View Associates</label>
-        <label><input type="checkbox" id="p-massoc"> Manage Associates</label>
-        <label><input type="checkbox" id="p-vref"> View References</label>
-        <label><input type="checkbox" id="p-mref"> Manage References</label>
-        <label><input type="checkbox" id="p-vdoc"> View Documents</label>
-        <label><input type="checkbox" id="p-udoc"> Upload Documents</label>
-        <label><input type="checkbox" id="p-vrep"> View Reports</label>
-        <label><input type="checkbox" id="p-muniv"> Manage Universities</label>
-        <label><input type="checkbox" id="p-leads"> Manage Leads</label>
-        <label><input type="checkbox" id="p-audit"> View Audit Logs</label>
-      </div>
-      <div style="font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 6px">🏫 Assigned Universities <span style="font-weight:400;color:var(--slate);font-size:11px">(blank = all)</span></div>
-      <div id="nu-univ-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;max-height:140px;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--rs);padding:8px"></div>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-user')">Cancel</button>
-      <button class="btn btn-p" onclick="saveUser()">Save User</button>
-    </div>
-  </div>
-</div>
-
-<!-- Receipt -->
-<div class="modal-bg" id="m-rcpt">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-hd"><div class="modal-title">🧾 Fee Receipt</div><button class="mcls" onclick="closeM('m-rcpt')">✕</button></div>
-    <div class="rcpt-hd">
-      <div class="rcpt-logo">🎓 Sky Eduworld — Management System</div>
-      <div style="font-size:11px;opacity:.45;margin-top:3px">Official Fee Receipt</div>
-      <div class="rcpt-id">Receipt #SKY-<span id="rcpt-no">0000</span></div>
-    </div>
-    <div style="padding:14px 20px" id="rcpt-body"></div>
-    <div class="rcpt-total">
-      <span style="font-size:12.5px;font-weight:700;color:var(--sky-dk)">Amount Paid</span>
-      <span style="font-size:20px;font-weight:700;color:var(--sky);font-family:'Courier New',monospace" id="rcpt-amt">₹0</span>
-    </div>
-    <div class="form-footer">
-      <button class="btn btn-g" onclick="closeM('m-rcpt')">Close</button>
-      <button class="btn btn-p" onclick="window.print()">🖨️ Print</button>
-    </div>
-  </div>
-</div>
-
-<!-- ADD LEAD MODAL -->
-<div class="modal-bg" id="m-lead">
-  <div class="modal" style="max-width:520px"><div class="modal-hd"><div class="modal-title" id="lead-modal-title">📋 Add Lead</div><button class="mcls" onclick="closeM('m-lead')">✕</button></div>
-    <input type="hidden" id="lead-id" value="">
-    <div class="form-grid">
-      <div class="fg"><label class="fl">Name *</label><input class="fi" id="lead-name" placeholder="Student name"></div>
-      <div class="fg"><label class="fl">Mobile *</label><input class="fi" id="lead-mobile" placeholder="Mobile"></div>
-      <div class="fg"><label class="fl">Email</label><input class="fi" id="lead-email" placeholder="Optional"></div>
-      <div class="fg"><label class="fl">Status</label><select class="fs" id="lead-status"><option>New</option><option>Contacted</option><option>Interested</option><option>Lost</option></select></div>
-      <div class="fg"><label class="fl">Course Interest</label><select class="fs" id="lead-course"><option value="">Select</option><option>B.Ed</option><option>M.Ed</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option></select></div>
-      <div class="fg"><label class="fl">University Interest</label><select class="fs" id="lead-univ"><option value="">Select</option></select></div>
-      <div class="fg"><label class="fl">Source</label><select class="fs" id="lead-source"><option>Walk-in</option><option>Phone</option><option>WhatsApp</option><option>Reference</option><option>Social Media</option></select></div>
-      <div class="fg"><label class="fl">Follow-up Date</label><input class="fi" type="date" id="lead-fudate"></div>
-      <div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="lead-remarks" placeholder="Notes…" style="min-height:60px"></textarea></div>
-    </div>
-    <div class="form-footer"><button class="btn btn-g" onclick="closeM('m-lead')">Cancel</button><button class="btn btn-p" id="lead-save-btn" onclick="saveLead()">Save Lead</button></div>
-  </div>
-</div>
-
-<!-- SESSION MODAL -->
-<div class="modal-bg" id="m-session">
-  <div class="modal" style="max-width:400px"><div class="modal-hd"><div class="modal-title">🎓 New Academic Session</div><button class="mcls" onclick="closeM('m-session')">✕</button></div>
-    <div class="form-grid">
-      <div class="fg full"><label class="fl">Session Name *</label><input class="fi" id="sess-name" placeholder="e.g. 2026-27"></div>
-      <div class="fg"><label class="fl">Start Date</label><input class="fi" type="date" id="sess-start"></div>
-      <div class="fg"><label class="fl">End Date</label><input class="fi" type="date" id="sess-end"></div>
-    </div>
-    <div class="form-footer"><button class="btn btn-g" onclick="closeM('m-session')">Cancel</button><button class="btn btn-p" onclick="addSession()">Create Session</button></div>
-  </div>
-</div>
-
+<div class="modal-bg" id="m-qfee"><div class="modal"><div class="modal-hd"><div class="modal-title">&#128184; Receive Fee</div><button class="mcls" onclick="closeM('m-qfee')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">Student *</label><select class="fs" id="qf-s"></select></div><div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="qf-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="qf-date"></div><div class="fg"><label class="fl">Fee Type</label><select class="fs" id="qf-type"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other</option></select></div><div class="fg"><label class="fl">Mode</label><select class="fs" id="qf-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select></div><div class="fg full"><label class="fl">UTR / Ref</label><input class="fi" id="qf-ref" placeholder="Optional"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-qfee')">Cancel</button><button class="btn btn-p" onclick="quickFee()">&#9989; Confirm &amp; Save</button></div></div></div>
+<div class="modal-bg" id="m-associate"><div class="modal"><div class="modal-hd"><div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:7px;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;font-size:15px">&#129309;</div><div><div class="modal-title">Add Associate Payment</div><div style="font-size:11px;color:var(--slate)">Helped complete the admission</div></div></div><button class="mcls" onclick="closeM('m-associate')">&#10005;</button></div><div class="form-grid"><div class="fg"><label class="fl">Associate Name *</label><input class="fi" id="ma-name" placeholder="e.g. Harish Ji"></div><div class="fg"><label class="fl">Mobile</label><input class="fi" id="ma-phone" placeholder="Phone number"></div><div class="fg full"><label class="fl">Student (work done for) *</label><select class="fs" id="ma-s"></select></div><div class="fg full"><label class="fl">Work Done / Task *</label><input class="fi" id="ma-work" placeholder="e.g. Document submission&#8230;"></div><div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="ma-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="ma-date"></div><div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="ma-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div><div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="ma-utr" placeholder="Optional"></div><div class="fg full"><label class="fl">Notes</label><input class="fi" id="ma-notes" placeholder="Optional&#8230;"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-associate')">Cancel</button><button class="btn btn-p" onclick="saveAssociate()">&#128190; Save</button></div></div></div>
+<div class="modal-bg" id="m-reference"><div class="modal"><div class="modal-hd"><div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:7px;background:#FFF8EC;display:flex;align-items:center;justify-content:center;font-size:15px">&#128101;</div><div><div class="modal-title">Add Reference Incentive</div><div style="font-size:11px;color:var(--slate)">Provided the student lead</div></div></div><button class="mcls" onclick="closeM('m-reference')">&#10005;</button></div><div class="form-grid"><div class="fg"><label class="fl">Reference Person *</label><input class="fi" id="mr-name" placeholder="e.g. Deepak Ji"></div><div class="fg"><label class="fl">Mobile</label><input class="fi" id="mr-phone" placeholder="Phone number"></div><div class="fg full"><label class="fl">Student Referred *</label><select class="fs" id="mr-s"></select></div><div class="fg"><label class="fl">University</label><select class="fs" id="mr-u"></select></div><div class="fg"><label class="fl">Incentive Amount (&#8377;) *</label><input class="fi" type="number" id="mr-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="mr-date"></div><div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="mr-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div><div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="mr-utr" placeholder="Optional"></div><div class="fg full"><label class="fl">Notes</label><input class="fi" id="mr-notes" placeholder="Optional&#8230;"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-reference')">Cancel</button><button class="btn btn-p" onclick="saveReference()">&#128190; Save</button></div></div></div>
+<div class="modal-bg" id="m-doc"><div class="modal" style="max-width:480px"><div class="modal-hd"><div class="modal-title">&#128196; Issue Document</div><button class="mcls" onclick="closeM('m-doc')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">Student *</label><select class="fs" id="id-s"></select></div><div class="fg full"><label class="fl">Document Type *</label><select class="fs" id="id-dt"><option>Admission Letter</option><option>Admission Confirmation Letter</option><option>Course Work Letter</option><option>Course Work Marksheet</option><option>Examination Hall Ticket</option><option>Degree Certificate</option><option>Migration Certificate</option><option>Provisional Certificate</option></select></div><div class="fg"><label class="fl">Issue Date *</label><input class="fi" type="date" id="id-date"></div><div class="fg"><label class="fl">Delivered To</label><input class="fi" id="id-to" placeholder="Person who collected"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-doc')">Cancel</button><button class="btn btn-p" onclick="issueDoc()">Issue Document</button></div></div></div>
+<div class="modal-bg" id="m-univ"><div class="modal" style="max-width:420px"><div class="modal-hd"><div class="modal-title">&#127979; Add University</div><button class="mcls" onclick="closeM('m-univ')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">University Name *</label><input class="fi" id="au-name" placeholder="Full name"></div><div class="fg"><label class="fl">State</label><input class="fi" id="au-state" placeholder="State"></div><div class="fg"><label class="fl" style="margin-bottom:6px">Color</label><input class="fi" type="color" id="au-color" value="#1A6CF6" style="height:38px;padding:4px 8px;cursor:pointer"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-univ')">Cancel</button><button class="btn btn-p" onclick="addUniversity()">Save University</button></div></div></div>
+<div class="modal-bg" id="m-user"><div class="modal" style="max-width:620px"><div class="modal-hd"><div class="modal-title" id="m-user-title">&#128100; Add User</div><button class="mcls" onclick="closeM('m-user')">&#10005;</button></div><input type="hidden" id="mu-id" value=""><div class="form-grid"><div class="fg"><label class="fl">Username *</label><input class="fi" id="nu-u" placeholder="Login username"></div><div class="fg"><label class="fl">Full Name *</label><input class="fi" id="nu-n" placeholder="Full name"></div><div class="fg"><label class="fl">Password *</label><input class="fi" type="password" id="nu-p" placeholder="Min 6 chars"></div><div class="fg"><label class="fl">Role</label><select class="fs" id="nu-r"><option>Staff</option><option>Admin</option><option>Super Admin</option></select></div></div><div style="padding:0 18px 12px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin:8px 0 6px">&#128272; Permissions</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px"><label><input type="checkbox" id="p-add"> Add Student</label><label><input type="checkbox" id="p-edit"> Edit Student</label><label><input type="checkbox" id="p-del"> Delete Student</label><label><input type="checkbox" id="p-vall"> View All Students</label><label><input type="checkbox" id="p-vpay"> View Payments</label><label><input type="checkbox" id="p-apay"> Add Payment</label><label><input type="checkbox" id="p-vassoc"> View Associates</label><label><input type="checkbox" id="p-massoc"> Manage Associates</label><label><input type="checkbox" id="p-vref"> View References</label><label><input type="checkbox" id="p-mref"> Manage References</label><label><input type="checkbox" id="p-vdoc"> View Documents</label><label><input type="checkbox" id="p-udoc"> Upload Documents</label><label><input type="checkbox" id="p-vrep"> View Reports</label><label><input type="checkbox" id="p-muniv"> Manage Universities</label><label><input type="checkbox" id="p-leads"> Manage Leads</label><label><input type="checkbox" id="p-audit"> View Audit Logs</label></div><div style="font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 6px">&#127979; Assigned Universities</div><div id="nu-univ-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;max-height:140px;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--rs);padding:8px"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-user')">Cancel</button><button class="btn btn-p" onclick="saveUser()">Save User</button></div></div></div>
+<div class="modal-bg" id="m-rcpt"><div class="modal" style="max-width:440px"><div class="modal-hd"><div class="modal-title">&#129534; Fee Receipt</div><button class="mcls" onclick="closeM('m-rcpt')">&#10005;</button></div><div class="rcpt-hd"><div class="rcpt-logo">&#127891; Sky Eduworld &mdash; Management System</div><div style="font-size:11px;opacity:.45;margin-top:3px">Official Fee Receipt</div><div class="rcpt-id">Receipt #SKY-<span id="rcpt-no">0000</span></div></div><div style="padding:14px 20px" id="rcpt-body"></div><div class="rcpt-total"><span style="font-size:12.5px;font-weight:700;color:var(--sky-dk)">Amount Paid</span><span style="font-size:20px;font-weight:700;color:var(--sky);font-family:'Courier New',monospace" id="rcpt-amt">&#8377;0</span></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-rcpt')">Close</button><button class="btn btn-p" onclick="window.print()">&#128424;&#65039; Print</button></div></div></div>
+<div class="modal-bg" id="m-lead"><div class="modal" style="max-width:520px"><div class="modal-hd"><div class="modal-title" id="lead-modal-title">&#128203; Add Lead</div><button class="mcls" onclick="closeM('m-lead')">&#10005;</button></div><input type="hidden" id="lead-id" value=""><div class="form-grid"><div class="fg"><label class="fl">Name *</label><input class="fi" id="lead-name" placeholder="Student name"></div><div class="fg"><label class="fl">Mobile *</label><input class="fi" id="lead-mobile" placeholder="Mobile"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="lead-email" placeholder="Optional"></div><div class="fg"><label class="fl">Status</label><select class="fs" id="lead-status"><option>New</option><option>Contacted</option><option>Interested</option><option>Lost</option></select></div><div class="fg"><label class="fl">Course Interest</label><select class="fs" id="lead-course"><option value="">Select</option><option>B.Ed</option><option>M.Ed</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option></select></div><div class="fg"><label class="fl">University Interest</label><select class="fs" id="lead-univ"><option value="">Select</option></select></div><div class="fg"><label class="fl">Source</label><select class="fs" id="lead-source"><option>Walk-in</option><option>Phone</option><option>WhatsApp</option><option>Reference</option><option>Social Media</option></select></div><div class="fg"><label class="fl">Follow-up Date</label><input class="fi" type="date" id="lead-fudate"></div><div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="lead-remarks" placeholder="Notes&#8230;" style="min-height:60px"></textarea></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-lead')">Cancel</button><button class="btn btn-p" id="lead-save-btn" onclick="saveLead()">Save Lead</button></div></div></div>
+<div class="modal-bg" id="m-session"><div class="modal" style="max-width:400px"><div class="modal-hd"><div class="modal-title">&#127891; New Academic Session</div><button class="mcls" onclick="closeM('m-session')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">Session Name *</label><input class="fi" id="sess-name" placeholder="e.g. 2026-27"></div><div class="fg"><label class="fl">Start Date</label><input class="fi" type="date" id="sess-start"></div><div class="fg"><label class="fl">End Date</label><input class="fi" type="date" id="sess-end"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-session')">Cancel</button><button class="btn btn-p" onclick="addSession()">Create Session</button></div></div></div>
 <div id="toasts"></div>
-
 <script>
-// ─── GLOBALS ───
-let allStudents = [], allUnivs = [], currentUser = null;
-let editingId = null, incTab = 'associate';
-
-// ─── API HELPER ───
-async function api(method, path, body) {
-  const opts = { method, headers:{'Content-Type':'application/json'}, credentials:'same-origin' };
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch('/api'+path, opts);
-  if(r.status===401) { showLogin(); return null; }
-  if(!r.ok) { const e=await r.json(); toast(e.error||'Error','er'); return null; }
-  const ct = r.headers.get('Content-Type')||'';
-  if(ct.includes('text/csv')) return r;
+let allStudents=[],allUnivs=[],currentUser=null,editingId=null,incTab='associate',allUsers=[],pendingInst=[];
+async function api(method,path,body){
+  const opts={method,headers:{'Content-Type':'application/json'},credentials:'same-origin'};
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch('/api'+path,opts);
+  if(r.status===401){showLogin();return null;}
+  if(!r.ok){const e=await r.json();toast(e.error||'Error','er');return null;}
+  const ct=r.headers.get('Content-Type')||'';
+  if(ct.includes('text/csv'))return r;
   return r.json();
 }
-
-// ─── UTILS ───
 const AVCOLS=['#3B82F6','#10B981','#F5A623','#F43F5E','#8B5CF6','#06B6D4','#EF4444','#84CC16'];
 function avCol(n){let h=0;for(let c of(n||''))h=c.charCodeAt(0)+h*31;return AVCOLS[Math.abs(h)%AVCOLS.length]}
 function ini(n){return(n||'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()}
-function fmt(n){return '₹'+(Math.round(n)||0).toLocaleString('en-IN')}
+function fmt(n){return '\u20b9'+(Math.round(n)||0).toLocaleString('en-IN')}
 function stag(s){
-  if(s==='Active'||s==='Paid'||s==='Delivered')return`<span class="tag tgr">${s}</span>`;
-  if(s==='Pending')return`<span class="tag ta">${s}</span>`;
-  if(s==='Completed')return`<span class="tag tg">${s}</span>`;
-  return`<span class="tag tsl">${s}</span>`;
+  if(s==='Active'||s==='Paid'||s==='Delivered')return'<span class="tag tgr">'+s+'</span>';
+  if(s==='Pending')return'<span class="tag ta">'+s+'</span>';
+  if(s==='Completed')return'<span class="tag tg">'+s+'</span>';
+  return'<span class="tag tsl">'+s+'</span>';
 }
-function av(name,sz=28){return`<div class="av" style="width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.38)}px;background:${avCol(name)}">${ini(name)}</div>`}
-function toast(msg,type=''){
+function av(name,sz){sz=sz||28;return'<div class="av" style="width:'+sz+'px;height:'+sz+'px;font-size:'+Math.round(sz*.38)+'px;background:'+avCol(name)+'">'+ini(name)+'</div>';}
+function toast(msg,type){
   const c=document.getElementById('toasts'),t=document.createElement('div');
   t.className='toast'+(type==='ok'?' ok':type==='er'?' er':'');
-  t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(),3500);
+  t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3500);
 }
-function openM(id){document.getElementById(id).classList.add('open');populateDropdowns()}
-function closeM(id){document.getElementById(id).classList.remove('open')}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
-
-// ─── STUDENT DROPDOWNS ───
+function openM(id){document.getElementById(id).classList.add('open');populateDropdowns();}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function populateDropdowns(){
-  const opts='<option value="">Select student…</option>'+allStudents.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  ['qf-s','ma-s','mr-s','fr-s','id-s'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts});
-  const uopts='<option value="">Select…</option>'+allUnivs.map(u=>`<option>${u.name}</option>`).join('');
-  const mru=document.getElementById('mr-u'); if(mru)mru.innerHTML=uopts;
-  const fu=document.getElementById('f-univ'); if(fu)fu.innerHTML='<option value="">Select university</option>'+allUnivs.map(u=>`<option>${u.name}</option>`).join('');
-  const fltU=document.getElementById('flt-u'); if(fltU)fltU.innerHTML='<option value="">All Universities</option>'+allUnivs.map(u=>`<option>${u.name}</option>`).join('');
+  const opts='<option value="">Select student\u2026</option>'+allStudents.map(s=>'<option value="'+s.id+'">'+s.name+'</option>').join('');
+  ['qf-s','ma-s','mr-s','fr-s','id-s'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  const uopts='<option value="">\u091a\u0941\u0928\u0947\u0902\u2026</option>'+allUnivs.map(u=>'<option>'+u.name+'</option>').join('');
+  const mru=document.getElementById('mr-u');if(mru)mru.innerHTML=uopts;
+  const fu=document.getElementById('f-univ');if(fu)fu.innerHTML='<option value="">Select university</option>'+allUnivs.map(u=>'<option>'+u.name+'</option>').join('');
+  const fltU=document.getElementById('flt-u');if(fltU)fltU.innerHTML='<option value="">All Universities</option>'+allUnivs.map(u=>'<option>'+u.name+'</option>').join('');
 }
-
-// ─── AUTH ───
-function showLogin(){document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex'}
+function isSA(){return currentUser&&currentUser.role==='Super Admin';}
+function isAdm(){return currentUser&&(currentUser.role==='Admin'||currentUser.role==='Super Admin');}
+function showLogin(){document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';}
 async function doLogin(){
   const u=document.getElementById('l-user').value.trim();
   const p=document.getElementById('l-pass').value;
-  const err=document.getElementById('l-err');
-  err.style.display='none';
-  const btn=document.getElementById('l-btn');
-  btn.disabled=true; btn.textContent='Logging in…';
+  const err=document.getElementById('l-err');err.style.display='none';
+  const btn=document.getElementById('l-btn');btn.disabled=true;btn.textContent='Logging in\u2026';
   const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-  btn.disabled=false; btn.textContent='Login →';
-  if(!r.ok){err.textContent='❌ Incorrect username or password';err.style.display='block';return}
-  const data=await r.json();
-  currentUser=data.user;
+  btn.disabled=false;btn.textContent='Login \u2192';
+  if(!r.ok){err.textContent='\u274c Incorrect username or password';err.style.display='block';return;}
+  const data=await r.json();currentUser=data.user;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('sb-av').textContent=ini(currentUser.full_name);
@@ -928,48 +567,28 @@ async function doLogin(){
   await initApp();
 }
 async function doLogout(){
-  await api('POST','/logout');
-  showLogin();
-  document.getElementById('l-user').value='';
-  document.getElementById('l-pass').value='';
+  await api('POST','/logout');showLogin();
+  document.getElementById('l-user').value='';document.getElementById('l-pass').value='';
 }
-document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-document.getElementById('l-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('l-pass').focus()});
-
-// ─── INIT ───
+document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('l-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('l-pass').focus();});
 async function initApp(){
-  try {
-    const [d]=await Promise.all([api('GET','/dashboard'),loadUniversities()]);
-    if(!d)return;
-    renderDashboard(d);
-  } catch(e){ console.error('Dashboard error:',e); }
-  ['fr-date','ma-date','mr-date','qf-date','id-date','f-admdate'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.valueAsDate=new Date();
-  });
+  try{const[d]=await Promise.all([api('GET','/dashboard'),loadUniversities()]);if(!d)return;renderDashboard(d);}catch(e){console.error(e);}
+  ['fr-date','ma-date','mr-date','qf-date','id-date','f-admdate'].forEach(id=>{const el=document.getElementById(id);if(el)el.valueAsDate=new Date();});
   allStudents=await api('GET','/students')||[];
-  const nbS=document.getElementById('nb-s'); if(nbS) nbS.textContent=allStudents.length;
+  const nbS=document.getElementById('nb-s');if(nbS)nbS.textContent=allStudents.length;
   populateDropdowns();
-  try { await loadSessionInfo(); } catch(e){}
-  try { loadNotifications(); setInterval(loadNotifications,60000); } catch(e){}
+  try{await loadSessionInfo();}catch(e){}
+  try{loadNotifications();setInterval(loadNotifications,60000);}catch(e){}
   if(isSA()){
-    try {
-      const users = await api('GET','/users')||[];
-      allUsers=users;
-      ['audit-user','lh-user'].forEach(id=>{
-        const el=document.getElementById(id);
-        if(el) el.innerHTML='<option value="">All Users</option>'+users.map(u=>`<option value="${u.id}">${u.full_name}</option>`).join('');
-      });
-    } catch(e){}
+    try{
+      const users=await api('GET','/users')||[];allUsers=users;
+      ['audit-user','lh-user'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<option value="">All Users</option>'+users.map(u=>'<option value="'+u.id+'">'+u.full_name+'</option>').join('');});
+    }catch(e){}
   }
   applyPermsPhase2();
 }
-
-async function loadUniversities(){
-  allUnivs=await api('GET','/universities')||[];
-  populateDropdowns();
-}
-
-// ─── NAV ───
+async function loadUniversities(){allUnivs=await api('GET','/universities')||[];populateDropdowns();}
 const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',documents:'Documents',sessions:'Academic Sessions',reports:'Reports',audit:'Audit Logs',loginhist:'Login History',settings:'Settings'};
 function nav(id,btn){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -978,15 +597,15 @@ function nav(id,btn){
   if(btn)btn.classList.add('active');
   const t=TITLES[id]||id;
   document.getElementById('pg-title').textContent=t;
-  document.getElementById('pg-bc').textContent='Sky Eduworld › '+t;
+  document.getElementById('pg-bc').textContent='Sky Eduworld \u203a '+t;
   if(id==='students')loadStudents();
   else if(id==='fees')loadFees();
-  else if(id==='feereceive'){populateDropdowns();const frDate=document.getElementById('fr-date');if(frDate)frDate.valueAsDate=new Date();}
-  else if(id==='incentive'){loadIncTab();loadIncStats()}
+  else if(id==='feereceive'){populateDropdowns();const d=document.getElementById('fr-date');if(d)d.valueAsDate=new Date();}
+  else if(id==='incentive'){loadIncTab();loadIncStats();}
   else if(id==='universities')renderUnivGrid();
   else if(id==='documents')loadDocs();
   else if(id==='settings')loadSettings();
-  else if(id==='addstudent'){resetForm();populateDropdowns()}
+  else if(id==='addstudent'){resetForm();populateDropdowns();}
   else if(id==='dashboard')reloadDashboard();
   else if(id==='leads')loadLeads();
   else if(id==='followups'){loadFollowUps();populateDropdowns();}
@@ -995,45 +614,21 @@ function nav(id,btn){
   else if(id==='audit')loadAuditLogs();
   else if(id==='loginhist')loadLoginHistory();
 }
-
-async function reloadDashboard(){
-  const d=await api('GET','/dashboard');
-  if(d)renderDashboard(d);
-}
-
-// ─── DASHBOARD ───
+async function reloadDashboard(){const d=await api('GET','/dashboard');if(d)renderDashboard(d);}
 function renderDashboard(d){
   const s=d.stats;
-  document.getElementById('dash-stats').innerHTML=`
-    <div class="sc blue"><div class="sc-ico blue">👥</div><div class="sc-lbl">Total Students</div><div class="sc-val">${s.student_count}</div><div class="sc-sub">Enrolled</div></div>
-    <div class="sc gold"><div class="sc-ico gold">💰</div><div class="sc-lbl">Fee Collected</div><div class="sc-val">${fmt(s.total_collected)}</div><div class="sc-sub">All time</div></div>
-    <div class="sc rose"><div class="sc-ico rose">⏳</div><div class="sc-lbl">Outstanding</div><div class="sc-val">${fmt(s.outstanding)}</div><div class="sc-sub">Pending dues</div></div>
-    <div class="sc green"><div class="sc-ico green">🤝</div><div class="sc-lbl">Assoc+Ref Paid</div><div class="sc-val">${fmt(s.assoc_ref_paid)}</div><div class="sc-sub">Total</div></div>`;
-  document.getElementById('dash-recent').innerHTML=(d.recent||[]).map(s=>{
-    const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;
-    return`<tr><td><div class="av-cell">${av(s.name)}<div><div class="cp">${s.name}</div><div class="cm">${s.mobile}</div></div></div></td><td><div>${s.course}</div><div class="cm">${(s.university||'').split(' ').slice(0,2).join(' ')}</div></td><td class="cm">${s.adm_date||'—'}</td><td>${b===0?stag('Paid'):`<span class="tag ta">${pct}% paid</span>`}</td><td><button class="btn btn-g btn-sm" onclick="showLastReceipt(${s.id})">🧾</button></td></tr>`;
-  }).join('');
-  document.getElementById('fee-tracker').innerHTML=(d.fee_tracker||[]).map(s=>{
-    const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;
-    return`<div class="fi-item">${av(s.name,30)}<div class="fi-info"><div class="fi-name">${s.name}</div><div class="fi-course">${s.course}·${(s.university||'').split(' ')[0]}</div><div class="pb"><div class="pb-fill" style="width:${pct}%"></div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--em)">${fmt(s.paid)}</div>${b>0?`<div style="font-size:10px;color:var(--rose)">${fmt(b)} due</div>`:'<div style="font-size:10px;color:var(--em)">✓ Clear</div>'}</div></div>`;
-  }).join('');
-  document.getElementById('univ-mini').innerHTML=(d.universities||[]).map(u=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 16px;border-bottom:1px solid var(--bd)"><div style="width:7px;height:7px;border-radius:50%;background:${u.color||'#888'};flex-shrink:0"></div><span style="flex:1;font-size:12.5px;color:var(--ink2)">${(u.name||'').split(' ').slice(0,3).join(' ')}</span><span style="font-size:11px;color:var(--slate)">${u.count}</span></div>`).join('');
+  document.getElementById('dash-stats').innerHTML='<div class="sc blue"><div class="sc-ico blue">\ud83d\udc65</div><div class="sc-lbl">Total Students</div><div class="sc-val">'+s.student_count+'</div><div class="sc-sub">Enrolled</div></div><div class="sc gold"><div class="sc-ico gold">\ud83d\udcb0</div><div class="sc-lbl">Fee Collected</div><div class="sc-val">'+fmt(s.total_collected)+'</div><div class="sc-sub">All time</div></div><div class="sc rose"><div class="sc-ico rose">\u23f3</div><div class="sc-lbl">Outstanding</div><div class="sc-val">'+fmt(s.outstanding)+'</div><div class="sc-sub">Pending dues</div></div><div class="sc green"><div class="sc-ico green">\ud83e\udd1d</div><div class="sc-lbl">Assoc+Ref Paid</div><div class="sc-val">'+fmt(s.assoc_ref_paid)+'</div><div class="sc-sub">Total</div></div>';
+  document.getElementById('dash-recent').innerHTML=(d.recent||[]).map(function(s){const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="av-cell">'+av(s.name)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></div></div></td><td><div>'+s.course+'</div><div class="cm">'+(s.university||'').split(' ').slice(0,2).join(' ')+'</div></td><td class="cm">'+(s.adm_date||'&mdash;')+'</td><td>'+(b===0?stag('Paid'):'<span class="tag ta">'+pct+'% paid</span>')+'</td><td><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">\ud83e\uddfe</button></td></tr>';}).join('');
+  document.getElementById('fee-tracker').innerHTML=(d.fee_tracker||[]).map(function(s){const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<div class="fi-item">'+av(s.name,30)+'<div class="fi-info"><div class="fi-name">'+s.name+'</div><div class="fi-course">'+s.course+'\xb7'+(s.university||'').split(' ')[0]+'</div><div class="pb"><div class="pb-fill" style="width:'+pct+'%"></div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--em)">'+fmt(s.paid)+'</div>'+(b>0?'<div style="font-size:10px;color:var(--rose)">'+fmt(b)+' due</div>':'<div style="font-size:10px;color:var(--em)">\u2713 Clear</div>')+'</div></div>';}).join('');
+  document.getElementById('univ-mini').innerHTML=(d.universities||[]).map(function(u){return'<div style="display:flex;align-items:center;gap:9px;padding:7px 16px;border-bottom:1px solid var(--bd)"><div style="width:7px;height:7px;border-radius:50%;background:'+(u.color||'#888')+';flex-shrink:0"></div><span style="flex:1;font-size:12.5px;color:var(--ink2)">'+(u.name||'').split(' ').slice(0,3).join(' ')+'</span><span style="font-size:11px;color:var(--slate)">'+u.count+'</span></div>';}).join('');
   document.getElementById('nb-s').textContent=s.student_count;
 }
-
-// ─── STUDENTS ───
 function stab(id,btn){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(id).classList.add('active'); btn.classList.add('active');
+  document.getElementById(id).classList.add('active');btn.classList.add('active');
 }
-
-async function globalSearch(q){
-  nav('students',null);
-  document.getElementById('g-srch').value=q;
-  loadStudents(q);
-}
-
+function globalSearch(q){nav('students',null);document.getElementById('g-srch').value=q;loadStudents(q);}
 async function loadStudents(q){
   document.getElementById('s-loading').style.display='flex';
   document.getElementById('s-table-wrap').style.display='none';
@@ -1046,175 +641,132 @@ async function loadStudents(q){
   const data=await api('GET',url);
   allStudents=data||[];
   document.getElementById('nb-s').textContent=allStudents.length;
-  document.getElementById('s-sub').textContent=`${allStudents.length} student${allStudents.length!==1?'s':''} found`;
+  document.getElementById('s-sub').textContent=allStudents.length+' student'+(allStudents.length!==1?'s':'')+' found';
   document.getElementById('s-loading').style.display='none';
   document.getElementById('s-table-wrap').style.display='block';
-  document.getElementById('s-table').innerHTML=allStudents.map(s=>{
-    const b=s.total_fee-s.paid;
-    return`<tr><td><div class="av-cell">${av(s.name)}<div><div class="cp">${s.name}</div><div class="cm">${s.mobile}</div></div></div></td><td class="cm">${s.father||'—'}</td><td><span class="tag tg">${s.course||'—'}</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.university||'—'}</td><td class="cmo">${s.mobile}</td><td>${stag(s.status)}</td><td class="cmo" style="color:${b>0?'var(--rose)':'var(--em)'};font-weight:600">${fmt(b)}</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editStudent(${s.id})">✏️</button><button class="btn btn-g btn-sm" onclick="showLastReceipt(${s.id})">🧾</button><button class="btn btn-r btn-sm" onclick="delStudent(${s.id})">🗑️</button></td></tr>`;
-  }).join('');
+  document.getElementById('s-table').innerHTML=allStudents.map(function(s){const b=s.total_fee-s.paid;return'<tr><td><div class="av-cell">'+av(s.name)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+s.mobile+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">\u270f\ufe0f</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">\ud83e\uddfe</button><button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">\ud83d\uddd1\ufe0f</button></td></tr>';}).join('');
   populateDropdowns();
 }
-
-function calcBal(){
-  const t=parseFloat(document.getElementById('f-total').value)||0;
-  const p=parseFloat(document.getElementById('f-paid').value)||0;
-  document.getElementById('f-bal').value='₹ '+Math.max(0,t-p).toLocaleString('en-IN');
-}
-
+function calcBal(){const t=parseFloat(document.getElementById('f-total').value)||0;const p=parseFloat(document.getElementById('f-paid').value)||0;document.getElementById('f-bal').value='\u20b9 '+Math.max(0,t-p).toLocaleString('en-IN');}
 function resetForm(){
   editingId=null;
   document.getElementById('as-title').textContent='New Student Registration';
-  document.getElementById('s-save-btn').textContent='💾 Register Student';
-  ['f-name','f-dob','f-mobile','f-email','f-aadhar','f-father','f-mother','f-address','f-enroll','f-roll','f-admdate','f-remarks','f-total','f-univfee','f-paid','f-utr','f-bal','f-docnotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  document.getElementById('s-save-btn').textContent='\ud83d\udcbe Register Student';
+  ['f-name','f-dob','f-mobile','f-email','f-aadhar','f-father','f-mother','f-address','f-enroll','f-roll','f-admdate','f-remarks','f-total','f-univfee','f-paid','f-utr','f-bal','f-docnotes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f-admdate').valueAsDate=new Date();
   document.getElementById('f-gender').value='';
-  ['dc-1','dc-2','dc-3','dc-4','dc-5','dc-6'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false});
+  ['dc-1','dc-2','dc-3','dc-4','dc-5','dc-6'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   stab('tp',document.querySelector('.tab'));
 }
-
 function editStudent(id){
-  const s=allStudents.find(x=>x.id===id); if(!s)return;
-  editingId=id;
-  nav('addstudent',null);
-  document.getElementById('as-title').textContent='Edit — '+s.name;
-  document.getElementById('s-save-btn').textContent='💾 Update Student';
-  const set=(i,v)=>{const el=document.getElementById(i);if(el)el.value=v||''};
+  const s=allStudents.find(x=>x.id===id);if(!s)return;
+  editingId=id;nav('addstudent',null);
+  document.getElementById('as-title').textContent='Edit \u2014 '+s.name;
+  document.getElementById('s-save-btn').textContent='\ud83d\udcbe Update Student';
+  const set=(i,v)=>{const el=document.getElementById(i);if(el)el.value=v||'';};
   set('f-name',s.name);set('f-dob',s.dob);set('f-mobile',s.mobile);set('f-email',s.email);
   set('f-aadhar',s.aadhar);set('f-father',s.father);set('f-mother',s.mother);set('f-address',s.address);
   set('f-enroll',s.enroll_no);set('f-roll',s.roll_no);set('f-admdate',s.adm_date);set('f-remarks',s.remarks);
-  set('f-total',s.total_fee);set('f-univfee',s.univ_fee);set('f-paid',s.paid);
-  set('f-utr',s.utr);set('f-docnotes',s.doc_notes);
+  set('f-total',s.total_fee);set('f-univfee',s.univ_fee);set('f-paid',s.paid);set('f-utr',s.utr);set('f-docnotes',s.doc_notes);
   document.getElementById('f-gender').value=s.gender||'';
   document.getElementById('f-univ').value=s.university||'';
   document.getElementById('f-course').value=s.course||'';
   document.getElementById('f-batch').value=s.batch||'2025-26';
-  set('f-bal','₹ '+Math.max(0,s.total_fee-s.paid).toLocaleString('en-IN'));
+  set('f-bal','\u20b9 '+Math.max(0,s.total_fee-s.paid).toLocaleString('en-IN'));
 }
-
 async function saveStudent(){
   const name=document.getElementById('f-name').value.trim();
   const mobile=document.getElementById('f-mobile').value.trim();
   const father=document.getElementById('f-father').value.trim();
-  if(!name||!mobile||!father){toast('⚠️ Name, Mobile and Father Name are required','er');return}
-  const g=id=>document.getElementById(id)?.value||'';
+  if(!name||!mobile||!father){toast('\u26a0\ufe0f Name, Mobile and Father Name are required','er');return;}
+  const g=id=>document.getElementById(id)?document.getElementById(id).value:'';
   const body={name,father,mother:g('f-mother'),dob:g('f-dob'),gender:g('f-gender'),mobile,email:g('f-email'),aadhar:g('f-aadhar'),address:g('f-address'),course:g('f-course'),university:g('f-univ'),batch:g('f-batch'),enroll_no:g('f-enroll'),roll_no:g('f-roll'),adm_date:g('f-admdate'),remarks:g('f-remarks'),total_fee:parseFloat(g('f-total'))||0,paid:parseFloat(g('f-paid'))||0,univ_fee:parseFloat(g('f-univfee'))||0,pay_mode:g('f-paymode'),utr:g('f-utr'),doc_notes:g('f-docnotes'),status:'Active'};
-  const btn=document.getElementById('s-save-btn'); btn.disabled=true;
+  const btn=document.getElementById('s-save-btn');btn.disabled=true;
   let result;
-  if(editingId) result=await api('PUT',`/students/${editingId}`,body);
+  if(editingId)result=await api('PUT','/students/'+editingId,body);
   else result=await api('POST','/students',body);
   btn.disabled=false;
   if(!result)return;
-  toast(editingId?'✅ Student updated!':'✅ Student registered!','ok');
+  if(pendingInst.length>0){
+    const sid=result.id||(editingId)||null;
+    if(sid){for(const inst of pendingInst)await api('POST','/students/'+sid+'/installments',inst);pendingInst=[];}
+  }
+  toast(editingId?'\u2705 Student updated!':'\u2705 Student registered!','ok');
   allStudents=await api('GET','/students')||[];
   document.getElementById('nb-s').textContent=allStudents.length;
-  populateDropdowns();
-  nav('students',null);
+  populateDropdowns();nav('students',null);
 }
-
 async function delStudent(id){
   if(!confirm('Delete this student and all their fee records? This cannot be undone.'))return;
-  const r=await api('DELETE',`/students/${id}`);
-  if(!r)return;
+  const r=await api('DELETE','/students/'+id);if(!r)return;
   allStudents=allStudents.filter(s=>s.id!==id);
   document.getElementById('nb-s').textContent=allStudents.length;
-  populateDropdowns();
-  loadStudents();
-  toast('Student deleted','ok');
+  populateDropdowns();loadStudents();toast('Student deleted','ok');
 }
-
-// ─── FEES ───
 async function loadFees(){
   document.getElementById('fee-loading').style.display='flex';
   document.getElementById('fee-tw').style.display='none';
-  const data=await api('GET','/students');
-  if(!data)return;
+  const data=await api('GET','/students');if(!data)return;
   const total=data.reduce((a,s)=>a+s.total_fee,0);
   const paid=data.reduce((a,s)=>a+s.paid,0);
-  const bal=total-paid;
-  document.getElementById('fee-stats').innerHTML=`
-    <div class="sc gold"><div class="sc-ico gold">💰</div><div class="sc-lbl">Total Fee Decided</div><div class="sc-val">${fmt(total)}</div></div>
-    <div class="sc green"><div class="sc-ico green">✅</div><div class="sc-lbl">Collected</div><div class="sc-val">${fmt(paid)}</div></div>
-    <div class="sc rose"><div class="sc-ico rose">⏳</div><div class="sc-lbl">Outstanding</div><div class="sc-val">${fmt(bal)}</div></div>`;
+  document.getElementById('fee-stats').innerHTML='<div class="sc gold"><div class="sc-ico gold">\ud83d\udcb0</div><div class="sc-lbl">Total Fee Decided</div><div class="sc-val">'+fmt(total)+'</div></div><div class="sc green"><div class="sc-ico green">\u2705</div><div class="sc-lbl">Collected</div><div class="sc-val">'+fmt(paid)+'</div></div><div class="sc rose"><div class="sc-ico rose">\u23f3</div><div class="sc-lbl">Outstanding</div><div class="sc-val">'+fmt(total-paid)+'</div></div>';
   document.getElementById('fee-loading').style.display='none';
   document.getElementById('fee-tw').style.display='block';
-  document.getElementById('fee-table').innerHTML=data.map(s=>{
-    const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;
-    return`<tr><td><div class="cp">${s.name}</div><div class="cm">${s.mobile}</div></td><td class="cm">${(s.university||'').split(' ').slice(0,2).join(' ')}</td><td class="cmo">${fmt(s.total_fee)}</td><td class="cmo" style="color:var(--em)">${fmt(s.paid)}</td><td class="cmo" style="color:${b>0?'var(--rose)':'var(--em)'};font-weight:600">${fmt(b)}</td><td>${b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>'}</td><td style="display:flex;gap:5px"><button class="btn btn-p btn-sm" onclick="quickFeeFor(${s.id})">+ Fee</button><button class="btn btn-g btn-sm" onclick="showLastReceipt(${s.id})">🧾</button></td></tr>`;
-  }).join('');
+  document.getElementById('fee-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></td><td class="cm">'+(s.university||'').split(' ').slice(0,2).join(' ')+'</td><td class="cmo">'+fmt(s.total_fee)+'</td><td class="cmo" style="color:var(--em)">'+fmt(s.paid)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td>'+(b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>')+'</td><td style="display:flex;gap:5px"><button class="btn btn-p btn-sm" onclick="quickFeeFor('+s.id+')">+ Fee</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">\ud83e\uddfe</button></td></tr>';}).join('');
 }
-
-function quickFeeFor(id){openM('m-qfee');setTimeout(()=>{document.getElementById('qf-s').value=id},50)}
-
+function quickFeeFor(id){openM('m-qfee');setTimeout(()=>{document.getElementById('qf-s').value=id;},50);}
 async function loadFeeInfo(){
   const id=parseInt(document.getElementById('fr-s').value);
-  if(!id){document.getElementById('fr-info').innerHTML='<div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--ink)">Select a student</div></div>';return}
-  const s=allStudents.find(x=>x.id===id); if(!s)return;
+  if(!id){document.getElementById('fr-info').innerHTML='<div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">\ud83d\udccb</div><div style="font-weight:600">Select a student</div></div>';return;}
+  const s=allStudents.find(x=>x.id===id);if(!s)return;
   const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;
-  document.getElementById('fr-info').innerHTML=`<div class="av-cell" style="margin-bottom:13px">${av(s.name,34)}<div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${s.course}·${(s.university||'').split(' ')[0]}</div></div></div><div style="border-top:1px solid var(--bd);padding-top:11px"><div class="rcpt-row"><span class="k">Total Fee</span><span class="v">${fmt(s.total_fee)}</span></div><div class="rcpt-row"><span class="k">Paid</span><span class="v" style="color:var(--em)">${fmt(s.paid)}</span></div><div class="rcpt-row"><span class="k">Balance</span><span class="v" style="color:${b>0?'var(--rose)':'var(--em)'}">${fmt(b)}</span></div></div><div style="margin-top:11px"><div class="pb" style="height:6px"><div class="pb-fill" style="width:${pct}%"></div></div><div style="font-size:11px;color:var(--slate);margin-top:4px">${pct}% paid</div></div>`;
+  document.getElementById('fr-info').innerHTML='<div class="av-cell" style="margin-bottom:13px">'+av(s.name,34)+'<div><div class="cp" style="font-size:14px">'+s.name+'</div><div class="cm">'+s.course+'\xb7'+(s.university||'').split(' ')[0]+'</div></div></div><div style="border-top:1px solid var(--bd);padding-top:11px"><div class="rcpt-row"><span class="k">Total Fee</span><span class="v">'+fmt(s.total_fee)+'</span></div><div class="rcpt-row"><span class="k">Paid</span><span class="v" style="color:var(--em)">'+fmt(s.paid)+'</span></div><div class="rcpt-row"><span class="k">Balance</span><span class="v" style="color:'+(b>0?'var(--rose)':'var(--em)')+'">'+fmt(b)+'</span></div></div><div style="margin-top:11px"><div class="pb" style="height:6px"><div class="pb-fill" style="width:'+pct+'%"></div></div><div style="font-size:11px;color:var(--slate);margin-top:4px">'+pct+'% paid</div></div>';
 }
-
 function clearFeeForm(){
-  ['fr-s','fr-type','fr-mode'].forEach(id=>{const el=document.getElementById(id);if(el)el.selectedIndex=0});
-  ['fr-amt','fr-ref','fr-rem'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  ['fr-s','fr-type','fr-mode'].forEach(id=>{const el=document.getElementById(id);if(el)el.selectedIndex=0;});
+  ['fr-amt','fr-ref','fr-rem'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('fr-date').valueAsDate=new Date();
-  document.getElementById('fr-info').innerHTML='<div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--ink)">Select a student</div></div>';
+  document.getElementById('fr-info').innerHTML='<div style="text-align:center;padding:24px;color:var(--slate)"><div style="font-size:30px;margin-bottom:8px">\ud83d\udccb</div><div style="font-weight:600">Select a student</div></div>';
 }
-
 async function receivePayment(){
   const id=parseInt(document.getElementById('fr-s').value);
   const amt=parseFloat(document.getElementById('fr-amt').value);
-  if(!id){toast('⚠️ Select a student','er');return}
-  if(!amt||amt<=0){toast('⚠️ Enter valid amount','er');return}
+  if(!id){toast('\u26a0\ufe0f Select a student','er');return;}
+  if(!amt||amt<=0){toast('\u26a0\ufe0f Enter valid amount','er');return;}
   const body={amount:amt,fee_type:document.getElementById('fr-type').value,pay_mode:document.getElementById('fr-mode').value,ref_no:document.getElementById('fr-ref').value,pay_date:document.getElementById('fr-date').value,remarks:document.getElementById('fr-rem').value};
-  const r=await api('POST',`/students/${id}/payments`,body);
-  if(!r)return;
-  const s=r.student;
-  allStudents=allStudents.map(x=>x.id===id?s:x);
-  showReceipt(s,amt,body.fee_type,body.pay_mode);
-  clearFeeForm();
+  const r=await api('POST','/students/'+id+'/payments',body);if(!r)return;
+  allStudents=allStudents.map(x=>x.id===id?r.student:x);
+  showReceipt(r.student,amt,body.fee_type,body.pay_mode);clearFeeForm();
 }
-
 async function quickFee(){
   const id=parseInt(document.getElementById('qf-s').value);
   const amt=parseFloat(document.getElementById('qf-amt').value);
-  if(!id||!amt||amt<=0){toast('⚠️ Fill all required fields','er');return}
+  if(!id||!amt||amt<=0){toast('\u26a0\ufe0f Fill all required fields','er');return;}
   const body={amount:amt,fee_type:document.getElementById('qf-type').value,pay_mode:document.getElementById('qf-mode').value,ref_no:document.getElementById('qf-ref').value,pay_date:document.getElementById('qf-date').value};
-  const r=await api('POST',`/students/${id}/payments`,body);
-  if(!r)return;
+  const r=await api('POST','/students/'+id+'/payments',body);if(!r)return;
   allStudents=allStudents.map(x=>x.id===id?r.student:x);
-  closeM('m-qfee');
-  showReceipt(r.student,amt,body.fee_type,body.pay_mode);
+  closeM('m-qfee');showReceipt(r.student,amt,body.fee_type,body.pay_mode);
   ['qf-amt','qf-ref'].forEach(i=>document.getElementById(i).value='');
   reloadDashboard();
 }
-
-// ─── RECEIPT ───
 function showReceipt(s,amt,type,mode){
   const rn=String(Math.floor(Math.random()*9000)+1000);
   document.getElementById('rcpt-no').textContent=rn;
   document.getElementById('rcpt-amt').textContent=fmt(amt);
   const b=s.total_fee-s.paid;
-  document.getElementById('rcpt-body').innerHTML=`<div class="rcpt-row"><span class="k">Student Name</span><span class="v">${s.name}</span></div><div class="rcpt-row"><span class="k">Course</span><span class="v">${s.course} — ${(s.university||'').split(' ').slice(0,2).join(' ')}</span></div><div class="rcpt-row"><span class="k">Fee Type</span><span class="v">${type}</span></div><div class="rcpt-row"><span class="k">Payment Mode</span><span class="v">${mode}</span></div><div class="rcpt-row"><span class="k">Date</span><span class="v">${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span></div><div class="rcpt-row"><span class="k">Balance Remaining</span><span class="v" style="color:${b>0?'var(--rose)':'var(--em)'}">${fmt(b)}</span></div>`;
+  document.getElementById('rcpt-body').innerHTML='<div class="rcpt-row"><span class="k">Student Name</span><span class="v">'+s.name+'</span></div><div class="rcpt-row"><span class="k">Course</span><span class="v">'+s.course+' \u2014 '+(s.university||'').split(' ').slice(0,2).join(' ')+'</span></div><div class="rcpt-row"><span class="k">Fee Type</span><span class="v">'+type+'</span></div><div class="rcpt-row"><span class="k">Payment Mode</span><span class="v">'+mode+'</span></div><div class="rcpt-row"><span class="k">Date</span><span class="v">'+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+'</span></div><div class="rcpt-row"><span class="k">Balance Remaining</span><span class="v" style="color:'+(b>0?'var(--rose)':'var(--em)')+'">'+fmt(b)+'</span></div>';
   openM('m-rcpt');
 }
-
 async function showLastReceipt(id){
-  const s=allStudents.find(x=>x.id===id);
-  if(!s)return;
-  const pmts=await api('GET',`/students/${id}/payments`);
-  const last=pmts?.[0];
-  showReceipt(s,last?.amount||s.paid,last?.fee_type||'Fee',last?.pay_mode||'—');
+  const s=allStudents.find(x=>x.id===id);if(!s)return;
+  const pmts=await api('GET','/students/'+id+'/payments');
+  const last=pmts?.[0];showReceipt(s,last?.amount||s.paid,last?.fee_type||'Fee',last?.pay_mode||'\u2014');
 }
-
-// ─── ASSOCIATE & REFERENCE ───
 async function loadIncStats(){
-  const [a,r]=await Promise.all([api('GET','/associates'),api('GET','/references')]);
-  const ap=(a||[]).reduce((s,x)=>s+x.amount,0);
-  const rp=(r||[]).reduce((s,x)=>s+x.amount,0);
-  document.getElementById('inc-stats').innerHTML=`<div class="sc blue"><div class="sc-ico blue">🤝</div><div class="sc-lbl">Total Associates</div><div class="sc-val">${(a||[]).length}</div></div><div class="sc gold"><div class="sc-ico gold">💸</div><div class="sc-lbl">Associate Payments</div><div class="sc-val">${fmt(ap)}</div></div><div class="sc green"><div class="sc-ico green">👥</div><div class="sc-lbl">Total References</div><div class="sc-val">${(r||[]).length}</div></div><div class="sc rose"><div class="sc-ico rose">🎁</div><div class="sc-lbl">Reference Incentives</div><div class="sc-val">${fmt(rp)}</div></div>`;
+  const[a,r]=await Promise.all([api('GET','/associates'),api('GET','/references')]);
+  const ap=(a||[]).reduce((s,x)=>s+x.amount,0);const rp=(r||[]).reduce((s,x)=>s+x.amount,0);
+  document.getElementById('inc-stats').innerHTML='<div class="sc blue"><div class="sc-ico blue">\ud83e\udd1d</div><div class="sc-lbl">Total Associates</div><div class="sc-val">'+(a||[]).length+'</div></div><div class="sc gold"><div class="sc-ico gold">\ud83d\udcb8</div><div class="sc-lbl">Associate Payments</div><div class="sc-val">'+fmt(ap)+'</div></div><div class="sc green"><div class="sc-ico green">\ud83d\udc65</div><div class="sc-lbl">Total References</div><div class="sc-val">'+(r||[]).length+'</div></div><div class="sc rose"><div class="sc-ico rose">\ud83c\udf81</div><div class="sc-lbl">Reference Incentives</div><div class="sc-val">'+fmt(rp)+'</div></div>';
 }
-
 async function loadIncTab(){
   document.getElementById('inc-loading').style.display='flex';
   document.getElementById('inc-tw').style.display='none';
@@ -1225,243 +777,157 @@ async function loadIncTab(){
     document.getElementById('btn-ref').style.cssText='';
     document.getElementById('inc-hd').innerHTML='<th>Associate</th><th>Student</th><th>Work Done</th><th>Amount</th><th>Date</th><th>Mode</th><th>Status</th><th></th>';
     const data=await api('GET','/associates')||[];
-    document.getElementById('inc-table').innerHTML=data.map(a=>`<tr><td><div class="cp">${a.name}</div><div class="cm">${a.phone||''}</div></td><td>${a.student||'—'}</td><td style="max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--slate)">${a.work_done||'—'}</td><td class="cmo" style="color:var(--sky);font-weight:700">${fmt(a.amount)}</td><td class="cm">${a.pay_date||'—'}</td><td><span class="tag tsl">${a.pay_mode||'—'}</span></td><td>${stag(a.status)}</td><td><button class="btn btn-r btn-sm" onclick="delAssoc(${a.id})">🗑️</button></td></tr>`).join('');
-  } else {
+    document.getElementById('inc-table').innerHTML=data.map(function(a){return'<tr><td><div class="cp">'+a.name+'</div><div class="cm">'+(a.phone||'')+'</div></td><td>'+(a.student||'\u2014')+'</td><td style="max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--slate)">'+(a.work_done||'\u2014')+'</td><td class="cmo" style="color:var(--sky);font-weight:700">'+fmt(a.amount)+'</td><td class="cm">'+(a.pay_date||'\u2014')+'</td><td><span class="tag tsl">'+(a.pay_mode||'\u2014')+'</span></td><td>'+stag(a.status)+'</td><td><button class="btn btn-r btn-sm" onclick="delAssoc('+a.id+')">\ud83d\uddd1\ufe0f</button></td></tr>';}).join('');
+  }else{
     document.getElementById('inc-title').textContent='Reference Incentives';
     document.getElementById('inc-sub').textContent='Incentives paid for student referrals';
     document.getElementById('btn-ref').style.cssText='border-color:var(--gold);color:var(--gold)';
     document.getElementById('btn-assoc').style.cssText='';
     document.getElementById('inc-hd').innerHTML='<th>Reference Person</th><th>Student Referred</th><th>University</th><th>Incentive</th><th>Date</th><th>Mode</th><th>Status</th><th></th>';
     const data=await api('GET','/references')||[];
-    document.getElementById('inc-table').innerHTML=data.map(r=>`<tr><td><div class="cp">${r.name}</div><div class="cm">${r.phone||''}</div></td><td>${r.student||'—'}</td><td class="cm">${(r.university||'—').split(' ').slice(0,2).join(' ')}</td><td class="cmo" style="color:var(--gold);font-weight:700">${fmt(r.amount)}</td><td class="cm">${r.pay_date||'—'}</td><td><span class="tag tsl">${r.pay_mode||'—'}</span></td><td>${stag(r.status)}</td><td><button class="btn btn-r btn-sm" onclick="delRef(${r.id})">🗑️</button></td></tr>`).join('');
+    document.getElementById('inc-table').innerHTML=data.map(function(r){return'<tr><td><div class="cp">'+r.name+'</div><div class="cm">'+(r.phone||'')+'</div></td><td>'+(r.student||'\u2014')+'</td><td class="cm">'+(r.university||'\u2014').split(' ').slice(0,2).join(' ')+'</td><td class="cmo" style="color:var(--gold);font-weight:700">'+fmt(r.amount)+'</td><td class="cm">'+(r.pay_date||'\u2014')+'</td><td><span class="tag tsl">'+(r.pay_mode||'\u2014')+'</span></td><td>'+stag(r.status)+'</td><td><button class="btn btn-r btn-sm" onclick="delRef('+r.id+')">\ud83d\uddd1\ufe0f</button></td></tr>';}).join('');
   }
   document.getElementById('inc-loading').style.display='none';
   document.getElementById('inc-tw').style.display='block';
 }
-
-function switchIncTab(tab){incTab=tab;loadIncTab()}
-
-function openIncModal(){
-  if(incTab==='associate'){document.getElementById('ma-date').valueAsDate=new Date();openM('m-associate')}
-  else{document.getElementById('mr-date').valueAsDate=new Date();openM('m-reference')}
-}
-
+function switchIncTab(tab){incTab=tab;loadIncTab();}
+function openIncModal(){if(incTab==='associate'){document.getElementById('ma-date').valueAsDate=new Date();openM('m-associate');}else{document.getElementById('mr-date').valueAsDate=new Date();openM('m-reference');}}
 async function saveAssociate(){
   const name=document.getElementById('ma-name').value.trim();
-  const sEl=document.getElementById('ma-s');
-  const student=sEl.options[sEl.selectedIndex]?.text;
+  const sEl=document.getElementById('ma-s');const student=sEl.options[sEl.selectedIndex]?.text;
   const amt=parseFloat(document.getElementById('ma-amt').value);
-  if(!name||!student||student==='Select student…'||!amt){toast('⚠️ Fill required fields','er');return}
+  if(!name||!student||student==='Select student\u2026'||!amt){toast('\u26a0\ufe0f Fill required fields','er');return;}
   const r=await api('POST','/associates',{name,phone:document.getElementById('ma-phone').value,student,work_done:document.getElementById('ma-work').value,amount:amt,pay_date:document.getElementById('ma-date').value,pay_mode:document.getElementById('ma-mode').value,utr:document.getElementById('ma-utr').value,notes:document.getElementById('ma-notes').value,status:'Paid'});
-  if(!r)return;
-  closeM('m-associate');
+  if(!r)return;closeM('m-associate');
   ['ma-name','ma-phone','ma-work','ma-amt','ma-utr','ma-notes'].forEach(id=>document.getElementById(id).value='');
-  loadIncTab();loadIncStats();toast('✅ Associate payment saved!','ok');
+  loadIncTab();loadIncStats();toast('\u2705 Associate payment saved!','ok');
 }
-
 async function saveReference(){
   const name=document.getElementById('mr-name').value.trim();
-  const sEl=document.getElementById('mr-s');
-  const student=sEl.options[sEl.selectedIndex]?.text;
+  const sEl=document.getElementById('mr-s');const student=sEl.options[sEl.selectedIndex]?.text;
   const amt=parseFloat(document.getElementById('mr-amt').value);
-  if(!name||!student||student==='Select student…'||!amt){toast('⚠️ Fill required fields','er');return}
+  if(!name||!student||student==='Select student\u2026'||!amt){toast('\u26a0\ufe0f Fill required fields','er');return;}
   const r=await api('POST','/references',{name,phone:document.getElementById('mr-phone').value,student,university:document.getElementById('mr-u').value,amount:amt,pay_date:document.getElementById('mr-date').value,pay_mode:document.getElementById('mr-mode').value,utr:document.getElementById('mr-utr').value,notes:document.getElementById('mr-notes').value,status:'Paid'});
-  if(!r)return;
-  closeM('m-reference');
+  if(!r)return;closeM('m-reference');
   ['mr-name','mr-phone','mr-amt','mr-utr','mr-notes'].forEach(id=>document.getElementById(id).value='');
-  loadIncTab();loadIncStats();toast('✅ Reference incentive saved!','ok');
+  loadIncTab();loadIncStats();toast('\u2705 Reference incentive saved!','ok');
 }
+async function delAssoc(id){if(!confirm('Delete this record?'))return;await api('DELETE','/associates/'+id);loadIncTab();loadIncStats();toast('Deleted','ok');}
+async function delRef(id){if(!confirm('Delete this record?'))return;await api('DELETE','/references/'+id);loadIncTab();loadIncStats();toast('Deleted','ok');}
 
-async function delAssoc(id){if(!confirm('Delete this record?'))return;await api('DELETE',`/associates/${id}`);loadIncTab();loadIncStats();toast('Deleted','ok')}
-async function delRef(id){if(!confirm('Delete this record?'))return;await api('DELETE',`/references/${id}`);loadIncTab();loadIncStats();toast('Deleted','ok')}
-
-// ─── UNIVERSITIES ───
+// ── UNIVERSITIES (with delete) ──
 async function renderUnivGrid(){
   const data=await api('GET','/universities');
   if(!data)return;
-  document.getElementById('univ-grid').innerHTML=data.map(u=>`
-    <div class="uc" style="border-top-color:${u.color}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px">
-        <div>
-          <div class="uc-name">${u.name}</div>
-          <div class="uc-state">${u.state||'—'}</div>
-        </div>
-        ${isSA()?`<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" onclick="delUniversity(${u.id},${JSON.stringify(u.name)},${u.student_count||0})" title="Delete University">🗑️</button>`:''}
-      </div>
-      <div class="uc-cnt" style="color:${u.color}">${u.student_count||0} <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div>
-    </div>`).join('');
+  document.getElementById('univ-grid').innerHTML=data.map(function(u){
+    var deleteBtn='';
+    if(isSA()){
+      deleteBtn='<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" onclick="delUniversity('+u.id+','+JSON.stringify(u.name)+','+(u.student_count||0)+')" title="Delete">\ud83d\uddd1\ufe0f</button>';
+    }
+    return '<div class="uc" style="border-top-color:'+u.color+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">'
+      +'<div><div class="uc-name">'+u.name+'</div><div class="uc-state">'+(u.state||'\u2014')+'</div></div>'
+      +deleteBtn
+      +'</div>'
+      +'<div class="uc-cnt" style="color:'+u.color+'">'+(u.student_count||0)+' <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div>'
+      +'</div>';
+  }).join('');
 }
-
 async function addUniversity(){
   const name=document.getElementById('au-name').value.trim();
-  if(!name){toast('Enter university name','er');return}
+  if(!name){toast('Enter university name','er');return;}
   const r=await api('POST','/universities',{name,state:document.getElementById('au-state').value,color:document.getElementById('au-color').value});
-  if(!r)return;
-  closeM('m-univ');
+  if(!r)return;closeM('m-univ');
   document.getElementById('au-name').value='';document.getElementById('au-state').value='';
-  await loadUniversities(); renderUnivGrid();toast('✅ University added!','ok');
+  await loadUniversities();renderUnivGrid();toast('\u2705 University added!','ok');
 }
-
-// ── NEW: University Delete Function ──
-async function delUniversity(id, name, count){
-  if(count > 0){
-    if(!confirm(`"${name}" mein ${count} student(s) enrolled hain.\n\nPhir bhi delete karna chahte ho?\n(Students ka data safe rahega, sirf university list se hategi)`))return;
-  } else {
-    if(!confirm(`"${name}" university delete karna chahte ho?`))return;
+async function delUniversity(id,name,count){
+  if(count>0){
+    if(!confirm('"'+name+'" mein '+count+' student(s) enrolled hain.\n\nPhir bhi delete karna chahte ho?\n(Students ka data safe rahega, sirf list se hategi)'))return;
+  }else{
+    if(!confirm('"'+name+'" university delete karna chahte ho?'))return;
   }
-  const r = await api('DELETE', `/universities/${id}`);
-  if(!r) return;
-  await loadUniversities();
-  renderUnivGrid();
-  toast('✅ University delete ho gayi!', 'ok');
+  const r=await api('DELETE','/universities/'+id);
+  if(!r)return;
+  await loadUniversities();renderUnivGrid();toast('\u2705 University delete ho gayi!','ok');
 }
 
-// ─── DOCUMENTS ───
 async function loadDocs(){
   const data=await api('GET','/documents')||[];
-  document.getElementById('doc-table').innerHTML=data.map(d=>`<tr><td class="cp">${d.student}</td><td>${d.doc_type}</td><td class="cm">${d.university||'—'}</td><td class="cm">${d.issue_date||'—'}</td><td>${stag(d.status)}</td><td class="cm">${d.delivered_to||'—'}</td></tr>`).join('');
+  document.getElementById('doc-table').innerHTML=data.map(function(d){return'<tr><td class="cp">'+d.student+'</td><td>'+d.doc_type+'</td><td class="cm">'+(d.university||'\u2014')+'</td><td class="cm">'+(d.issue_date||'\u2014')+'</td><td>'+stag(d.status)+'</td><td class="cm">'+(d.delivered_to||'\u2014')+'</td></tr>';}).join('');
 }
-
 async function issueDoc(){
-  const sEl=document.getElementById('id-s');
-  const student=sEl.options[sEl.selectedIndex]?.text;
-  if(!student||student==='Select student…'){toast('Select a student','er');return}
+  const sEl=document.getElementById('id-s');const student=sEl.options[sEl.selectedIndex]?.text;
+  if(!student||student==='Select student\u2026'){toast('Select a student','er');return;}
   const s=allStudents.find(x=>x.name===student);
   const r=await api('POST','/documents',{student,doc_type:document.getElementById('id-dt').value,university:s?.university||'',issue_date:document.getElementById('id-date').value,status:'Delivered',delivered_to:document.getElementById('id-to').value||'Student'});
-  if(!r)return;
-  closeM('m-doc');loadDocs();toast('✅ Document issued!','ok');
+  if(!r)return;closeM('m-doc');loadDocs();toast('\u2705 Document issued!','ok');
 }
-
-// ─── SETTINGS ───
 async function loadSettings(){
   const data=await api('GET','/users')||[];
-  document.getElementById('users-table').innerHTML=data.map(u=>`<tr><td class="cmo">${u.username}</td><td class="cp">${u.full_name}</td><td><span class="tag ${u.role==='Super Admin'?'tgr':u.role==='Admin'?'tg':'tsl'}">${u.role}</span></td><td>${u.username!=='admin'?`<button class="btn btn-r btn-sm" onclick="delUser(${u.id})">🗑️</button>`:'<span class="cm">Owner</span>'}</td></tr>`).join('');
+  document.getElementById('users-table').innerHTML=data.map(function(u){return'<tr><td class="cmo">'+u.username+'</td><td class="cp">'+u.full_name+'</td><td><span class="tag '+(u.role==='Super Admin'?'tgr':u.role==='Admin'?'tg':'tsl')+'">'+u.role+'</span></td><td>'+(u.username!=='admin'?'<button class="btn btn-r btn-sm" onclick="delUser('+u.id+')">\ud83d\uddd1\ufe0f</button>':'<span class="cm">Owner</span>')+'</td></tr>';}).join('');
 }
-
 async function changePassword(){
-  const old=document.getElementById('cp-old').value;
-  const nw=document.getElementById('cp-new').value;
-  const cf=document.getElementById('cp-cf').value;
-  if(!old||!nw){toast('Fill all fields','er');return}
-  if(nw!==cf){toast('New passwords do not match','er');return}
-  const r=await api('POST','/change-password',{old_password:old,new_password:nw});
-  if(!r)return;
-  toast('✅ Password updated!','ok');
-  ['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
+  const old=document.getElementById('cp-old').value;const nw=document.getElementById('cp-new').value;const cf=document.getElementById('cp-cf').value;
+  if(!old||!nw){toast('Fill all fields','er');return;}
+  if(nw!==cf){toast('New passwords do not match','er');return;}
+  const r=await api('POST','/change-password',{old_password:old,new_password:nw});if(!r)return;
+  toast('\u2705 Password updated!','ok');['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
 }
-
-async function delUser(id){
-  if(!confirm('Delete this user?'))return;
-  const r=await api('DELETE',`/users/${id}`);
-  if(!r)return;
-  loadSettings();toast('User deleted','ok');
-}
-
-// ─── REPORTS ───
+async function delUser(id){if(!confirm('Delete this user?'))return;const r=await api('DELETE','/users/'+id);if(!r)return;loadSettings();toast('User deleted','ok');}
 async function dlReport(type){
-  toast('📥 Preparing report…');
+  toast('\ud83d\udce5 Preparing report\u2026');
   try{
-    const r=await fetch(`/api/reports/${type}`,{credentials:'same-origin'});
-    if(!r.ok){toast('Error generating report','er');return}
-    const blob=await r.blob();
-    const cd=r.headers.get('Content-Disposition')||'';
-    const fname=cd.match(/filename=([^;]+)/)?.[1]||`report_${type}.csv`;
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=fname;a.click();
-    URL.revokeObjectURL(url);
-    toast('✅ Report downloaded!','ok');
-  }catch(e){toast('Error: '+e.message,'er')}
+    const r=await fetch('/api/reports/'+type,{credentials:'same-origin'});
+    if(!r.ok){toast('Error generating report','er');return;}
+    const blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';
+    const fname=cd.match(/filename=([^;]+)/)?.[1]||'report_'+type+'.csv';
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);
+    toast('\u2705 Report downloaded!','ok');
+  }catch(e){toast('Error: '+e.message,'er');}
 }
-
-// ─── CHECK SESSION ON LOAD ───
-window.addEventListener('load', async()=>{
-  try{
-    const r=await fetch('/api/me',{credentials:'same-origin'});
-    if(r.ok){
-      currentUser=await r.json();
-      document.getElementById('login-screen').style.display='none';
-      document.getElementById('app').style.display='block';
-      document.getElementById('sb-av').textContent=ini(currentUser.full_name);
-      document.getElementById('sb-name').textContent=currentUser.full_name;
-      document.getElementById('sb-role').textContent=currentUser.role;
-      await initApp();
-    }
-  }catch(e){}
-});
-
-// ═══════════════════════════════════════════
-// PHASE 2
-// ═══════════════════════════════════════════
-
-let allUsers = [];
-let pendingInst = [];
-
-function isSA(){ return currentUser && currentUser.role==='Super Admin'; }
-function isAdm(){ return currentUser && (currentUser.role==='Admin'||currentUser.role==='Super Admin'); }
-
 function applyPermsPhase2(){
-  if(!currentUser) return;
-  const p = currentUser.permissions||{};
-  if(!p.can_manage_leads && !isSA()){ const el=document.getElementById('nav-leads'); if(el) el.style.display='none'; }
-  if(!isSA()){ ['nav-sess','nav-audit','nav-lh'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';}); }
+  if(!currentUser)return;
+  const p=currentUser.permissions||{};
+  if(!p.can_manage_leads&&!isSA()){const el=document.getElementById('nav-leads');if(el)el.style.display='none';}
+  if(!isSA()){['nav-sess','nav-audit','nav-lh'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
 }
-
 async function loadSessionInfo(){
-  const me = await api('GET','/me');
-  const sessEl = document.getElementById('sb-sess');
-  if(!sessEl) return;
-  if(me && me.active_session) sessEl.textContent = '📚 '+me.active_session.name;
-  else sessEl.textContent = 'No active session';
-  if(me && me.unread_notifications>0){
-    const b=document.getElementById('notif-badge'); if(b){b.textContent=me.unread_notifications;b.classList.add('show');}
-  }
+  const me=await api('GET','/me');const sessEl=document.getElementById('sb-sess');if(!sessEl)return;
+  if(me&&me.active_session)sessEl.textContent='\ud83d\udcda '+me.active_session.name;else sessEl.textContent='No active session';
+  if(me&&me.unread_notifications>0){const b=document.getElementById('notif-badge');if(b){b.textContent=me.unread_notifications;b.classList.add('show');}}
 }
-
-// NOTIFICATIONS
 async function loadNotifications(){
-  try {
-    const data = await api('GET','/notifications')||[];
-    const unread = data.filter(n=>!n.is_read).length;
-    const badge = document.getElementById('notif-badge');
-    if(badge){ badge.textContent=unread; if(unread>0) badge.classList.add('show'); else badge.classList.remove('show'); }
-    const list = document.getElementById('notif-list');
-    if(list) list.innerHTML = data.length ? data.map(n=>`<div class="notif-item ${n.is_read?'':'unread'}" onclick="markNotifRead(${n.id})"><div class="notif-title">${n.title}</div><div class="notif-msg">${n.message||''}</div><div style="font-size:10px;color:var(--slate);margin-top:3px">${(n.created_at||'').slice(0,16)}</div></div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';
-  } catch(e){}
+  try{
+    const data=await api('GET','/notifications')||[];
+    const unread=data.filter(n=>!n.is_read).length;
+    const badge=document.getElementById('notif-badge');
+    if(badge){badge.textContent=unread;if(unread>0)badge.classList.add('show');else badge.classList.remove('show');}
+    const list=document.getElementById('notif-list');
+    if(list)list.innerHTML=data.length?data.map(function(n){return'<div class="notif-item '+(n.is_read?'':'unread')+'" onclick="markNotifRead('+n.id+')"><div class="notif-title">'+n.title+'</div><div class="notif-msg">'+(n.message||'')+'</div><div style="font-size:10px;color:var(--slate);margin-top:3px">'+(n.created_at||'').slice(0,16)+'</div></div>';}).join(''):'<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';
+  }catch(e){}
 }
-function toggleNotif(){ document.getElementById('notif-panel').classList.toggle('open'); if(document.getElementById('notif-panel').classList.contains('open')) loadNotifications(); }
-document.addEventListener('click',e=>{ const w=document.getElementById('notif-wrap'); if(w&&!w.contains(e.target)) document.getElementById('notif-panel').classList.remove('open'); });
-async function markAllRead(){ await api('POST','/notifications/read-all'); loadNotifications(); }
-async function markNotifRead(id){ await api('POST',`/notifications/${id}/read`); loadNotifications(); }
-
-// LEADS
+function toggleNotif(){document.getElementById('notif-panel').classList.toggle('open');if(document.getElementById('notif-panel').classList.contains('open'))loadNotifications();}
+document.addEventListener('click',function(e){const w=document.getElementById('notif-wrap');if(w&&!w.contains(e.target))document.getElementById('notif-panel').classList.remove('open');});
+async function markAllRead(){await api('POST','/notifications/read-all');loadNotifications();}
+async function markNotifRead(id){await api('POST','/notifications/'+id+'/read');loadNotifications();}
 async function loadLeads(){
-  const status = document.getElementById('lead-flt')?document.getElementById('lead-flt').value:'';
-  const data = await api('GET',`/leads${status?'?status='+status:''}`)||[];
+  const status=document.getElementById('lead-flt')?document.getElementById('lead-flt').value:'';
+  const data=await api('GET','/leads'+(status?'?status='+status:''))||[];
   const counts={New:0,Contacted:0,Interested:0,Converted:0,Lost:0};
-  data.forEach(l=>counts[l.status]=(counts[l.status]||0)+1);
+  data.forEach(function(l){counts[l.status]=(counts[l.status]||0)+1;});
   const ls=document.getElementById('lead-stats');
-  if(ls) ls.innerHTML=Object.entries(counts).map(([k,v])=>`<div class="sc ${k==='Converted'?'green':k==='Lost'?'rose':k==='Interested'?'gold':'blue'}"><div class="sc-lbl">${k}</div><div class="sc-val">${v}</div></div>`).join('');
+  if(ls)ls.innerHTML=Object.entries(counts).map(function(kv){return'<div class="sc '+(kv[0]==='Converted'?'green':kv[0]==='Lost'?'rose':kv[0]==='Interested'?'gold':'blue')+'"><div class="sc-lbl">'+kv[0]+'</div><div class="sc-val">'+kv[1]+'</div></div>';}).join('');
   const lt=document.getElementById('lead-table');
-  if(lt) lt.innerHTML=data.map(l=>`<tr>
-    <td><div class="av-cell">${av(l.name)}<div><div class="cp">${l.name}</div><div class="cm">${l.email||''}</div></div></div></td>
-    <td class="cmo">${l.mobile||'—'}</td><td>${l.course||'—'}</td>
-    <td class="cm">${(l.university||'—').split(' ').slice(0,2).join(' ')}</td>
-    <td><span class="tag tsl">${l.source||'Walk-in'}</span></td>
-    <td><span class="tag ${l.status==='Converted'?'tgr':l.status==='Lost'?'tr':l.status==='New'?'tg':'ta'}">${l.status}</span></td>
-    <td class="cm">${(l.follow_up_date||'—').slice(0,10)}</td>
-    <td><div style="display:flex;gap:4px">
-      ${l.status!=='Converted'?`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="convertLead(${l.id},'${l.name.replace(/'/g,"\'")}')">→ Admit</button>`:''}
-      <button class="btn btn-r btn-sm" onclick="deleteLead(${l.id})">🗑️</button>
-    </div></td></tr>`).join('');
+  if(lt)lt.innerHTML=data.map(function(l){return'<tr><td><div class="av-cell">'+av(l.name)+'<div><div class="cp">'+l.name+'</div><div class="cm">'+(l.email||'')+'</div></div></div></td><td class="cmo">'+(l.mobile||'\u2014')+'</td><td>'+(l.course||'\u2014')+'</td><td class="cm">'+(l.university||'\u2014').split(' ').slice(0,2).join(' ')+'</td><td><span class="tag tsl">'+(l.source||'Walk-in')+'</span></td><td><span class="tag '+(l.status==='Converted'?'tgr':l.status==='Lost'?'tr':l.status==='New'?'tg':'ta')+'">'+l.status+'</span></td><td class="cm">'+(l.follow_up_date||'\u2014').slice(0,10)+'</td><td><div style="display:flex;gap:4px">'+(l.status!=='Converted'?'<button class="btn btn-sm" style="background:var(--em);color:#fff" onclick="convertLead('+l.id+',\''+l.name.replace(/'/g,"\\'")+'\')"> Admit</button>':'')+'<button class="btn btn-r btn-sm" onclick="deleteLead('+l.id+')">\ud83d\uddd1\ufe0f</button></div></td></tr>';}).join('');
 }
 function openAddLead(){
   document.getElementById('lead-id').value='';
-  document.getElementById('lead-modal-title').textContent='📋 Add Lead';
+  document.getElementById('lead-modal-title').textContent='\ud83d\udccb Add Lead';
   document.getElementById('lead-save-btn').textContent='Save Lead';
   ['lead-name','lead-mobile','lead-email','lead-fudate','lead-remarks'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('lead-status').value='New';
-  const uo=['<option value="">Select</option>',...allUnivs.map(u=>`<option value="${u.name}">${u.name}</option>`)].join('');
-  document.getElementById('lead-univ').innerHTML=uo;
+  document.getElementById('lead-univ').innerHTML='<option value="">Select</option>'+allUnivs.map(u=>'<option value="'+u.name+'">'+u.name+'</option>').join('');
   openM('m-lead');
 }
 async function saveLead(){
@@ -1469,105 +935,72 @@ async function saveLead(){
   const name=document.getElementById('lead-name').value.trim();
   if(!name){toast('Name zaroori hai','er');return;}
   const body={name,mobile:document.getElementById('lead-mobile').value,email:document.getElementById('lead-email').value,status:document.getElementById('lead-status').value,course:document.getElementById('lead-course').value,university:document.getElementById('lead-univ').value,source:document.getElementById('lead-source').value,follow_up_date:document.getElementById('lead-fudate').value||null,remarks:document.getElementById('lead-remarks').value};
-  const r=id?await api('PUT',`/leads/${id}`,body):await api('POST','/leads',body);
-  if(!r)return; closeM('m-lead'); loadLeads(); toast(id?'Lead updated!':'✅ Lead added!','ok');
+  const r=id?await api('PUT','/leads/'+id,body):await api('POST','/leads',body);
+  if(!r)return;closeM('m-lead');loadLeads();toast(id?'Lead updated!':'\u2705 Lead added!','ok');
 }
 async function convertLead(id,name){
-  if(!confirm(`${name} ko student mein convert karna chahte ho?`))return;
-  const r=await api('POST',`/leads/${id}/convert`);
-  if(!r)return; toast('✅ Student created!','ok'); loadLeads(); reloadDashboard();
-  if(r.student_id) setTimeout(()=>editStudent(r.student_id),600);
+  if(!confirm(name+' ko student mein convert karna chahte ho?'))return;
+  const r=await api('POST','/leads/'+id+'/convert');
+  if(!r)return;toast('\u2705 Student created!','ok');loadLeads();reloadDashboard();
+  if(r.student_id)setTimeout(()=>editStudent(r.student_id),600);
 }
-async function deleteLead(id){ if(!confirm('Delete?'))return; if(await api('DELETE',`/leads/${id}`)){loadLeads();toast('Deleted','ok');} }
-
-// FOLLOW-UPS
+async function deleteLead(id){if(!confirm('Delete?'))return;if(await api('DELETE','/leads/'+id)){loadLeads();toast('Deleted','ok');}}
 async function loadFollowUps(){
   const days=document.getElementById('fu-days')?document.getElementById('fu-days').value:7;
-  const data=await api('GET',`/followups/upcoming?days=${days}`)||[];
+  const data=await api('GET','/followups/upcoming?days='+days)||[];
   const ft=document.getElementById('fu-table');
-  if(ft) ft.innerHTML=data.length?data.map(f=>`<tr><td class="cp">${f.student_name||f.lead_name||'—'}</td><td><span class="tag tg">${f.follow_type||'Call'}</span></td><td class="cm">${f.note}</td><td class="cm" style="color:var(--sky)">${(f.next_date||'').slice(0,10)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--slate)">No upcoming follow-ups</td></tr>';
+  if(ft)ft.innerHTML=data.length?data.map(function(f){return'<tr><td class="cp">'+(f.student_name||f.lead_name||'\u2014')+'</td><td><span class="tag tg">'+(f.follow_type||'Call')+'</span></td><td class="cm">'+f.note+'</td><td class="cm" style="color:var(--sky)">'+(f.next_date||'').slice(0,10)+'</td></tr>';}).join(''):'<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--slate)">No upcoming follow-ups</td></tr>';
 }
 async function saveFollowUp(){
-  const sid=document.getElementById('fu-student').value;
-  const note=document.getElementById('fu-note').value.trim();
+  const sid=document.getElementById('fu-student').value;const note=document.getElementById('fu-note').value.trim();
   if(!sid||!note){toast('Student aur Note zaroori hai','er');return;}
-  const r=await api('POST',`/students/${sid}/followups`,{note,follow_type:document.getElementById('fu-type').value,next_date:document.getElementById('fu-next').value||null});
-  if(!r)return; toast('✅ Follow-up saved!','ok'); document.getElementById('fu-note').value=''; document.getElementById('fu-next').value=''; loadFollowUps();
+  const r=await api('POST','/students/'+sid+'/followups',{note,follow_type:document.getElementById('fu-type').value,next_date:document.getElementById('fu-next').value||null});
+  if(!r)return;toast('\u2705 Follow-up saved!','ok');document.getElementById('fu-note').value='';document.getElementById('fu-next').value='';loadFollowUps();
 }
-
-// OVERDUE
 async function loadOverdue(){
   const data=await api('GET','/installments/overdue')||[];
   const ot=document.getElementById('overdue-table');
-  if(ot) ot.innerHTML=data.length?data.map(r=>`<tr><td class="cp">${r.student_name}</td><td class="cmo">${r.mobile||'—'}</td><td>${(r.university||'').split(' ').slice(0,2).join(' ')}</td><td class="cp" style="color:var(--rose)">${fmt(r.amount)}</td><td class="cm" style="color:var(--rose)">${(r.due_date||'').slice(0,10)}</td><td><button class="btn btn-p btn-sm" onclick="quickFeeFor(${r.student_id})">💸 Pay</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate)">✅ No overdue installments!</td></tr>';
+  if(ot)ot.innerHTML=data.length?data.map(function(r){return'<tr><td class="cp">'+r.student_name+'</td><td class="cmo">'+(r.mobile||'\u2014')+'</td><td>'+(r.university||'').split(' ').slice(0,2).join(' ')+'</td><td class="cp" style="color:var(--rose)">'+fmt(r.amount)+'</td><td class="cm" style="color:var(--rose)">'+(r.due_date||'').slice(0,10)+'</td><td><button class="btn btn-p btn-sm" onclick="quickFeeFor('+r.student_id+')">\ud83d\udcb8 Pay</button></td></tr>';}).join(''):'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate)">\u2705 No overdue installments!</td></tr>';
 }
-
-// SESSIONS
 async function loadSessions(){
-  const sl2=document.getElementById('sessions-list');
-  if(sl2) sl2.innerHTML='<div style="text-align:center;padding:20px;color:var(--slate)"><div class="spin" style="width:18px;height:18px;border:2px solid #E2E8F0;border-top-color:#1A6CF6;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></div> Loading…</div>';
   const data=await api('GET','/sessions')||[];
   const sl=document.getElementById('sessions-list');
-  if(sl) sl.innerHTML=data.length===0?'<div style="text-align:center;padding:20px;color:var(--slate)">No sessions yet. Click + New Session.</div>':data.map(s=>`<div class="sess-card ${(s.is_active==true||s.is_active==1||s.is_active=='true')?'active-sess':''}"><div><div class="cp" style="font-size:14px">${s.name}</div><div class="cm">${(s.start_date||'').slice(0,10)} — ${(s.end_date||'').slice(0,10)}</div></div><div style="display:flex;align-items:center;gap:8px">${(s.is_active==true||s.is_active==1||s.is_active=='true')?'<span class="tag tgr">🟢 Active</span>':`<button class="btn btn-em btn-sm" style="background:var(--em);color:#fff" onclick="activateSession(${s.id})">Activate</button>`}${!(s.is_active==true||s.is_active==1||s.is_active=='true')?`<button class="btn btn-r btn-sm" onclick="deleteSession(${s.id})">🗑️</button>`:''}</div></div>`).join('');
+  if(sl)sl.innerHTML=data.length===0?'<div style="text-align:center;padding:20px;color:var(--slate)">No sessions yet.</div>':data.map(function(s){const active=(s.is_active==true||s.is_active==1||s.is_active=='true');return'<div class="sess-card '+(active?'active-sess':'')+'"><div><div class="cp" style="font-size:14px">'+s.name+'</div><div class="cm">'+(s.start_date||'').slice(0,10)+' \u2014 '+(s.end_date||'').slice(0,10)+'</div></div><div style="display:flex;align-items:center;gap:8px">'+(active?'<span class="tag tgr">\ud83d\udfe2 Active</span>':'<button class="btn btn-sm" style="background:var(--em);color:#fff" onclick="activateSession('+s.id+')">Activate</button>')+(!active?'<button class="btn btn-r btn-sm" onclick="deleteSession('+s.id+')">\ud83d\uddd1\ufe0f</button>':'')+'</div></div>';}).join('');
 }
 async function addSession(){
   const name=document.getElementById('sess-name').value.trim();
   if(!name){toast('Session name zaroori hai','er');return;}
   const r=await api('POST','/sessions',{name,start_date:document.getElementById('sess-start').value||null,end_date:document.getElementById('sess-end').value||null});
-  if(!r)return; closeM('m-session'); loadSessions(); toast('✅ Session created!','ok'); document.getElementById('sess-name').value='';
+  if(!r)return;closeM('m-session');loadSessions();toast('\u2705 Session created!','ok');document.getElementById('sess-name').value='';
 }
-async function activateSession(id){
-  if(!confirm('Yeh session activate karna chahte ho?'))return;
-  if(await api('POST',`/sessions/${id}/activate`)){loadSessions();toast('✅ Activated!','ok');loadSessionInfo();}
-}
-async function deleteSession(id){ if(!confirm('Delete?'))return; if(await api('DELETE',`/sessions/${id}`)){loadSessions();toast('Deleted','ok');} }
-
-// AUDIT LOGS
+async function activateSession(id){if(!confirm('Yeh session activate karna chahte ho?'))return;if(await api('POST','/sessions/'+id+'/activate')){loadSessions();toast('\u2705 Activated!','ok');loadSessionInfo();}}
+async function deleteSession(id){if(!confirm('Delete?'))return;if(await api('DELETE','/sessions/'+id)){loadSessions();toast('Deleted','ok');}}
 async function loadAuditLogs(){
   const uid=document.getElementById('audit-user')?document.getElementById('audit-user').value:'';
   const mod=document.getElementById('audit-module')?document.getElementById('audit-module').value:'';
-  let url='/audit-logs?limit=100'; if(uid) url+=`&user_id=${uid}`; if(mod) url+=`&module=${mod}`;
+  let url='/audit-logs?limit=100';if(uid)url+='&user_id='+uid;if(mod)url+='&module='+mod;
   const data=await api('GET',url)||[];
-  const icons={Add:'➕',Edit:'✏️',Delete:'🗑️',Payment:'💰',Login:'🔐',Logout:'🚪',FollowUp:'📅',Convert:'🔄',Upload:'📎'};
+  const icons={Add:'\u2795',Edit:'\u270f\ufe0f',Delete:'\ud83d\uddd1\ufe0f',Payment:'\ud83d\udcb0',Login:'\ud83d\udd10',Logout:'\ud83d\udeaa',Convert:'\ud83d\udd04'};
   const al=document.getElementById('audit-list');
-  if(al) al.innerHTML=data.length?data.map(a=>`<div class="audit-item"><div class="audit-ico" style="background:var(--sky-lt);border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${icons[a.action_type]||'📋'}</div><div style="flex:1"><div class="cp">${a.action_type} — ${a.module_name||'—'}</div><div class="cm">${a.detail||''} ${a.record_id?'#'+a.record_id:''}</div></div><div style="text-align:right"><div class="cm">${a.user_name||'—'}</div><div class="cm">${(a.created_at||'').slice(0,16)}</div></div></div>`).join(''):'<div style="text-align:center;padding:30px;color:var(--slate)">No logs found</div>';
+  if(al)al.innerHTML=data.length?data.map(function(a){return'<div class="audit-item"><div style="width:30px;height:30px;border-radius:7px;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(icons[a.action_type]||'\ud83d\udccb')+'</div><div style="flex:1"><div class="cp">'+(a.action_type||'')+' \u2014 '+(a.module_name||'\u2014')+'</div><div class="cm">'+(a.detail||'')+' '+(a.record_id?'#'+a.record_id:'')+'</div></div><div style="text-align:right"><div class="cm">'+(a.user_name||'\u2014')+'</div><div class="cm">'+(a.created_at||'').slice(0,16)+'</div></div></div>';}).join(''):'<div style="text-align:center;padding:30px;color:var(--slate)">No logs found</div>';
 }
-
-// LOGIN HISTORY
 async function loadLoginHistory(){
   const uid=document.getElementById('lh-user')?document.getElementById('lh-user').value:'';
-  const data=await api('GET',`/login-history${uid?'?user_id='+uid:''}`)||[];
+  const data=await api('GET','/login-history'+(uid?'?user_id='+uid:''))||[];
   const lt=document.getElementById('lh-table');
-  if(lt) lt.innerHTML=data.map(r=>`<tr><td class="cp">${r.user_name||'—'}</td><td>${r.status==='Success'?'<span class="tag tgr">✅ Success</span>':'<span class="tag tr">❌ Failed</span>'}</td><td class="cmo">${r.ip_address||'—'}</td><td class="cm">${(r.created_at||'').slice(0,16)}</td></tr>`).join('');
+  if(lt)lt.innerHTML=data.map(function(r){return'<tr><td class="cp">'+(r.user_name||'\u2014')+'</td><td>'+(r.status==='Success'?'<span class="tag tgr">\u2705 Success</span>':'<span class="tag tr">\u274c Failed</span>')+'</td><td class="cmo">'+(r.ip_address||'\u2014')+'</td><td class="cm">'+(r.created_at||'').slice(0,16)+'</td></tr>';}).join('');
 }
-
-// INSTALLMENTS
 function addInstLine(){
   const amt=parseFloat(document.getElementById('inst-amt').value)||0;
-  const due=document.getElementById('inst-due').value;
   if(!amt){toast('Amount daalo','er');return;}
-  pendingInst.push({amount:amt,due_date:due,remarks:document.getElementById('inst-rem').value});
-  document.getElementById('inst-amt').value=''; document.getElementById('inst-due').value=''; document.getElementById('inst-rem').value='';
+  pendingInst.push({amount:amt,due_date:document.getElementById('inst-due').value,remarks:document.getElementById('inst-rem').value});
+  document.getElementById('inst-amt').value='';document.getElementById('inst-due').value='';document.getElementById('inst-rem').value='';
   renderInstLines();
 }
 function renderInstLines(){
   const il=document.getElementById('inst-lines');
-  if(il) il.innerHTML=pendingInst.map((inst,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:6px"><span style="flex:1">${fmt(inst.amount)} — ${inst.due_date||'No date'}</span><button class="btn btn-r btn-sm" onclick="pendingInst.splice(${i},1);renderInstLines()">✕</button></div>`).join('');
+  if(il)il.innerHTML=pendingInst.map(function(inst,i){return'<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--rs);margin-bottom:6px"><span style="flex:1">'+fmt(inst.amount)+' \u2014 '+(inst.due_date||'No date')+'</span><button class="btn btn-r btn-sm" onclick="pendingInst.splice('+i+',1);renderInstLines()">\u2715</button></div>';}).join('');
 }
-
-const _saveStudentOrig = saveStudent;
-async function saveStudent(){
-  const nameVal = document.getElementById('f-name').value.trim();
-  await _saveStudentOrig();
-  if(pendingInst.length>0){
-    const students = await api('GET','/students?q='+encodeURIComponent(nameVal));
-    if(students&&students[0]){
-      for(const inst of pendingInst) await api('POST',`/students/${students[0].id}/installments`,inst);
-      pendingInst=[];
-    }
-  }
-}
-
 async function saveUser(){
   const editId=document.getElementById('mu-id').value;
   const un=document.getElementById('nu-u').value.trim();
@@ -1575,51 +1008,20 @@ async function saveUser(){
   const pass=document.getElementById('nu-p').value;
   if(!un||!name){toast('Username aur Name zaroori hai','er');return;}
   if(!editId&&!pass){toast('Password zaroori hai','er');return;}
-  const perms={
-    can_add_student:document.getElementById('p-add').checked,
-    can_edit_student:document.getElementById('p-edit').checked,
-    can_delete_student:document.getElementById('p-del').checked,
-    can_view_payments:document.getElementById('p-vpay').checked,
-    can_add_payment:document.getElementById('p-apay').checked,
-    can_view_all_students:document.getElementById('p-vall').checked,
-    can_view_associates:document.getElementById('p-vassoc').checked,
-    can_manage_associates:document.getElementById('p-massoc').checked,
-    can_view_references:document.getElementById('p-vref').checked,
-    can_manage_references:document.getElementById('p-mref').checked,
-    can_view_documents:document.getElementById('p-vdoc').checked,
-    can_upload_document:document.getElementById('p-udoc').checked,
-    can_view_reports:document.getElementById('p-vrep').checked,
-    can_manage_universities:document.getElementById('p-muniv').checked,
-    can_manage_leads:document.getElementById('p-leads')?document.getElementById('p-leads').checked:false,
-    can_view_audit_logs:document.getElementById('p-audit')?document.getElementById('p-audit').checked:false,
-  };
+  const perms={can_add_student:document.getElementById('p-add').checked,can_edit_student:document.getElementById('p-edit').checked,can_delete_student:document.getElementById('p-del').checked,can_view_payments:document.getElementById('p-vpay').checked,can_add_payment:document.getElementById('p-apay').checked,can_view_all_students:document.getElementById('p-vall').checked,can_view_associates:document.getElementById('p-vassoc').checked,can_manage_associates:document.getElementById('p-massoc').checked,can_view_references:document.getElementById('p-vref').checked,can_manage_references:document.getElementById('p-mref').checked,can_view_documents:document.getElementById('p-vdoc').checked,can_upload_document:document.getElementById('p-udoc').checked,can_view_reports:document.getElementById('p-vrep').checked,can_manage_universities:document.getElementById('p-muniv').checked,can_manage_leads:document.getElementById('p-leads')?document.getElementById('p-leads').checked:false,can_view_audit_logs:document.getElementById('p-audit')?document.getElementById('p-audit').checked:false};
   const univIds=[...document.querySelectorAll('input[name="nu-univ"]:checked')].map(x=>parseInt(x.value));
   let r;
-  if(editId){
-    const body={full_name:name,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds};
-    if(pass) body.new_password=pass;
-    r=await api('PUT',`/users/${editId}`,body);
-  } else {
-    r=await api('POST','/users',{username:un,full_name:name,password:pass,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds});
-  }
-  if(!r)return; closeM('m-user'); loadSettings(); toast(editId?'✅ User updated!':'✅ User added!','ok');
+  if(editId){const body={full_name:name,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds};if(pass)body.new_password=pass;r=await api('PUT','/users/'+editId,body);}
+  else{r=await api('POST','/users',{username:un,full_name:name,password:pass,role:document.getElementById('nu-r').value,permissions:perms,assigned_university_ids:univIds});}
+  if(!r)return;closeM('m-user');loadSettings();toast(editId?'\u2705 User updated!':'\u2705 User added!','ok');
 }
-
-const _origOpenM = openM;
-openM = function(id){
+const _origOpenM=openM;
+openM=function(id){
   _origOpenM(id);
-  if(id === 'm-user'){
-    const list = document.getElementById('nu-univ-list');
-    if(list && allUnivs && allUnivs.length){
-      list.innerHTML = allUnivs.map(u =>
-        `<label><input type="checkbox" name="nu-univ" value="${u.id}"> ${u.name}</label>`
-      ).join('');
-    }
-  }
+  if(id==='m-user'){const list=document.getElementById('nu-univ-list');if(list&&allUnivs&&allUnivs.length){list.innerHTML=allUnivs.map(u=>'<label><input type="checkbox" name="nu-univ" value="'+u.id+'"> '+u.name+'</label>').join('');}}
 };
-
-window.addEventListener('load', async()=>{
-  try {
+window.addEventListener('load',async function(){
+  try{
     const r=await fetch('/api/me',{credentials:'same-origin'});
     if(r.ok){
       currentUser=await r.json();
@@ -1629,15 +1031,11 @@ window.addEventListener('load', async()=>{
       document.getElementById('sb-name').textContent=currentUser.full_name;
       document.getElementById('sb-role').textContent=currentUser.role;
       const sessEl=document.getElementById('sb-sess');
-      if(sessEl) sessEl.textContent=currentUser.active_session?'📚 '+currentUser.active_session.name:'No active session';
+      if(sessEl)sessEl.textContent=currentUser.active_session?'\ud83d\udcda '+currentUser.active_session.name:'No active session';
       await initApp();
-    } else {
-      const sessEl=document.getElementById('sb-sess');
-      if(sessEl) sessEl.textContent='';
-    }
-  } catch(e){ console.error(e); }
+    }else{const sessEl=document.getElementById('sb-sess');if(sessEl)sessEl.textContent='';}
+  }catch(e){console.error(e);}
 });
-
 </script>
 </body>
 </html>
