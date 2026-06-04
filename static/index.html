@@ -185,6 +185,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .card{max-width:100%}
 .tw{overflow-x:auto;max-width:100%}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="login-screen">
@@ -421,11 +422,11 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         </div>
       </div>
       <div class="view" id="view-reports">
-        <div class="rep-card" onclick="dlReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">&#128203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">&#128176;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">&#9203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">&#129309;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
-        <div class="rep-card" onclick="dlReport('leads')"><div class="rep-ico" style="background:#F5F3FF">&#128203;</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="openReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">&#128203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="openReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">&#128176;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="openReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">&#9203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="openReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">&#129309;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
+        <div class="rep-card" onclick="openReport('leads')"><div class="rep-ico" style="background:#F5F3FF">&#128203;</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV</span></div>
       </div>
       <div class="view" id="view-settings">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -507,6 +508,33 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 <div class="modal-bg" id="m-rcpt"><div class="modal" style="max-width:440px"><div class="modal-hd"><div class="modal-title">&#129534; Fee Receipt</div><button class="mcls" onclick="closeM('m-rcpt')">&#10005;</button></div><div class="rcpt-hd"><div class="rcpt-logo">&#127891; Sky Eduworld &mdash; Management System</div><div style="font-size:11px;opacity:.45;margin-top:3px">Official Fee Receipt</div><div class="rcpt-id">Receipt #SKY-<span id="rcpt-no">0000</span></div></div><div style="padding:14px 20px" id="rcpt-body"></div><div class="rcpt-total"><span style="font-size:12.5px;font-weight:700;color:var(--sky-dk)">Amount Paid</span><span style="font-size:20px;font-weight:700;color:var(--sky);font-family:'Courier New',monospace" id="rcpt-amt">&#8377;0</span></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-rcpt')">Close</button><button class="btn btn-p" onclick="window.print()">&#128424;&#65039; Print</button></div></div></div>
 <div class="modal-bg" id="m-lead"><div class="modal" style="max-width:520px"><div class="modal-hd"><div class="modal-title" id="lead-modal-title">&#128203; Add Lead</div><button class="mcls" onclick="closeM('m-lead')">&#10005;</button></div><input type="hidden" id="lead-id" value=""><div class="form-grid"><div class="fg"><label class="fl">Name *</label><input class="fi" id="lead-name" placeholder="Student name"></div><div class="fg"><label class="fl">Mobile *</label><input class="fi" id="lead-mobile" placeholder="Mobile"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="lead-email" placeholder="Optional"></div><div class="fg"><label class="fl">Status</label><select class="fs" id="lead-status"><option>New</option><option>Contacted</option><option>Interested</option><option>Lost</option></select></div><div class="fg"><label class="fl">Course Interest</label><select class="fs" id="lead-course"><option value="">Select</option><option>B.Ed</option><option>M.Ed</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option></select></div><div class="fg"><label class="fl">University Interest</label><select class="fs" id="lead-univ"><option value="">Select</option></select></div><div class="fg"><label class="fl">Source</label><select class="fs" id="lead-source"><option>Walk-in</option><option>Phone</option><option>WhatsApp</option><option>Reference</option><option>Social Media</option></select></div><div class="fg"><label class="fl">Follow-up Date</label><input class="fi" type="date" id="lead-fudate"></div><div class="fg full"><label class="fl">Remarks</label><textarea class="ft" id="lead-remarks" placeholder="Notes&#8230;" style="min-height:60px"></textarea></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-lead')">Cancel</button><button class="btn btn-p" id="lead-save-btn" onclick="saveLead()">Save Lead</button></div></div></div>
 <div class="modal-bg" id="m-session"><div class="modal" style="max-width:400px"><div class="modal-hd"><div class="modal-title">&#127891; New Academic Session</div><button class="mcls" onclick="closeM('m-session')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">Session Name *</label><input class="fi" id="sess-name" placeholder="e.g. 2026-27"></div><div class="fg"><label class="fl">Start Date</label><input class="fi" type="date" id="sess-start"></div><div class="fg"><label class="fl">End Date</label><input class="fi" type="date" id="sess-end"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-session')">Cancel</button><button class="btn btn-p" onclick="addSession()">Create Session</button></div></div></div>
+<div class="modal-bg" id="m-report">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="rpt-modal-title">Report Options</div>
+        <div style="font-size:11px;color:var(--slate);margin-top:2px" id="rpt-modal-sub"></div>
+      </div>
+      <button class="mcls" onclick="closeM('m-report')">&#10005;</button>
+    </div>
+    <div style="padding:16px 18px 4px">
+      <div style="font-size:10px;font-weight:700;color:var(--slate);letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px">&#128269; Filters</div>
+      <div id="rpt-filters" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+    </div>
+    <div style="padding:12px 18px 14px;border-top:1px solid var(--bd);margin-top:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--slate);letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px">&#128196; Format</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-p btn-sm" id="fmt-csv" onclick="setRptFmt('csv')" style="min-width:80px">&#128196; CSV</button>
+        <button class="btn btn-g btn-sm" id="fmt-excel" onclick="setRptFmt('excel')" style="min-width:80px">&#128202; Excel</button>
+        <button class="btn btn-g btn-sm" id="fmt-pdf" onclick="setRptFmt('pdf')" style="min-width:80px">&#128424;&#65039; PDF</button>
+      </div>
+    </div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="closeM('m-report')">Cancel</button>
+      <button class="btn btn-p" id="rpt-dl-btn" onclick="generateReport()">&#11015;&#65039; Download</button>
+    </div>
+  </div>
+</div>
 <div id="toasts"></div>
 <script>
 let allStudents=[],allUnivs=[],currentUser=null,editingId=null,incTab='associate',allUsers=[],pendingInst=[];
@@ -878,17 +906,217 @@ async function changePassword(){
   toast('\u2705 Password updated!','ok');['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
 }
 async function delUser(id){if(!confirm('Delete this user?'))return;const r=await api('DELETE','/users/'+id);if(!r)return;loadSettings();toast('User deleted','ok');}
-async function dlReport(type){
-  toast('\ud83d\udce5 Preparing report\u2026');
-  try{
-    const r=await fetch('/api/reports/'+type,{credentials:'same-origin'});
-    if(!r.ok){toast('Error generating report','er');return;}
-    const blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';
-    const fname=cd.match(/filename=([^;]+)/)?.[1]||'report_'+type+'.csv';
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);
-    toast('\u2705 Report downloaded!','ok');
-  }catch(e){toast('Error: '+e.message,'er');}
+
+// ── REPORT SYSTEM ──
+let currentRpt=null, rptFmt='csv';
+
+function v(id){const el=document.getElementById(id);return el?el.value:'';}
+function escH(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function setRptFmt(fmt){
+  rptFmt=fmt;
+  ['csv','excel','pdf'].forEach(function(f){
+    const btn=document.getElementById('fmt-'+f);
+    if(btn)btn.className='btn btn-sm '+(f===fmt?'btn-p':'btn-g');
+  });
 }
+
+function openReport(type){
+  currentRpt=type;rptFmt='csv';setRptFmt('csv');
+  const cfg=RPT_CFG[type];if(!cfg)return;
+  document.getElementById('rpt-modal-title').textContent=cfg.title;
+  document.getElementById('rpt-modal-sub').textContent=cfg.sub||'';
+  document.getElementById('rpt-filters').innerHTML=cfg.filtersHTML();
+  document.getElementById('m-report').classList.add('open');
+}
+
+async function generateReport(){
+  const btn=document.getElementById('rpt-dl-btn');
+  btn.disabled=true;btn.textContent='\u23f3 Preparing\u2026';
+  try{
+    const cfg=RPT_CFG[currentRpt];
+    const result=await cfg.getData();
+    const fname=result.title+'_'+new Date().toISOString().slice(0,10);
+    if(rptFmt==='csv')dlCSV(result.headers,result.rows,fname+'.csv');
+    else if(rptFmt==='excel')dlExcel(result.headers,result.rows,fname+'.xlsx',result.title);
+    else if(rptFmt==='pdf')dlPDF(result.headers,result.rows,result.title);
+    closeM('m-report');toast('\u2705 Report ready!','ok');
+  }catch(e){toast('Error: '+e.message,'er');}
+  btn.disabled=false;btn.textContent='\u2b07\ufe0f Download';
+}
+
+function dlCSV(headers,rows,fname){
+  const lines=[headers.join(',')].concat(rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}));
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();URL.revokeObjectURL(a.href);
+}
+
+function dlExcel(headers,rows,fname,sheet){
+  if(typeof XLSX==='undefined'){toast('Excel library load nahi hui, 2 sec baad try karo','er');return;}
+  const ws=XLSX.utils.aoa_to_sheet([headers].concat(rows));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheet||'Report');
+  XLSX.writeFile(wb,fname);
+}
+
+function dlPDF(headers,rows,title){
+  const w=window.open('','_blank','width=1000,height=700');
+  const ths=headers.map(function(h){return'<th>'+escH(h)+'</th>';}).join('');
+  const trs=rows.map(function(r){return'<tr>'+r.map(function(c){return'<td>'+escH(c)+'</td>';}).join('')+'</tr>';}).join('');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escH(title)+'</title>'
+    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}'
+    +'.hdr{background:#0F172A;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;margin-bottom:0}'
+    +'.hdr h2{font-size:14px;font-weight:700}.hdr p{font-size:10px;opacity:.6;margin-top:3px}'
+    +'table{width:100%;border-collapse:collapse;border:1px solid #E2E8F0}'
+    +'thead th{background:#1A6CF6;color:#fff;padding:7px 10px;text-align:left;font-size:10px;font-weight:600}'
+    +'tbody td{padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px}'
+    +'tbody tr:nth-child(even) td{background:#F8FAFC}'
+    +'.footer{margin-top:8px;font-size:10px;color:#64748B}'
+    +'@media print{body{padding:8px}.no-print{display:none}}</style></head>'
+    +'<body><div class="hdr"><h2>\ud83c\udf93 Sky Eduworld &mdash; '+escH(title)+'</h2>'
+    +'<p>Generated: '+new Date().toLocaleString('en-IN')+' &nbsp;|&nbsp; Total Records: '+rows.length+'</p></div>'
+    +'<table><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>'
+    +'<div class="footer">Sky Eduworld Management System &mdash; Confidential</div>'
+    +'<div class="no-print" style="margin-top:12px;display:flex;gap:8px">'
+    +'<button onclick="window.print()" style="padding:8px 18px;background:#1A6CF6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">\ud83d\udda8\ufe0f Print / Save as PDF</button>'
+    +'<button onclick="window.close()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer;font-size:12px">Close</button>'
+    +'</div>'
+    +'<script>setTimeout(function(){window.print();},400);<\/script>'
+    +'</body></html>');
+  w.document.close();
+}
+
+const COURSE_OPTS='<option value="">All Courses</option><option>B.Ed</option><option>M.Ed</option><option>BPT</option><option>MBA</option><option>BBA</option><option>B.Com</option><option>M.Com</option><option>BA</option><option>MA</option><option>BCA</option><option>MCA</option><option>B.Sc</option><option>M.Sc</option><option>D.El.Ed</option><option>B.P.Ed</option>';
+const BATCH_OPTS='<option value="">All Batches</option><option>2025-26</option><option>2024-25</option><option>2023-24</option>';
+function univOpts(){return'<option value="">All Universities</option>'+allUnivs.map(function(u){return'<option>'+u.name+'</option>';}).join('');}
+
+const RPT_CFG={
+  students:{
+    title:'All Students Report',
+    sub:'Personal, academic and fee details of all students',
+    filtersHTML:function(){return''
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Status</label><select class="fs" id="rf-status"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select></div>'
+      +'<div class="fg"><label class="fl">Adm Date From</label><input class="fi" type="date" id="rf-from"></div>'
+      +'<div class="fg"><label class="fl">Adm Date To</label><input class="fi" type="date" id="rf-to"></div>';},
+    getData:async function(){
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch'),st=v('rf-status'),fr=v('rf-from'),to=v('rf-to');
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      if(st)url+='&status='+encodeURIComponent(st);
+      var data=await api('GET',url)||[];
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
+      if(fr)data=data.filter(function(s){return s.adm_date&&s.adm_date>=fr;});
+      if(to)data=data.filter(function(s){return s.adm_date&&s.adm_date<=to;});
+      return{title:'All_Students',
+        headers:['ID','Name','Father','Mother','Mobile','Email','Course','University','Batch','Enrollment No','Roll No','Adm Date','Total Fee','Paid','Balance','Status'],
+        rows:data.map(function(s){return[s.id,s.name,s.father||'',s.mother||'',s.mobile||'',s.email||'',s.course||'',s.university||'',s.batch||'',s.enroll_no||'',s.roll_no||'',s.adm_date||'',s.total_fee||0,s.paid||0,(s.total_fee||0)-(s.paid||0),s.status||''];})};
+    }
+  },
+  fees:{
+    title:'Fee Collection Report',
+    sub:'Studentwise fee paid, balance and payment status',
+    filtersHTML:function(){return''
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Fee Status</label><select class="fs" id="rf-feest"><option value="">All</option><option value="paid">Fully Paid</option><option value="partial">Partially Paid</option><option value="pending">Not Paid (0)</option></select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>';},
+    getData:async function(){
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch'),fs=v('rf-feest');
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      var data=await api('GET',url)||[];
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
+      if(fs==='paid')data=data.filter(function(s){return parseFloat(s.total_fee)>0&&parseFloat(s.paid)>=parseFloat(s.total_fee);});
+      else if(fs==='partial')data=data.filter(function(s){return parseFloat(s.paid)>0&&parseFloat(s.paid)<parseFloat(s.total_fee);});
+      else if(fs==='pending')data=data.filter(function(s){return parseFloat(s.paid||0)===0;});
+      return{title:'Fee_Collection',
+        headers:['Student','Father','Mobile','University','Course','Batch','Total Fee','Paid','Balance','Fee Status'],
+        rows:data.map(function(s){var bal=(parseFloat(s.total_fee||0)-parseFloat(s.paid||0));return[s.name,s.father||'',s.mobile||'',s.university||'',s.course||'',s.batch||'',s.total_fee||0,s.paid||0,bal,(bal<=0&&parseFloat(s.total_fee)>0)?'Cleared':'Pending'];})};
+    }
+  },
+  outstanding:{
+    title:'Outstanding Balance Report',
+    sub:'Students with pending fee dues, sorted by amount',
+    filtersHTML:function(){return''
+      +'<div class="fg"><label class="fl">University</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Batch</label><select class="fs" id="rf-batch">'+BATCH_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Min Balance (\u20b9)</label><input class="fi" type="number" id="rf-minbal" placeholder="0 = all outstanding"></div>';},
+    getData:async function(){
+      var u=v('rf-univ'),c=v('rf-course'),b=v('rf-batch');
+      var minBal=parseFloat(document.getElementById('rf-minbal')?document.getElementById('rf-minbal').value||'0':'0')||0;
+      var url='/students?q=';
+      if(u)url+='&university='+encodeURIComponent(u);
+      var data=await api('GET',url)||[];
+      data=data.filter(function(s){return(parseFloat(s.total_fee||0)-parseFloat(s.paid||0))>minBal;});
+      if(c)data=data.filter(function(s){return s.course===c;});
+      if(b)data=data.filter(function(s){return s.batch===b;});
+      data.sort(function(a,b){return((parseFloat(b.total_fee||0)-parseFloat(b.paid||0))-(parseFloat(a.total_fee||0)-parseFloat(a.paid||0)));});
+      return{title:'Outstanding_Balance',
+        headers:['Student','Mobile','University','Course','Batch','Total Fee','Paid','Outstanding'],
+        rows:data.map(function(s){return[s.name,s.mobile||'',s.university||'',s.course||'',s.batch||'',s.total_fee||0,s.paid||0,(parseFloat(s.total_fee||0)-parseFloat(s.paid||0))];})};
+    }
+  },
+  'assoc-ref':{
+    title:'Associate & Reference Report',
+    sub:'All payments made to associates and references',
+    filtersHTML:function(){return''
+      +'<div class="fg"><label class="fl">Type</label><select class="fs" id="rf-artype"><option value="both">Both (Associate + Reference)</option><option value="associate">Associates Only</option><option value="reference">References Only</option></select></div>'
+      +'<div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="rf-mode"><option value="">All Modes</option><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div>'
+      +'<div class="fg"><label class="fl">Payment Date From</label><input class="fi" type="date" id="rf-from"></div>'
+      +'<div class="fg"><label class="fl">Payment Date To</label><input class="fi" type="date" id="rf-to"></div>';},
+    getData:async function(){
+      var type=v('rf-artype')||'both',mode=v('rf-mode'),fr=v('rf-from'),to=v('rf-to');
+      var rows=[];
+      if(type==='both'||type==='associate'){
+        var assocs=await api('GET','/associates')||[];
+        if(mode)assocs=assocs.filter(function(a){return a.pay_mode===mode;});
+        if(fr)assocs=assocs.filter(function(a){return a.pay_date&&a.pay_date>=fr;});
+        if(to)assocs=assocs.filter(function(a){return a.pay_date&&a.pay_date<=to;});
+        assocs.forEach(function(a){rows.push(['Associate',a.name,a.phone||'',a.student||'',a.work_done||'',a.amount||0,a.pay_date||'',a.pay_mode||'',a.utr||'',a.status||'',a.notes||'']);});
+      }
+      if(type==='both'||type==='reference'){
+        var refs=await api('GET','/references')||[];
+        if(mode)refs=refs.filter(function(r){return r.pay_mode===mode;});
+        if(fr)refs=refs.filter(function(r){return r.pay_date&&r.pay_date>=fr;});
+        if(to)refs=refs.filter(function(r){return r.pay_date&&r.pay_date<=to;});
+        refs.forEach(function(r){rows.push(['Reference',r.name,r.phone||'',r.student||'','Referral',r.amount||0,r.pay_date||'',r.pay_mode||'',r.utr||'',r.status||'',r.notes||'']);});
+      }
+      return{title:'Associate_Reference',
+        headers:['Type','Name','Phone','Student','Work/Reason','Amount','Pay Date','Mode','UTR/Ref','Status','Notes'],
+        rows:rows};
+    }
+  },
+  leads:{
+    title:'Leads Report',
+    sub:'All inquiries with source, status and conversion details',
+    filtersHTML:function(){return''
+      +'<div class="fg"><label class="fl">Status</label><select class="fs" id="rf-lstatus"><option value="">All Status</option><option>New</option><option>Contacted</option><option>Interested</option><option>Converted</option><option>Lost</option></select></div>'
+      +'<div class="fg"><label class="fl">Source</label><select class="fs" id="rf-source"><option value="">All Sources</option><option>Walk-in</option><option>Phone</option><option>WhatsApp</option><option>Reference</option><option>Social Media</option></select></div>'
+      +'<div class="fg"><label class="fl">University Interest</label><select class="fs" id="rf-univ">'+univOpts()+'</select></div>'
+      +'<div class="fg"><label class="fl">Course Interest</label><select class="fs" id="rf-course">'+COURSE_OPTS+'</select></div>'
+      +'<div class="fg"><label class="fl">Date From</label><input class="fi" type="date" id="rf-from"></div>'
+      +'<div class="fg"><label class="fl">Date To</label><input class="fi" type="date" id="rf-to"></div>';},
+    getData:async function(){
+      var st=v('rf-lstatus'),src=v('rf-source'),u=v('rf-univ'),c=v('rf-course'),fr=v('rf-from'),to=v('rf-to');
+      var url='/leads';if(st)url+='?status='+encodeURIComponent(st);
+      var data=await api('GET',url)||[];
+      if(src)data=data.filter(function(l){return l.source===src;});
+      if(u)data=data.filter(function(l){return l.university===u;});
+      if(c)data=data.filter(function(l){return l.course===c;});
+      if(fr)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)>=fr;});
+      if(to)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)<=to;});
+      return{title:'Leads',
+        headers:['Name','Mobile','Email','Course','University','Source','Status','Follow-up Date','Remarks','Created Date'],
+        rows:data.map(function(l){return[l.name,l.mobile||'',l.email||'',l.course||'',l.university||'',l.source||'',l.status||'',(l.follow_up_date||'').slice(0,10),l.remarks||'',l.created_at?(l.created_at.slice(0,10)):''];})};
+    }
+  }
+};
+
 function applyPermsPhase2(){
   if(!currentUser)return;
   const p=currentUser.permissions||{};
