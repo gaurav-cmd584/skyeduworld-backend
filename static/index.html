@@ -822,7 +822,7 @@ async function renderUnivGrid(){
   document.getElementById('univ-grid').innerHTML=data.map(function(u){
     var deleteBtn='';
     if(isSA()){
-      deleteBtn='<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" onclick="delUniversity('+u.id+','+JSON.stringify(u.name)+','+(u.student_count||0)+')" title="Delete">\ud83d\uddd1\ufe0f</button>';
+      deleteBtn='<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" onclick="delUniversity('+u.id+')" title="Delete">\ud83d\uddd1\ufe0f</button>';
     }
     return '<div class="uc" style="border-top-color:'+u.color+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px">'
@@ -841,7 +841,10 @@ async function addUniversity(){
   document.getElementById('au-name').value='';document.getElementById('au-state').value='';
   await loadUniversities();renderUnivGrid();toast('\u2705 University added!','ok');
 }
-async function delUniversity(id,name,count){
+async function delUniversity(id){
+  const u=allUnivs.find(function(x){return x.id===id;});
+  const name=u?u.name:'this university';
+  const count=u?(u.student_count||0):0;
   if(count>0){
     if(!confirm('"'+name+'" mein '+count+' student(s) enrolled hain.\n\nPhir bhi delete karna chahte ho?\n(Students ka data safe rahega, sirf list se hategi)'))return;
   }else{
