@@ -1,15 +1,6 @@
 """
 Sky Eduworld — Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
-
-NEW IN PHASE 2:
-- Activity / Audit logs
-- Login history tracking
-- Leads & follow-up system
-- Installment-wise fee tracking
-- Academic session management
-- Notification system
-- Advanced student profile
 """
 
 import os, csv, io, hashlib, uuid
@@ -80,8 +71,16 @@ def notify_user(uid, title, msg, ntype='info', link=None):
 def is_super_admin(): return session.get('role') == 'Super Admin'
 def is_admin(): return session.get('role') in ('Admin','Super Admin')
 
+# ══════════════════════════════════════════════════════════
+# BUG FIX: get_user_perms ab specific user ki DB role check
+# karega, session ki role NAHI. Pehle is_super_admin() session
+# check karta tha, isliye Super Admin login pe sab users ko
+# all-permissions dikhi thi (galat behavior).
+# ══════════════════════════════════════════════════════════
 def get_user_perms(user_id):
-    if is_super_admin():
+    # Check THIS specific user's role from DB (not the session user)
+    user_row = q("SELECT role FROM users WHERE id=%s", (user_id,), one=True)
+    if user_row and user_row['role'] == 'Super Admin':
         return {p:True for p in ['can_add_student','can_edit_student','can_delete_student',
             'can_view_payments','can_add_payment','can_view_associates','can_manage_associates',
             'can_view_references','can_manage_references','can_view_documents','can_upload_document',
@@ -217,7 +216,7 @@ def init_db():
     conn.commit(); conn.close(); print("✅ Phase 2 DB ready.")
 
 # STATIC
-@app.route('/') 
+@app.route('/')
 def index(): return send_from_directory('static','index.html')
 
 @app.route('/uploads/<path:filename>')
@@ -740,7 +739,9 @@ def get_users():
     result = []
     for r in rows:
         sr = serialize(r); sr['permissions'] = get_user_perms(r['id'])
-        sr['assigned_universities'] = q("SELECT u.id,u.name FROM user_universities uu JOIN universities u ON u.id=uu.university_id WHERE uu.user_id=%s", (r['id'],))
+        univs = q("SELECT u.id,u.name FROM user_universities uu JOIN universities u ON u.id=uu.university_id WHERE uu.user_id=%s", (r['id'],))
+        sr['assigned_universities'] = univs
+        sr['assigned_university_ids'] = [u['id'] for u in univs]
         result.append(sr)
     return jsonify(result)
 
