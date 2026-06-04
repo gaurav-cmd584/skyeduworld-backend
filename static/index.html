@@ -235,7 +235,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <div style="display:grid;grid-template-columns:1fr 310px;gap:16px">
           <div>
             <div class="card"><div class="card-hd"><div><div class="card-title">Recent Admissions</div></div><div class="card-acts"><button class="btn btn-g btn-sm" onclick="nav('students',null)">View All</button><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ Add</button></div></div><div class="tw"><table><thead><tr><th>Student</th><th>Course / University</th><th>Date</th><th>Fee</th><th></th></tr></thead><tbody id="dash-recent"></tbody></table></div></div>
-            <div class="card"><div class="card-hd"><div class="card-title">Quick Actions</div></div><div class="qa-grid"><button class="qa-btn" onclick="nav('feereceive',null)"><div class="qa-ico" style="background:var(--sky-lt)">&#128184;</div><span class="qa-lbl">Receive Fee</span></button><button class="qa-btn" onclick="nav('addstudent',null)"><div class="qa-ico" style="background:var(--em-lt)">&#128100;</div><span class="qa-lbl">New Student</span></button><button class="qa-btn" onclick="nav('incentive',null)"><div class="qa-ico" style="background:var(--gold-lt)">&#129309;</div><span class="qa-lbl">Associate / Ref</span></button><button class="qa-btn" onclick="nav('reports',null)"><div class="qa-ico" style="background:var(--rose-lt)">&#128202;</div><span class="qa-lbl">Reports</span></button></div></div>
+            <div class="card"><div class="card-hd"><div class="card-title">Quick Actions</div></div><div class="qa-grid" id="qa-grid"></div></div>
           </div>
           <div>
             <div class="card" style="margin-bottom:14px"><div class="card-hd"><div class="card-title">Fee Tracker</div></div><div id="fee-tracker"></div></div>
@@ -456,6 +456,16 @@ function renderDashboard(d){
   document.getElementById('fee-tracker').innerHTML=(d.fee_tracker||[]).map(function(s){const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<div class="fi-item">'+av(s.name,30)+'<div class="fi-info"><div class="fi-name">'+s.name+'</div><div class="fi-course">'+s.course+'\xb7'+(s.university||'').split(' ')[0]+'</div><div class="pb"><div class="pb-fill" style="width:'+pct+'%"></div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--em)">'+fmt(s.paid)+'</div>'+(b>0?'<div style="font-size:10px;color:var(--rose)">'+fmt(b)+' due</div>':'<div style="font-size:10px;color:var(--em)">\u2713 Clear</div>')+'</div></div>';}).join('');
   document.getElementById('univ-mini').innerHTML=(d.universities||[]).map(function(u){return'<div style="display:flex;align-items:center;gap:9px;padding:7px 16px;border-bottom:1px solid var(--bd)"><div style="width:7px;height:7px;border-radius:50%;background:'+(u.color||'#888')+';flex-shrink:0"></div><span style="flex:1;font-size:12.5px;color:var(--ink2)">'+(u.name||'').split(' ').slice(0,3).join(' ')+'</span><span style="font-size:11px;color:var(--slate)">'+u.count+'</span></div>';}).join('');
   document.getElementById('nb-s').textContent=s.student_count;
+  // Render Quick Actions based on permissions
+  var p=(currentUser&&currentUser.permissions)||{};
+  var sa=isSA();
+  var qaBtns=[];
+  if(sa||p.can_add_payment)qaBtns.push('<button class="qa-btn" onclick="nav(\'feereceive\',null)"><div class="qa-ico" style="background:var(--sky-lt)">&#128184;</div><span class="qa-lbl">Receive Fee</span></button>');
+  if(sa||p.can_add_student)qaBtns.push('<button class="qa-btn" onclick="nav(\'addstudent\',null)"><div class="qa-ico" style="background:var(--em-lt)">&#128100;</div><span class="qa-lbl">New Student</span></button>');
+  if(sa||p.can_view_associates||p.can_view_references)qaBtns.push('<button class="qa-btn" onclick="nav(\'incentive\',null)"><div class="qa-ico" style="background:var(--gold-lt)">&#129309;</div><span class="qa-lbl">Associate / Ref</span></button>');
+  if(sa||p.can_view_reports)qaBtns.push('<button class="qa-btn" onclick="nav(\'reports\',null)"><div class="qa-ico" style="background:var(--rose-lt)">&#128202;</div><span class="qa-lbl">Reports</span></button>');
+  var qaGrid=document.getElementById('qa-grid');
+  if(qaGrid)qaGrid.innerHTML=qaBtns.join('');
 }
 function stab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.getElementById(id).classList.add('active');btn.classList.add('active');}
 function globalSearch(q){nav('students',null);document.getElementById('g-srch').value=q;loadStudents(q);}
