@@ -696,6 +696,7 @@ function applyPermsPhase2(){
   if(!p.can_view_reports){hideNav('reports');}
   if(!p.can_manage_universities){hideNav('universities');}
   if(!p.can_add_student){hideNav('addstudent');}
+  hideNav('settings');
   var auditEl=document.getElementById('nav-audit');
   if(auditEl){auditEl.style.display=p.can_view_audit_logs?'':'none';}
 }
