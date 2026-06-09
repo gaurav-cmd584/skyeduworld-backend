@@ -917,15 +917,19 @@ def report_leads():
 @app.route('/reset-admin-temp')
 def reset_admin():
     try:
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        import psycopg2, hashlib, os
+        db_url = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(db_url, connect_timeout=30, 
+                                sslmode='require')
         cur = conn.cursor()
         new_hash = hashlib.sha256('sky@2024'.encode()).hexdigest()
         cur.execute("UPDATE users SET password=%s WHERE username='admin'", (new_hash,))
         conn.commit()
+        cur.close()
         conn.close()
-        return 'Done! Password is now sky@2024'
+        return 'Password reset done! Login: admin / sky@2024'
     except Exception as e:
-        return f'Error: {str(e)}', 500'
+        return f'Error: {str(e)}', 500
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT',5000))
