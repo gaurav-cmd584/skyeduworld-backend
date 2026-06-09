@@ -916,10 +916,16 @@ def report_leads():
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 @app.route('/reset-admin-temp')
 def reset_admin():
-    import hashlib
-    new_hash = hashlib.sha256('sky@2024'.encode()).hexdigest()
-    q("UPDATE users SET password=%s WHERE username='admin'", (new_hash,), commit=True)
-    return 'Password reset to sky@2024 - DELETE THIS ROUTE NOW!'
+    try:
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = conn.cursor()
+        new_hash = hashlib.sha256('sky@2024'.encode()).hexdigest()
+        cur.execute("UPDATE users SET password=%s WHERE username='admin'", (new_hash,))
+        conn.commit()
+        conn.close()
+        return 'Done! Password is now sky@2024'
+    except Exception as e:
+        return f'Error: {str(e)}', 500'
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT',5000))
