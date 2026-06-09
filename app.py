@@ -914,22 +914,7 @@ def report_leads():
     data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE created_by=%s ORDER BY created_at DESC", (uid,))
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
-@app.route('/reset-admin-temp')
-def reset_admin():
-    try:
-        import psycopg2, hashlib, os
-        db_url = os.environ.get('DATABASE_URL')
-        conn = psycopg2.connect(db_url, connect_timeout=30, 
-                                sslmode='require')
-        cur = conn.cursor()
-        new_hash = hashlib.sha256('sky@2024'.encode()).hexdigest()
-        cur.execute("UPDATE users SET password=%s WHERE username='admin'", (new_hash,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return 'Password reset done! Login: admin / sky@2024'
-    except Exception as e:
-        return f'Error: {str(e)}', 500
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT',5000))
