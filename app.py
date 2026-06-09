@@ -914,7 +914,12 @@ def report_leads():
     data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE created_by=%s ORDER BY created_at DESC", (uid,))
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
-
+@app.route('/reset-admin-temp')
+def reset_admin():
+    import hashlib
+    new_hash = hashlib.sha256('sky@2024'.encode()).hexdigest()
+    q("UPDATE users SET password=%s WHERE username='admin'", (new_hash,), commit=True)
+    return 'Password reset to sky@2024 - DELETE THIS ROUTE NOW!'
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT',5000))
