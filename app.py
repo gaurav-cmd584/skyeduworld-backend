@@ -818,6 +818,7 @@ def delete_user(uid):
 
 @app.route('/api/change-password', methods=['POST'])
 @login_required
+@admin_required 
 def change_password():
     d = request.json or {}; user = q("SELECT * FROM users WHERE id=%s", (session['user_id'],), one=True)
     if user['password'] != hash_pw(d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
