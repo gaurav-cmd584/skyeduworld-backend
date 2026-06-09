@@ -195,7 +195,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 <div id="app">
   <nav class="sidebar">
     <div class="sb-brand"><div class="sb-logo"><div class="sb-icon">&#127891;</div><div><div class="sb-name">Sky Eduworld</div><div class="sb-sub">Mgmt System</div><div id="sb-sess" style="font-size:10px;color:#10B981;background:rgba(16,185,129,0.15);padding:2px 7px;border-radius:99px;margin-top:4px;display:inline-block">Loading&#8230;</div></div></div></div>
-    <div class="sb-nav">
+    <div class="sb-nav" id="sb-nav" style="display:none">
       <div class="sb-sec">Main</div>
       <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">&#128202;</span>Dashboard</button>
       <button class="nv" onclick="nav('students',this)"><span class="ni">&#128100;</span>Students<span class="nb" id="nb-s">0</span></button>
@@ -697,6 +697,7 @@ function applyPermsPhase2(){
   if(!p.can_manage_universities){hideNav('universities');}
   if(!p.can_add_student){hideNav('addstudent');}
   hideNav('settings');
+  document.getElementById('sb-nav').style.display='block';
   var auditEl=document.getElementById('nav-audit');
   if(auditEl){auditEl.style.display=p.can_view_audit_logs?'':'none';}
 }
