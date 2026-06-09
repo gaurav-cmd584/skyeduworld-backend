@@ -915,8 +915,13 @@ def report_leads():
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 
+    # App startup pe init_db run karo
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Init DB error: {e}")
+
 if __name__ == '__main__':
-    init_db()
     port = int(os.environ.get('PORT',5000))
-    print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
