@@ -71,31 +71,29 @@ def notify_user(uid, title, msg, ntype='info', link=None):
 def is_super_admin(): return session.get('role') == 'Super Admin'
 def is_admin(): return session.get('role') in ('Admin','Super Admin')
 
+# ══════════════════════════════════════════════════════════
+# BUG FIX: get_user_perms ab specific user ki DB role check
+# karega, session ki role NAHI. Pehle is_super_admin() session
+# check karta tha, isliye Super Admin login pe sab users ko
+# all-permissions dikhi thi (galat behavior).
+# ══════════════════════════════════════════════════════════
 def get_user_perms(user_id):
+    # Check THIS specific user's role from DB (not the session user)
     user_row = q("SELECT role FROM users WHERE id=%s", (user_id,), one=True)
     if user_row and user_row['role'] == 'Super Admin':
-        return {p:True for p in [
-            'can_add_student','can_edit_student','can_delete_student',
-            'can_view_payments','can_add_payment',
-            'can_view_associates','can_manage_associates',
-            'can_view_references','can_manage_references',
-            'can_view_documents','can_upload_document','can_issue_document',
-            'can_view_student_report','can_view_fee_report',
-            'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
-            'can_manage_universities','can_view_all_students',
+        return {p:True for p in ['can_add_student','can_edit_student','can_delete_student',
+            'can_view_payments','can_add_payment','can_view_associates','can_manage_associates',
+            'can_view_references','can_manage_references','can_view_documents','can_upload_document',
+            'can_view_reports','can_manage_universities','can_view_all_students',
             'can_manage_leads','can_view_audit_logs']}
     perms = q("SELECT * FROM user_permissions WHERE user_id=%s", (user_id,), one=True)
     if not perms:
-        return {
-            'can_add_student':True,'can_edit_student':True,'can_delete_student':False,
-            'can_view_payments':True,'can_add_payment':True,
-            'can_view_associates':False,'can_manage_associates':False,
-            'can_view_references':False,'can_manage_references':False,
-            'can_view_documents':True,'can_upload_document':True,'can_issue_document':False,
-            'can_view_student_report':False,'can_view_fee_report':False,
-            'can_view_outstanding_report':False,'can_view_assocref_report':False,'can_view_leads_report':False,
-            'can_manage_universities':False,'can_view_all_students':False,
-            'can_manage_leads':False,'can_view_audit_logs':False}
+        return {'can_add_student':True,'can_edit_student':True,'can_delete_student':False,
+                'can_view_payments':True,'can_add_payment':True,'can_view_associates':False,
+                'can_manage_associates':False,'can_view_references':False,'can_manage_references':False,
+                'can_view_documents':True,'can_upload_document':True,'can_view_reports':False,
+                'can_manage_universities':False,'can_view_all_students':False,
+                'can_manage_leads':False,'can_view_audit_logs':False}
     return dict(perms)
 
 def get_user_univs(user_id):
@@ -163,17 +161,7 @@ def init_db():
     cur = conn.cursor()
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        can_add_student BOOLEAN DEFAULT TRUE, can_edit_student BOOLEAN DEFAULT TRUE, can_delete_student BOOLEAN DEFAULT FALSE,
-        can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE,
-        can_view_associates BOOLEAN DEFAULT FALSE, can_manage_associates BOOLEAN DEFAULT FALSE,
-        can_view_references BOOLEAN DEFAULT FALSE, can_manage_references BOOLEAN DEFAULT FALSE,
-        can_view_documents BOOLEAN DEFAULT TRUE, can_upload_document BOOLEAN DEFAULT TRUE, can_issue_document BOOLEAN DEFAULT FALSE,
-        can_view_student_report BOOLEAN DEFAULT FALSE, can_view_fee_report BOOLEAN DEFAULT FALSE,
-        can_view_outstanding_report BOOLEAN DEFAULT FALSE, can_view_assocref_report BOOLEAN DEFAULT FALSE, can_view_leads_report BOOLEAN DEFAULT FALSE,
-        can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE,
-        can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE,
-        UNIQUE(user_id));
+    CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, can_add_student BOOLEAN DEFAULT TRUE, can_edit_student BOOLEAN DEFAULT TRUE, can_delete_student BOOLEAN DEFAULT FALSE, can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE, can_view_associates BOOLEAN DEFAULT FALSE, can_manage_associates BOOLEAN DEFAULT FALSE, can_view_references BOOLEAN DEFAULT FALSE, can_manage_references BOOLEAN DEFAULT FALSE, can_view_documents BOOLEAN DEFAULT TRUE, can_upload_document BOOLEAN DEFAULT TRUE, can_view_reports BOOLEAN DEFAULT FALSE, can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE, can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, UNIQUE(user_id));
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
     CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
@@ -209,8 +197,7 @@ def init_db():
               ('North Eastern Christian University','Nagaland','#64748B'),('Sabarmati University','Gujarat','#DC2626'),
               ('P K University','Rajasthan','#0891B2')]:
         cur.execute("INSERT INTO universities (name,state,color) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", u)
-    for m in [
-              "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+    for m in ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
@@ -223,23 +210,10 @@ def init_db():
               "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS created_by INTEGER",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_leads BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_audit_logs BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_issue_document BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_student_report BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_fee_report BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_outstanding_report BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_assocref_report BOOLEAN DEFAULT FALSE",
-              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_leads_report BOOLEAN DEFAULT FALSE",
               "UPDATE users SET is_active=TRUE WHERE is_active IS NULL"]:
         try: cur.execute(m)
         except Exception: conn.rollback()
     conn.commit(); conn.close(); print("✅ Phase 2 DB ready.")
-
-# App startup pe init_db run karo
-with app.app_context():
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Init DB error: {e}")
 
 # STATIC
 @app.route('/')
@@ -708,7 +682,7 @@ def get_documents():
 
 @app.route('/api/documents', methods=['POST'])
 @login_required
-@require_perm('can_issue_document')
+@require_perm('can_upload_document')
 def add_document():
     d = request.json or {}
     q_ret("INSERT INTO documents (student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
@@ -782,27 +756,8 @@ def add_user():
     except psycopg2.errors.UniqueViolation:
         get_db().rollback(); return jsonify({'error':'Username already exists'}), 409
     uid = new_user['id']; perms = d.get('permissions',{})
-    q_ret("""INSERT INTO user_permissions (user_id,
-        can_add_student,can_edit_student,can_delete_student,
-        can_view_payments,can_add_payment,
-        can_view_associates,can_manage_associates,
-        can_view_references,can_manage_references,
-        can_view_documents,can_upload_document,can_issue_document,
-        can_view_student_report,can_view_fee_report,
-        can_view_outstanding_report,can_view_assocref_report,can_view_leads_report,
-        can_manage_universities,can_view_all_students,
-        can_manage_leads,can_view_audit_logs)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-          (uid,
-           perms.get('can_add_student',True),perms.get('can_edit_student',True),perms.get('can_delete_student',False),
-           perms.get('can_view_payments',True),perms.get('can_add_payment',True),
-           perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
-           perms.get('can_view_references',False),perms.get('can_manage_references',False),
-           perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
-           perms.get('can_view_student_report',False),perms.get('can_view_fee_report',False),
-           perms.get('can_view_outstanding_report',False),perms.get('can_view_assocref_report',False),perms.get('can_view_leads_report',False),
-           perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
-           perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
+    q_ret("INSERT INTO user_permissions (user_id,can_add_student,can_edit_student,can_delete_student,can_view_payments,can_add_payment,can_view_associates,can_manage_associates,can_view_references,can_manage_references,can_view_documents,can_upload_document,can_view_reports,can_manage_universities,can_view_all_students,can_manage_leads,can_view_audit_logs) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+          (uid,perms.get('can_add_student',True),perms.get('can_edit_student',True),perms.get('can_delete_student',False),perms.get('can_view_payments',True),perms.get('can_add_payment',True),perms.get('can_view_associates',False),perms.get('can_manage_associates',False),perms.get('can_view_references',False),perms.get('can_manage_references',False),perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_view_reports',False),perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
     for univ_id in d.get('assigned_university_ids',[]):
         try: q_ret("INSERT INTO user_universities (user_id,university_id) VALUES (%s,%s) RETURNING id", (uid,univ_id))
         except Exception: get_db().rollback()
@@ -822,41 +777,11 @@ def update_user(uid):
         q("UPDATE users SET password=%s WHERE id=%s", (hash_pw(d['new_password']),uid), commit=True)
     if 'permissions' in d:
         perms = d['permissions']
-        pv = (
-            perms.get('can_add_student',True),perms.get('can_edit_student',True),perms.get('can_delete_student',False),
-            perms.get('can_view_payments',True),perms.get('can_add_payment',True),
-            perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
-            perms.get('can_view_references',False),perms.get('can_manage_references',False),
-            perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
-            perms.get('can_view_student_report',False),perms.get('can_view_fee_report',False),
-            perms.get('can_view_outstanding_report',False),perms.get('can_view_assocref_report',False),perms.get('can_view_leads_report',False),
-            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
-            perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False))
+        pv = (perms.get('can_add_student',True),perms.get('can_edit_student',True),perms.get('can_delete_student',False),perms.get('can_view_payments',True),perms.get('can_add_payment',True),perms.get('can_view_associates',False),perms.get('can_manage_associates',False),perms.get('can_view_references',False),perms.get('can_manage_references',False),perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_view_reports',False),perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False))
         if q("SELECT id FROM user_permissions WHERE user_id=%s", (uid,), one=True):
-            q("""UPDATE user_permissions SET
-                can_add_student=%s,can_edit_student=%s,can_delete_student=%s,
-                can_view_payments=%s,can_add_payment=%s,
-                can_view_associates=%s,can_manage_associates=%s,
-                can_view_references=%s,can_manage_references=%s,
-                can_view_documents=%s,can_upload_document=%s,can_issue_document=%s,
-                can_view_student_report=%s,can_view_fee_report=%s,
-                can_view_outstanding_report=%s,can_view_assocref_report=%s,can_view_leads_report=%s,
-                can_manage_universities=%s,can_view_all_students=%s,
-                can_manage_leads=%s,can_view_audit_logs=%s
-                WHERE user_id=%s""", pv+(uid,), commit=True)
+            q("UPDATE user_permissions SET can_add_student=%s,can_edit_student=%s,can_delete_student=%s,can_view_payments=%s,can_add_payment=%s,can_view_associates=%s,can_manage_associates=%s,can_view_references=%s,can_manage_references=%s,can_view_documents=%s,can_upload_document=%s,can_view_reports=%s,can_manage_universities=%s,can_view_all_students=%s,can_manage_leads=%s,can_view_audit_logs=%s WHERE user_id=%s", pv+(uid,), commit=True)
         else:
-            q_ret("""INSERT INTO user_permissions (user_id,
-                can_add_student,can_edit_student,can_delete_student,
-                can_view_payments,can_add_payment,
-                can_view_associates,can_manage_associates,
-                can_view_references,can_manage_references,
-                can_view_documents,can_upload_document,can_issue_document,
-                can_view_student_report,can_view_fee_report,
-                can_view_outstanding_report,can_view_assocref_report,can_view_leads_report,
-                can_manage_universities,can_view_all_students,
-                can_manage_leads,can_view_audit_logs)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-                (uid,)+pv)
+            q_ret("INSERT INTO user_permissions (user_id,can_add_student,can_edit_student,can_delete_student,can_view_payments,can_add_payment,can_view_associates,can_manage_associates,can_view_references,can_manage_references,can_view_documents,can_upload_document,can_view_reports,can_manage_universities,can_view_all_students,can_manage_leads,can_view_audit_logs) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (uid,)+pv)
     if 'assigned_university_ids' in d:
         q("DELETE FROM user_universities WHERE user_id=%s", (uid,), commit=True)
         for univ_id in d['assigned_university_ids']:
@@ -893,7 +818,7 @@ def delete_user(uid):
 
 @app.route('/api/change-password', methods=['POST'])
 @login_required
-@admin_required
+@admin_required 
 def change_password():
     d = request.json or {}; user = q("SELECT * FROM users WHERE id=%s", (session['user_id'],), one=True)
     if user['password'] != hash_pw(d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
@@ -947,7 +872,7 @@ def csv_response(rows, headers, filename):
 
 @app.route('/api/reports/students')
 @login_required
-@require_perm('can_view_student_report')
+@require_perm('can_view_reports')
 def report_students():
     uid = session['user_id']; fs, fp = student_filter(uid)
     data = q(f"SELECT * FROM students WHERE TRUE {fs} ORDER BY name", fp)
@@ -956,7 +881,7 @@ def report_students():
 
 @app.route('/api/reports/fees')
 @login_required
-@require_perm('can_view_fee_report')
+@require_perm('can_view_reports')
 def report_fees():
     uid = session['user_id']; fs, fp = student_filter(uid)
     data = q(f"SELECT * FROM students WHERE TRUE {fs} ORDER BY name", fp)
@@ -965,7 +890,7 @@ def report_fees():
 
 @app.route('/api/reports/outstanding')
 @login_required
-@require_perm('can_view_outstanding_report')
+@require_perm('can_view_reports')
 def report_outstanding():
     uid = session['user_id']; fs, fp = student_filter(uid)
     data = q(f"SELECT * FROM students WHERE paid < total_fee {fs} ORDER BY (total_fee-paid) DESC", fp)
@@ -974,7 +899,7 @@ def report_outstanding():
 
 @app.route('/api/reports/assoc-ref')
 @login_required
-@require_perm('can_view_assocref_report')
+@require_perm('can_view_reports')
 def report_assoc_ref():
     uid = session['user_id']
     assocs = q("SELECT * FROM associates ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM associates WHERE created_by=%s ORDER BY pay_date DESC", (uid,))
@@ -985,14 +910,19 @@ def report_assoc_ref():
 
 @app.route('/api/reports/leads')
 @login_required
-@require_perm('can_view_leads_report')
 def report_leads():
     uid = session['user_id']
     data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE created_by=%s ORDER BY created_at DESC", (uid,))
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 
+    # App startup pe init_db run karo
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Init DB error: {e}")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
-    print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
