@@ -195,7 +195,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 <div id="app">
   <nav class="sidebar">
     <div class="sb-brand"><div class="sb-logo"><div class="sb-icon">&#127891;</div><div><div class="sb-name">Sky Eduworld</div><div class="sb-sub">Mgmt System</div><div id="sb-sess" style="font-size:10px;color:#10B981;background:rgba(16,185,129,0.15);padding:2px 7px;border-radius:99px;margin-top:4px;display:inline-block">Loading&#8230;</div></div></div></div>
-    <div class="sb-nav" id="sb-nav" style="display:none">
+    <div class="sb-nav">
       <div class="sb-sec">Main</div>
       <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">&#128202;</span>Dashboard</button>
       <button class="nv" onclick="nav('students',this)"><span class="ni">&#128100;</span>Students<span class="nb" id="nb-s">0</span></button>
@@ -285,12 +285,33 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <div class="view" id="view-documents">
         <div class="card"><div class="card-hd"><div><div class="card-title">Issued Documents</div></div><button class="btn btn-p btn-sm" onclick="openM('m-doc')">+ Issue Document</button></div><div class="tw"><table><thead><tr><th>Student</th><th>Document Type</th><th>University</th><th>Date</th><th>Status</th><th>Delivered To</th></tr></thead><tbody id="doc-table"></tbody></table></div></div>
       </div>
+      <!-- REPORTS + IMPORT -->
       <div class="view" id="view-reports">
-        <div class="rep-card" onclick="openReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">&#128203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV/Excel/PDF</span></div>
-        <div class="rep-card" onclick="openReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">&#128176;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV/Excel/PDF</span></div>
-        <div class="rep-card" onclick="openReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">&#9203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV/Excel/PDF</span></div>
-        <div class="rep-card" onclick="openReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">&#129309;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV/Excel/PDF</span></div>
-        <div class="rep-card" onclick="openReport('leads')"><div class="rep-ico" style="background:#F5F3FF">&#128203;</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV/Excel/PDF</span></div>
+        <!-- IMPORT CARD -->
+        <div class="card" style="margin-bottom:16px;border-top:3px solid var(--em)">
+          <div class="card-hd">
+            <div><div class="card-title">&#128229; Students Import</div><div class="card-sub">Excel (.xlsx) ya CSV se bulk students add karo</div></div>
+            <button class="btn btn-g btn-sm" onclick="downloadImportTemplate()">&#128229; Template Download</button>
+          </div>
+          <div style="padding:16px">
+            <div id="import-drop" onclick="document.getElementById('import-file').click()" style="border:2px dashed var(--bd);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--em)';this.style.background='var(--em-lt)'" onmouseout="this.style.borderColor='var(--bd)';this.style.background=''">
+              <div style="font-size:32px">&#128196;</div>
+              <div style="font-weight:600;color:var(--ink);margin-top:8px">Click karo ya file yahan drop karo</div>
+              <div style="font-size:11px;color:var(--slate);margin-top:4px">Excel (.xlsx) ya CSV (.csv) â€” max 1000 rows</div>
+            </div>
+            <input type="file" id="import-file" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleImportFile(this.files[0])">
+            <div style="margin-top:10px;font-size:11px;color:var(--slate)">
+              &#128161; <b>Steps:</b> Template download karo &rarr; data fill karo &rarr; file upload karo &rarr; preview check karo &rarr; confirm karo
+            </div>
+          </div>
+        </div>
+        <!-- EXPORT CARDS -->
+        <div style="font-size:10px;font-weight:700;color:var(--slate);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;padding-left:2px">&#128200; Reports &amp; Export</div>
+        <div class="rep-card" onclick="openReport('students')"><div class="rep-ico" style="background:var(--sky-lt)">&#128203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
+        <div class="rep-card" onclick="openReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)">&#128176;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
+        <div class="rep-card" onclick="openReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)">&#9203;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
+        <div class="rep-card" onclick="openReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)">&#129309;</div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
+        <div class="rep-card" onclick="openReport('leads')"><div class="rep-ico" style="background:#F5F3FF">&#128203;</div><div><div style="font-size:13.5px;font-weight:700">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
       </div>
       <div class="view" id="view-settings">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -674,20 +695,21 @@ async function changePassword(){
   const r=await api('POST','/change-password',{old_password:old,new_password:nw});if(!r)return;toast('Password updated!','ok');['cp-old','cp-new','cp-cf'].forEach(id=>document.getElementById(id).value='');
 }
 async function delUser(id){if(!confirm('Delete this user?'))return;const r=await api('DELETE','/users/'+id);if(!r)return;loadSettings();toast('User deleted','ok');}
-function applyPermsPhase2(){
-  if(!currentUser)return;
-  const sa=isSA();
-  function hideNav(target){document.querySelectorAll('.nv').forEach(function(n){if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+target+"'"))n.style.display='none';});}
-  // Reset all nav items to visible
-  document.querySelectorAll('.nv').forEach(function(n){n.style.display='';});
-  if(sa)return; // Super Admin sees everything
-  // SA-only tabs always hidden for non-SA
-  ['nav-sess','nav-lh'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
-  // Get permissions DIRECTLY from backend (localStorage removed — backend is now reliable)
-  var raw=currentUser.permissions;
+function normalizePerms(raw){
   if(typeof raw==='string'){try{raw=JSON.parse(raw);}catch(e){raw={};}}
   var p=raw||{};
-  // Hide tabs based on actual permissions
+  p.can_view_reports=!!(p.can_view_reports||p.can_view_student_report||p.can_view_fee_report||p.can_view_outstanding_report||p.can_view_assocref_report||p.can_view_leads_report);
+  return p;
+}
+function applyPermsPhase2(){
+  if(!currentUser)return;
+  var navBox=document.querySelector('.sb-nav');
+  if(navBox){navBox.style.display='block';navBox.style.visibility='visible';navBox.style.opacity='1';}
+  function hideNav(target){document.querySelectorAll('.nv').forEach(function(n){if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+target+"'")){n.dataset.permHidden='1';n.style.display='none';}});}
+  document.querySelectorAll('.nv').forEach(function(n){delete n.dataset.permHidden;n.style.display='flex';n.style.visibility='visible';n.style.opacity='1';});
+  if(isSA())return;
+  ['nav-sess','nav-lh'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+  var p=normalizePerms(currentUser.permissions);
   if(!p.can_manage_leads){hideNav('leads');hideNav('followups');hideNav('overdue');}
   if(!p.can_view_payments){hideNav('fees');hideNav('feereceive');}
   if(!p.can_add_payment){hideNav('feereceive');}
@@ -696,10 +718,8 @@ function applyPermsPhase2(){
   if(!p.can_view_reports){hideNav('reports');}
   if(!p.can_manage_universities){hideNav('universities');}
   if(!p.can_add_student){hideNav('addstudent');}
-  hideNav('settings');
-  document.getElementById('sb-nav').style.display='block';
   var auditEl=document.getElementById('nav-audit');
-  if(auditEl){auditEl.style.display=p.can_view_audit_logs?'':'none';}
+  if(auditEl){auditEl.style.display=p.can_view_audit_logs?'flex':'none';}
 }
 async function loadSessionInfo(){const me=await api('GET','/me');const sessEl=document.getElementById('sb-sess');if(!sessEl)return;if(me&&me.active_session)sessEl.textContent='Session: '+me.active_session.name;else sessEl.textContent='No active session';if(me&&me.unread_notifications>0){const b=document.getElementById('notif-badge');if(b){b.textContent=me.unread_notifications;b.classList.add('show');}}}
 async function loadNotifications(){try{const data=await api('GET','/notifications')||[];const unread=data.filter(n=>!n.is_read).length;const badge=document.getElementById('notif-badge');if(badge){badge.textContent=unread;if(unread>0)badge.classList.add('show');else badge.classList.remove('show');}const list=document.getElementById('notif-list');if(list)list.innerHTML=data.length?data.map(function(n){return'<div class="notif-item '+(n.is_read?'':'unread')+'" onclick="markNotifRead('+n.id+')"><div class="notif-title">'+n.title+'</div><div class="notif-msg">'+(n.message||'')+'</div><div style="font-size:10px;color:var(--slate);margin-top:3px">'+(n.created_at||'').slice(0,16)+'</div></div>';}).join(''):'<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';}catch(e){}}
@@ -747,7 +767,7 @@ async function saveUser(){
 const _origOpenM=openM;
 openM=function(id){_origOpenM(id);if(id==='m-user'){const list=document.getElementById('nu-univ-list');if(list&&allUnivs&&allUnivs.length){list.innerHTML=allUnivs.map(u=>'<label><input type="checkbox" name="nu-univ" value="'+u.id+'"> '+u.name+'</label>').join('');}}};
 
-// ── MULTI-SELECT ──
+// â”€â”€ MULTI-SELECT â”€â”€
 function buildMS(id,opts,ph,lbl){
   var items=opts.map(function(o){
     var safe=o.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
@@ -773,7 +793,7 @@ function msAll(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-l
 function msClear(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-list-'+id+' input'),function(c){c.checked=false;});_mslbl(id);}
 function _mslbl(id){var sel=getMS(id);var lbl=document.getElementById('ms-lbl-'+id);var wrap=document.getElementById('ms-'+id);var ph=wrap?wrap.getAttribute('data-ph'):'All';if(!lbl)return;if(sel.length===0){lbl.textContent=ph;lbl.style.color='var(--slate)';lbl.style.fontWeight='';}else if(sel.length===1){lbl.textContent=sel[0];lbl.style.color='var(--ink)';lbl.style.fontWeight='';}else{lbl.textContent=sel.length+' selected';lbl.style.color='var(--sky)';lbl.style.fontWeight='700';}}
 document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap')){document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});}});
-// ── REPORT SYSTEM ──
+// â”€â”€ REPORT SYSTEM â”€â”€
 let currentRpt=null,rptFmt='csv';
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
 function escH(val){return String(val||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -798,6 +818,18 @@ function dlPDF(headers,rows,title){
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escH(title)+'</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}.hdr{background:#0F172A;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:12px}.hdr h2{font-size:14px;font-weight:700}.hdr p{font-size:10px;opacity:.6;margin-top:3px}table{width:100%;border-collapse:collapse;border:1px solid #E2E8F0}thead th{background:#1A6CF6;color:#fff;padding:7px 10px;text-align:left;font-size:10px;font-weight:600}tbody td{padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px}tbody tr:nth-child(even)td{background:#F8FAFC}.btns{margin-top:12px;display:flex;gap:8px}@media print{.btns{display:none}}</style></head><body><div class="hdr"><h2>Sky Eduworld &mdash; '+escH(title)+'</h2><p>Generated: '+new Date().toLocaleString('en-IN')+' | Records: '+rows.length+'</p></div><table><thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table><div class="btns"><button onclick="window.print()" style="padding:8px 18px;background:#1A6CF6;color:#fff;border:none;border-radius:6px;cursor:pointer">Print / Save PDF</button><button onclick="window.close()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer">Close</button></div><script>setTimeout(function(){window.print();},400);<\/script></body></html>');
   w.document.close();
 }
+(function ensureImportModal(){
+  if(document.getElementById('m-import'))return;
+  document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-bg" id="m-import">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-hd"><div><div class="modal-title">&#128229; Import Preview</div><div style="font-size:11px;color:var(--slate);margin-top:2px" id="import-preview-sub">0 rows found</div></div><button class="mcls" onclick="closeM('m-import')">&#10005;</button></div>
+    <div style="padding:12px 18px 6px;border-bottom:1px solid var(--bd)"><div style="display:flex;gap:16px;font-size:12px"><span><span id="imp-total" style="font-weight:700;color:var(--sky)">0</span> total rows</span><span><span id="imp-valid" style="font-weight:700;color:var(--em)">0</span> valid</span><span><span id="imp-errors" style="font-weight:700;color:var(--rose)">0</span> errors</span></div><div id="imp-error-list" style="margin-top:8px;font-size:11px;color:var(--rose);max-height:80px;overflow-y:auto"></div></div>
+    <div style="overflow-x:auto;max-height:380px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead id="imp-thead" style="position:sticky;top:0"></thead><tbody id="imp-tbody"></tbody></table></div>
+    <div class="form-footer"><button class="btn btn-g" onclick="closeM('m-import')">Cancel</button><button class="btn btn-p" id="imp-confirm-btn" onclick="confirmImport()">&#9989; Confirm & Import</button></div>
+  </div>
+</div>`);
+})();
 const COURSES=['B.Ed','M.Ed','BPT','MBA','BBA','B.Com','M.Com','BA','MA','BCA','MCA','B.Sc','M.Sc','D.El.Ed','B.P.Ed'];
 const BATCHES=['2025-26','2024-25','2023-24'];
 function unames(){return allUnivs.map(function(u){return u.name;});}
@@ -823,6 +855,190 @@ const RPT_CFG={
     getData:async function(){var sts=getMS('rf-lstatus'),srcs=getMS('rf-source'),us=getMS('rf-univ'),cs=getMS('rf-course'),fr=v('rf-from'),to=v('rf-to');var data=await api('GET','/leads')||[];if(sts.length)data=data.filter(function(l){return sts.includes(l.status);});if(srcs.length)data=data.filter(function(l){return srcs.includes(l.source);});if(us.length)data=data.filter(function(l){return us.includes(l.university);});if(cs.length)data=data.filter(function(l){return cs.includes(l.course);});if(fr)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)>=fr;});if(to)data=data.filter(function(l){return l.created_at&&l.created_at.slice(0,10)<=to;});return{title:'Leads',headers:['Name','Mobile','Email','Course','University','Source','Status','Follow-up','Remarks','Created'],rows:data.map(function(l){return[l.name,l.mobile||'',l.email||'',l.course||'',l.university||'',l.source||'',l.status||'',(l.follow_up_date||'').slice(0,10),l.remarks||'',l.created_at?l.created_at.slice(0,10):''];})};},
   }
 };
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// IMPORT / EXPORT FUNCTIONS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+// Column mapping: Excel header â†’ DB field
+var IMPORT_COLS = [
+  {h:'Name',         f:'name',       req:true},
+  {h:'Father Name',  f:'father',     req:true},
+  {h:'Mobile',       f:'mobile',     req:true},
+  {h:'Mother Name',  f:'mother',     req:false},
+  {h:'Date of Birth',f:'dob',        req:false},
+  {h:'Gender',       f:'gender',     req:false},
+  {h:'Email',        f:'email',      req:false},
+  {h:'Aadhar No',    f:'aadhar',     req:false},
+  {h:'Address',      f:'address',    req:false},
+  {h:'Course',       f:'course',     req:false},
+  {h:'University',   f:'university', req:false},
+  {h:'Batch',        f:'batch',      req:false},
+  {h:'Enrollment No',f:'enroll_no',  req:false},
+  {h:'Roll Number',  f:'roll_no',    req:false},
+  {h:'Admission Date',f:'adm_date',  req:false},
+  {h:'Total Fee',    f:'total_fee',  req:false},
+  {h:'Initial Paid', f:'paid',       req:false},
+  {h:'Univ Fee',     f:'univ_fee',   req:false},
+  {h:'Payment Mode', f:'pay_mode',   req:false},
+  {h:'UTR No',       f:'utr',        req:false},
+  {h:'Remarks',      f:'remarks',    req:false},
+];
+
+// Download blank template
+function downloadImportTemplate(){
+  if(typeof XLSX==='undefined'){toast('Excel library load nahi hui','er');return;}
+  var headers=IMPORT_COLS.map(function(c){return c.h+(c.req?' *':'');});
+  var example=['Rahul Sharma','Ram Sharma','9876543210','Sunita Devi','2000-05-15','Male','rahul@gmail.com','1234 5678 9012','Alwar, Rajasthan','B.Ed','Sunrise University','2025-26','SAU2025001','001','2025-08-01','50000','10000','45000','Cash','TXN123','Good student'];
+  var ws=XLSX.utils.aoa_to_sheet([headers,example]);
+  // Column widths
+  ws['!cols']=IMPORT_COLS.map(function(){return{wch:18};});
+  // Style header row note
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Students');
+  XLSX.writeFile(wb,'Sky_Eduworld_Import_Template.xlsx');
+  toast('Template downloaded!','ok');
+}
+
+var _importRows=[];
+
+// Handle file upload
+function handleImportFile(file){
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Excel library load nahi hui','er');return;}
+  var ext=file.name.split('.').pop().toLowerCase();
+  if(!['xlsx','xls','csv'].includes(ext)){toast('Sirf Excel (.xlsx) ya CSV (.csv) allowed hai','er');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array',cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      if(!raw||raw.length===0){toast('File mein koi data nahi mila','er');return;}
+      if(raw.length>1000){toast('Max 1000 rows allowed. File mein '+raw.length+' rows hain.','er');return;}
+      parseAndPreview(raw);
+    }catch(ex){toast('File parse error: '+ex.message,'er');}
+    // Reset file input
+    document.getElementById('import-file').value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Normalize header (case-insensitive, trim, remove * and spaces)
+function normalizeHeader(h){return String(h||'').trim().replace(/\s*\*\s*$/,'').toLowerCase().replace(/\s+/g,' ');}
+
+// Map raw row to student fields
+function mapRow(raw, headerMap){
+  var out={};
+  IMPORT_COLS.forEach(function(col){
+    var normalH=normalizeHeader(col.h);
+    var val='';
+    // Try exact match first, then normalized
+    if(headerMap[normalH]!==undefined)val=String(raw[headerMap[normalH]]||'').trim();
+    else{
+      // Try partial match
+      Object.keys(headerMap).forEach(function(k){
+        if(k.includes(normalH.split(' ')[0]))val=String(raw[headerMap[k]]||'').trim();
+      });
+    }
+    out[col.f]=val;
+  });
+  return out;
+}
+
+function parseAndPreview(raw){
+  // Build header map from first row's keys
+  var sampleKeys=Object.keys(raw[0]||{});
+  var headerMap={};
+  sampleKeys.forEach(function(k){headerMap[normalizeHeader(k)]=k;});
+  
+  var validRows=[];
+  var errorRows=[];
+  
+  raw.forEach(function(row,i){
+    var mapped=mapRow(row,headerMap);
+    var errs=[];
+    // Required field check
+    if(!mapped.name)errs.push('Name missing');
+    if(!mapped.father)errs.push('Father Name missing');
+    if(!mapped.mobile)errs.push('Mobile missing');
+    else if(!/^\d{10}$/.test(mapped.mobile.replace(/[\s-]/g,'')))errs.push('Mobile 10 digits hona chahiye');
+    if(errs.length){errorRows.push({row:i+2,errors:errs,data:mapped});}
+    else{validRows.push(mapped);}
+  });
+  
+  _importRows=validRows;
+  
+  // Update preview modal
+  document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili â€” preview check karo';
+  document.getElementById('imp-total').textContent=raw.length;
+  document.getElementById('imp-valid').textContent=validRows.length;
+  document.getElementById('imp-errors').textContent=errorRows.length;
+  
+  // Error list
+  var errHtml=errorRows.slice(0,10).map(function(e){
+    return'<div>&#10060; Row '+e.row+': '+e.errors.join(', ')+'</div>';
+  }).join('');
+  if(errorRows.length>10)errHtml+='<div>...aur '+(errorRows.length-10)+' errors hain</div>';
+  document.getElementById('imp-error-list').innerHTML=errHtml;
+  
+  // Preview table â€” show first 50 valid rows
+  var showCols=['name','father','mobile','course','university','batch','total_fee','paid'];
+  var thead='<tr>'+['#','Name','Father','Mobile','Course','University','Batch','Total Fee','Paid'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
+  document.getElementById('imp-thead').innerHTML=thead;
+  
+  var tbody=validRows.slice(0,50).map(function(r,i){
+    return'<tr style="border-bottom:1px solid var(--bd)">'
+      +'<td style="padding:6px 10px;color:var(--slate);font-size:11px">'+(i+1)+'</td>'
+      +showCols.map(function(f){return'<td style="padding:6px 10px;font-size:11.5px">'+(r[f]||'â€”')+'</td>';}).join('')
+      +'</tr>';
+  }).join('');
+  if(validRows.length>50)tbody+='<tr><td colspan="9" style="padding:8px 10px;text-align:center;font-size:11px;color:var(--slate)">...aur '+(validRows.length-50)+' aur rows hain</td></tr>';
+  document.getElementById('imp-tbody').innerHTML=tbody||'<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--rose)">Koi valid row nahi mili. Errors check karo.</td></tr>';
+  
+  var btn=document.getElementById('imp-confirm-btn');
+  btn.disabled=validRows.length===0;
+  btn.textContent=validRows.length===0?'Koi valid row nahi':'&#9989; '+validRows.length+' Students Import Karo';
+  
+  document.getElementById('m-import').classList.add('open');
+}
+
+async function confirmImport(){
+  if(!_importRows||_importRows.length===0){toast('Import karne ke liye koi valid row nahi','er');return;}
+  var btn=document.getElementById('imp-confirm-btn');
+  btn.disabled=true;btn.textContent='Importing...';
+  try{
+    var r=await api('POST','/import/students',_importRows);
+    if(!r){btn.disabled=false;btn.textContent='Retry';return;}
+    closeM('m-import');
+    var msg=r.success+' students import ho gaye!';
+    if(r.errors&&r.errors.length)msg+=' ('+r.errors.length+' rows skip hue)';
+    toast(msg,'ok');
+    // Refresh students list
+    allStudents=await api('GET','/students')||[];
+    document.getElementById('nb-s').textContent=allStudents.length;
+    populateDropdowns();
+    _importRows=[];
+  }catch(ex){toast('Import error: '+ex.message,'er');}
+  btn.disabled=false;btn.textContent='&#9989; Import Karo';
+}
+
+// Drag & drop support for import
+(function(){
+  document.addEventListener('DOMContentLoaded',function(){
+    var drop=document.getElementById('import-drop');
+    if(!drop)return;
+    drop.addEventListener('dragover',function(e){e.preventDefault();drop.style.borderColor='var(--em)';drop.style.background='var(--em-lt)';});
+    drop.addEventListener('dragleave',function(){drop.style.borderColor='var(--bd)';drop.style.background='';});
+    drop.addEventListener('drop',function(e){
+      e.preventDefault();drop.style.borderColor='var(--bd)';drop.style.background='';
+      var file=e.dataTransfer.files[0];
+      if(file)handleImportFile(file);
+    });
+  });
+})();
+
 window.addEventListener('load',async function(){
   try{
     const r=await fetch('/api/me',{credentials:'same-origin'});
@@ -838,3 +1054,4 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
