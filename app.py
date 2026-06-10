@@ -1,5 +1,5 @@
 """
-Sky Eduworld — Management System (PHASE 2 UPGRADE)
+Sky Eduworld â€” Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
 """
 
@@ -83,7 +83,7 @@ def get_user_perms(user_id):
             'can_view_student_report','can_view_fee_report',
             'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
             'can_manage_universities','can_view_all_students',
-            'can_manage_leads','can_view_audit_logs']}
+            'can_manage_leads','can_view_audit_logs','can_view_reports']}
     perms = q("SELECT * FROM user_permissions WHERE user_id=%s", (user_id,), one=True)
     if not perms:
         return {
@@ -95,8 +95,10 @@ def get_user_perms(user_id):
             'can_view_student_report':False,'can_view_fee_report':False,
             'can_view_outstanding_report':False,'can_view_assocref_report':False,'can_view_leads_report':False,
             'can_manage_universities':False,'can_view_all_students':False,
-            'can_manage_leads':False,'can_view_audit_logs':False}
-    return dict(perms)
+            'can_manage_leads':False,'can_view_audit_logs':False,'can_view_reports':False}
+    out = dict(perms)
+    out['can_view_reports'] = bool(out.get('can_view_reports') or out.get('can_view_student_report') or out.get('can_view_fee_report') or out.get('can_view_outstanding_report') or out.get('can_view_assocref_report') or out.get('can_view_leads_report'))
+    return out
 
 def get_user_univs(user_id):
     if is_super_admin(): return []
@@ -232,7 +234,7 @@ def init_db():
               "UPDATE users SET is_active=TRUE WHERE is_active IS NULL"]:
         try: cur.execute(m)
         except Exception: conn.rollback()
-    conn.commit(); conn.close(); print("✅ Phase 2 DB ready.")
+    conn.commit(); conn.close(); print("âœ… Phase 2 DB ready.")
 
 # App startup pe init_db run karo
 with app.app_context():
@@ -799,8 +801,8 @@ def add_user():
            perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
            perms.get('can_view_references',False),perms.get('can_manage_references',False),
            perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
-           perms.get('can_view_student_report',False),perms.get('can_view_fee_report',False),
-           perms.get('can_view_outstanding_report',False),perms.get('can_view_assocref_report',False),perms.get('can_view_leads_report',False),
+           perms.get('can_view_student_report',perms.get('can_view_reports',False)),perms.get('can_view_fee_report',perms.get('can_view_reports',False)),
+           perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
            perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
     for univ_id in d.get('assigned_university_ids',[]):
@@ -828,8 +830,8 @@ def update_user(uid):
             perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
             perms.get('can_view_references',False),perms.get('can_manage_references',False),
             perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
-            perms.get('can_view_student_report',False),perms.get('can_view_fee_report',False),
-            perms.get('can_view_outstanding_report',False),perms.get('can_view_assocref_report',False),perms.get('can_view_leads_report',False),
+            perms.get('can_view_student_report',perms.get('can_view_reports',False)),perms.get('can_view_fee_report',perms.get('can_view_reports',False)),
+            perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
             perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
             perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False))
         if q("SELECT id FROM user_permissions WHERE user_id=%s", (uid,), one=True):
@@ -996,3 +998,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
