@@ -82,7 +82,7 @@ def get_user_perms(user_id):
             'can_view_documents','can_upload_document','can_issue_document','can_delete_document','can_manage_masters',
             'can_view_student_report','can_view_fee_report',
             'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
-            'can_manage_universities','can_view_all_students',
+            'can_manage_universities','can_view_all_students','can_view_accounts','can_manage_accounts','can_view_profit_report',
             'can_manage_leads','can_view_audit_logs','can_view_reports']}
     perms = q("SELECT * FROM user_permissions WHERE user_id=%s", (user_id,), one=True)
     if not perms:
@@ -95,9 +95,9 @@ def get_user_perms(user_id):
             'can_view_student_report':False,'can_view_fee_report':False,
             'can_view_outstanding_report':False,'can_view_assocref_report':False,'can_view_leads_report':False,
             'can_manage_universities':False,'can_view_all_students':False,
-            'can_manage_leads':False,'can_view_audit_logs':False,'can_view_reports':False}
+            'can_manage_leads':False,'can_view_audit_logs':False,'can_view_accounts':False,'can_manage_accounts':False,'can_view_profit_report':False,'can_view_reports':False}
     out = dict(perms)
-    out['can_view_reports'] = bool(out.get('can_view_reports') or out.get('can_view_student_report') or out.get('can_view_fee_report') or out.get('can_view_outstanding_report') or out.get('can_view_assocref_report') or out.get('can_view_leads_report'))
+    out['can_view_reports'] = bool(out.get('can_view_reports') or out.get('can_view_student_report') or out.get('can_view_fee_report') or out.get('can_view_outstanding_report') or out.get('can_view_assocref_report') or out.get('can_view_leads_report') or out.get('can_view_profit_report'))
     return out
 
 def get_user_univs(user_id):
@@ -174,7 +174,7 @@ def init_db():
         can_view_student_report BOOLEAN DEFAULT FALSE, can_view_fee_report BOOLEAN DEFAULT FALSE,
         can_view_outstanding_report BOOLEAN DEFAULT FALSE, can_view_assocref_report BOOLEAN DEFAULT FALSE, can_view_leads_report BOOLEAN DEFAULT FALSE,
         can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE,
-        can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE,
+        can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, can_view_accounts BOOLEAN DEFAULT FALSE, can_manage_accounts BOOLEAN DEFAULT FALSE, can_view_profit_report BOOLEAN DEFAULT FALSE,
         UNIQUE(user_id));
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
@@ -194,6 +194,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS activity_logs (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), action_type TEXT NOT NULL, module_name TEXT, record_id INTEGER, detail TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS login_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), username TEXT, status TEXT DEFAULT 'Success', ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), title TEXT NOT NULL, message TEXT, type TEXT DEFAULT 'info', is_read BOOLEAN DEFAULT FALSE, link TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS university_payables (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id), university TEXT, student TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, due_date DATE, paid_date DATE, pay_mode TEXT, ref_no TEXT, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS expenses (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), expense_date DATE DEFAULT CURRENT_DATE, category TEXT DEFAULT 'Office', amount NUMERIC(12,2) NOT NULL, pay_mode TEXT, paid_to TEXT, student TEXT, university TEXT, associate TEXT, reference_name TEXT, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     """)
     cur.execute("SELECT id FROM users WHERE username='admin'")
     if not cur.fetchone():
@@ -230,6 +232,9 @@ def init_db():
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS installment_id INTEGER",
+              "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'student_receivable'",
+              "ALTER TABLE associates ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'associate_expense'",
+              "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'reference_expense'",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS created_by INTEGER",
               "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS created_by INTEGER",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_leads BOOLEAN DEFAULT FALSE",
@@ -242,6 +247,9 @@ def init_db():
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_leads_report BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_delete_document BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_masters BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_accounts BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_accounts BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_profit_report BOOLEAN DEFAULT FALSE",
               "UPDATE users SET is_active=TRUE WHERE is_active IS NULL"]:
         try: cur.execute(m)
         except Exception: conn.rollback()
@@ -885,6 +893,7 @@ def add_user():
            perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
            perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
+    q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),uid), commit=True)
     for univ_id in d.get('assigned_university_ids',[]):
         try: q_ret("INSERT INTO user_universities (user_id,university_id) VALUES (%s,%s) RETURNING id", (uid,univ_id))
         except Exception: get_db().rollback()
@@ -939,6 +948,7 @@ def update_user(uid):
                 can_manage_leads,can_view_audit_logs)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (uid,)+pv)
+        q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),uid), commit=True)
     if 'assigned_university_ids' in d:
         q("DELETE FROM user_universities WHERE user_id=%s", (uid,), commit=True)
         for univ_id in d['assigned_university_ids']:
@@ -1074,10 +1084,92 @@ def report_leads():
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 
+# ACCOUNTING / PROFIT
+@app.route('/api/accounts/overview')
+@login_required
+@require_perm('can_view_accounts')
+def accounts_overview():
+    uid = session['user_id']; fs, fp = student_filter(uid, 's')
+    st = q(f"SELECT COALESCE(SUM(s.total_fee),0) AS student_total, COALESCE(SUM(s.paid),0) AS student_received, COALESCE(SUM(s.total_fee-s.paid),0) AS student_due, COALESCE(SUM(s.univ_fee),0) AS university_payable FROM students s WHERE TRUE {fs}", fp, one=True)
+    up = q(f"SELECT COALESCE(SUM(up.amount),0) AS payable, COALESCE(SUM(up.paid_amount),0) AS paid FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE TRUE {fs}", fp, one=True)
+    ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE created_by=%s", (uid,), one=True)
+    assoc = q("SELECT COALESCE(SUM(amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM associates WHERE created_by=%s", (uid,), one=True)
+    refs = q("SELECT COALESCE(SUM(amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM references_ WHERE created_by=%s", (uid,), one=True)
+    received=float(st['student_received']); total_exp=float(ex['total'])+float(assoc['total'])+float(refs['total'])+float(up['paid'])
+    return jsonify({'student_total':float(st['student_total']),'student_received':received,'student_due':float(st['student_due']),'university_payable':float(st['university_payable']),'university_paid':float(up['paid']),'university_balance':float(up['payable'])-float(up['paid']),'expenses_total':total_exp,'net_profit':received-total_exp})
+
+@app.route('/api/accounts/university-payables', methods=['GET','POST'])
+@login_required
+def university_payables():
+    if request.method == 'POST':
+        if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
+        d=request.json or {}; uid=session['user_id']
+        row=q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (d.get('student_id'),uid,d.get('university'),d.get('student'),d.get('amount',0),d.get('paid_amount',0),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),d.get('status','Pending'),d.get('remarks')))
+        log_action('Add','University Payable',row['id'] if row else None,d.get('student'))
+        return jsonify(serialize(row)),201
+    if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
+    uid=session['user_id']; fs, fp = student_filter(uid, 's')
+    rows=q(f"SELECT up.* FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE TRUE {fs} ORDER BY up.created_at DESC", fp)
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/expenses', methods=['GET','POST'])
+@login_required
+def expenses_api():
+    if request.method == 'POST':
+        if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
+        d=request.json or {}; uid=session['user_id']
+        row=q_ret("INSERT INTO expenses (created_by,expense_date,category,amount,pay_mode,paid_to,student,university,associate,reference_name,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,d.get('expense_date') or None,d.get('category','Office'),d.get('amount',0),d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks')))
+        log_action('Add','Expense',row['id'] if row else None,d.get('category'))
+        return jsonify(serialize(row)),201
+    if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
+    uid=session['user_id']
+    rows=q("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC") if is_super_admin() else q("SELECT * FROM expenses WHERE created_by=%s ORDER BY expense_date DESC, id DESC", (uid,))
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/reports/profit')
+@login_required
+@require_perm('can_view_profit_report')
+def report_profit():
+    uid=session['user_id']; group=request.args.get('group','month')
+    fs, fp = student_filter(uid, 's')
+    expr = {'student':'s.name','year':"TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY')",'associate':"COALESCE(a.name,'Unassigned')",'reference':"COALESCE(r.name,'Unassigned')"}.get(group, "TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY-MM')")
+    rows=q(f"""SELECT {expr} AS bucket, COALESCE(SUM(fp.amount),0) AS income, COALESCE(MAX(s.univ_fee),0) AS university_cost FROM fee_payments fp JOIN students s ON s.id=fp.student_id LEFT JOIN associates a ON a.student=s.name LEFT JOIN references_ r ON r.student=s.name WHERE TRUE {fs} GROUP BY bucket ORDER BY bucket""", fp)
+    out=[]
+    for r in rows:
+        bucket=r['bucket'] or 'Unassigned'; income=float(r['income']); exp=float(r['university_cost'])
+        out.append({'bucket':bucket,'income':income,'expense':exp,'profit':income-exp})
+    return jsonify(out)
+
+@app.route('/api/import/students', methods=['POST'])
+@login_required
+@require_perm('can_add_student')
+def import_students():
+    rows=request.json or []
+    if not isinstance(rows,list): return jsonify({'error':'Invalid import data'}),400
+    uid=session['user_id']; ok=0; errors=[]
+    for i,d in enumerate(rows, start=1):
+        try:
+            if not d.get('name') or not d.get('father') or not d.get('mobile'):
+                errors.append({'row':i,'error':'Required fields missing'}); continue
+            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee') or 0,d.get('paid') or 0,d.get('univ_fee') or 0,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
+            sid=row['id']
+            if float(d.get('paid') or 0)>0:
+                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,CURRENT_DATE,%s,%s) RETURNING id", (sid,uid,d.get('paid') or 0,'Initial Payment',d.get('pay_mode') or 'Cash',d.get('utr') or '',d.get('remarks') or 'Imported','student_receivable'))
+            if float(d.get('univ_fee') or 0)>0:
+                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,d.get('university'),d.get('name'),d.get('univ_fee') or 0,'Pending','Imported from student sheet'))
+            ok+=1
+        except Exception as ex:
+            get_db().rollback(); errors.append({'row':i,'error':str(ex)[:160]})
+    get_db().commit(); log_action('Import','Students',None,f'{ok} rows')
+    return jsonify({'success':ok,'errors':errors})
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
+
+
 
 
 
