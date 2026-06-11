@@ -30,6 +30,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#EFF3F8;color:var(--
 .sb-name{font-size:14px;font-weight:700;color:#fff}
 .sb-sub{font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px}
 .sb-nav{flex:1;padding:8px 7px}
+#app.perm-pending .sb-nav{visibility:hidden;pointer-events:none}
 .sb-sec{font-size:10px;font-weight:600;letter-spacing:.8px;color:rgba(255,255,255,0.3);text-transform:uppercase;padding:12px 9px 5px}
 .nv{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--rs);cursor:pointer;color:rgba(255,255,255,0.5);margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-size:12.5px;font-weight:500;font-family:inherit;transition:all .12s}
 .nv:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85)}
@@ -192,7 +193,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
     <p class="l-hint">Default: admin / sky@2024</p>
   </div>
 </div>
-<div id="app">
+<div id="app" class="perm-pending">
   <nav class="sidebar">
     <div class="sb-brand"><div class="sb-logo"><div class="sb-icon">&#127891;</div><div><div class="sb-name">Sky Eduworld</div><div class="sb-sub">Mgmt System</div><div id="sb-sess" style="font-size:10px;color:#10B981;background:rgba(16,185,129,0.15);padding:2px 7px;border-radius:99px;margin-top:4px;display:inline-block">Loading&#8230;</div></div></div></div>
     <div class="sb-nav">
@@ -407,7 +408,7 @@ function populateDropdowns(){
   const fu=document.getElementById('f-univ');if(fu)fu.innerHTML='<option value="">Select university</option>'+allUnivs.map(u=>'<option>'+u.name+'</option>').join('');
   const fltU=document.getElementById('flt-u');if(fltU)fltU.innerHTML='<option value="">All Universities</option>'+allUnivs.map(u=>'<option>'+u.name+'</option>').join('');
 }
-function showLogin(){document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';}
+function showLogin(){const app=document.getElementById('app');app.classList.add('perm-pending');app.style.display='none';document.getElementById('login-screen').style.display='flex';}
 async function doLogin(){
   const u=document.getElementById('l-user').value.trim();
   const p=document.getElementById('l-pass').value;
@@ -419,10 +420,11 @@ async function doLogin(){
   const data=await r.json();currentUser=data.user;
   // Clear stale localStorage permissions (backend is now source of truth)
   Object.keys(localStorage).filter(function(k){return k.startsWith('user_perms_');}).forEach(function(k){localStorage.removeItem(k);});
-  document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';
   document.getElementById('sb-av').textContent=ini(currentUser.full_name);
   document.getElementById('sb-name').textContent=currentUser.full_name;
   document.getElementById('sb-role').textContent=currentUser.role;
+  applyPermsPhase2();
+  document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';
   await initApp();
 }
 async function doLogout(){await api('POST','/logout');showLogin();document.getElementById('l-user').value='';document.getElementById('l-pass').value='';}
@@ -702,12 +704,13 @@ function normalizePerms(raw){
   return p;
 }
 function applyPermsPhase2(){
-  if(!currentUser)return;
+  const app=document.getElementById('app');
+  if(!currentUser){if(app)app.classList.add('perm-pending');return;}
   var navBox=document.querySelector('.sb-nav');
   if(navBox){navBox.style.display='block';navBox.style.visibility='visible';navBox.style.opacity='1';}
   function hideNav(target){document.querySelectorAll('.nv').forEach(function(n){if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+target+"'")){n.dataset.permHidden='1';n.style.display='none';}});}
   document.querySelectorAll('.nv').forEach(function(n){delete n.dataset.permHidden;n.style.display='flex';n.style.visibility='visible';n.style.opacity='1';});
-  if(isSA())return;
+  if(isSA()){if(app)app.classList.remove('perm-pending');return;}
   ['nav-sess','nav-lh'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   var p=normalizePerms(currentUser.permissions);
   if(!p.can_manage_leads){hideNav('leads');hideNav('followups');hideNav('overdue');}
@@ -720,6 +723,7 @@ function applyPermsPhase2(){
   if(!p.can_add_student){hideNav('addstudent');}
   var auditEl=document.getElementById('nav-audit');
   if(auditEl){auditEl.style.display=p.can_view_audit_logs?'flex':'none';}
+  if(app)app.classList.remove('perm-pending');
 }
 async function loadSessionInfo(){const me=await api('GET','/me');const sessEl=document.getElementById('sb-sess');if(!sessEl)return;if(me&&me.active_session)sessEl.textContent='Session: '+me.active_session.name;else sessEl.textContent='No active session';if(me&&me.unread_notifications>0){const b=document.getElementById('notif-badge');if(b){b.textContent=me.unread_notifications;b.classList.add('show');}}}
 async function loadNotifications(){try{const data=await api('GET','/notifications')||[];const unread=data.filter(n=>!n.is_read).length;const badge=document.getElementById('notif-badge');if(badge){badge.textContent=unread;if(unread>0)badge.classList.add('show');else badge.classList.remove('show');}const list=document.getElementById('notif-list');if(list)list.innerHTML=data.length?data.map(function(n){return'<div class="notif-item '+(n.is_read?'':'unread')+'" onclick="markNotifRead('+n.id+')"><div class="notif-title">'+n.title+'</div><div class="notif-msg">'+(n.message||'')+'</div><div style="font-size:10px;color:var(--slate);margin-top:3px">'+(n.created_at||'').slice(0,16)+'</div></div>';}).join(''):'<div style="padding:20px;text-align:center;color:var(--slate)">No notifications</div>';}catch(e){}}
@@ -1044,8 +1048,9 @@ window.addEventListener('load',async function(){
     const r=await fetch('/api/me',{credentials:'same-origin'});
     if(r.ok){
       currentUser=await r.json();
-      document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';
       document.getElementById('sb-av').textContent=ini(currentUser.full_name);document.getElementById('sb-name').textContent=currentUser.full_name;document.getElementById('sb-role').textContent=currentUser.role;
+      applyPermsPhase2();
+      document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';
       const sessEl=document.getElementById('sb-sess');if(sessEl)sessEl.textContent=currentUser.active_session?'Session: '+currentUser.active_session.name:'No active session';
       await initApp();
     }else{const sessEl=document.getElementById('sb-sess');if(sessEl)sessEl.textContent='';}
