@@ -1,5 +1,5 @@
 """
-Sky Eduworld â€” Management System (PHASE 2 UPGRADE)
+Sky Eduworld Ã¢â‚¬â€ Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
 """
 
@@ -79,7 +79,7 @@ def get_user_perms(user_id):
             'can_view_payments','can_add_payment',
             'can_view_associates','can_manage_associates',
             'can_view_references','can_manage_references',
-            'can_view_documents','can_upload_document','can_issue_document',
+            'can_view_documents','can_upload_document','can_issue_document','can_delete_document','can_manage_masters',
             'can_view_student_report','can_view_fee_report',
             'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
             'can_manage_universities','can_view_all_students',
@@ -91,7 +91,7 @@ def get_user_perms(user_id):
             'can_view_payments':True,'can_add_payment':True,
             'can_view_associates':False,'can_manage_associates':False,
             'can_view_references':False,'can_manage_references':False,
-            'can_view_documents':True,'can_upload_document':True,'can_issue_document':False,
+            'can_view_documents':True,'can_upload_document':True,'can_issue_document':False,'can_delete_document':False,'can_manage_masters':False,
             'can_view_student_report':False,'can_view_fee_report':False,
             'can_view_outstanding_report':False,'can_view_assocref_report':False,'can_view_leads_report':False,
             'can_manage_universities':False,'can_view_all_students':False,
@@ -170,7 +170,7 @@ def init_db():
         can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE,
         can_view_associates BOOLEAN DEFAULT FALSE, can_manage_associates BOOLEAN DEFAULT FALSE,
         can_view_references BOOLEAN DEFAULT FALSE, can_manage_references BOOLEAN DEFAULT FALSE,
-        can_view_documents BOOLEAN DEFAULT TRUE, can_upload_document BOOLEAN DEFAULT TRUE, can_issue_document BOOLEAN DEFAULT FALSE,
+        can_view_documents BOOLEAN DEFAULT TRUE, can_upload_document BOOLEAN DEFAULT TRUE, can_issue_document BOOLEAN DEFAULT FALSE, can_delete_document BOOLEAN DEFAULT FALSE, can_manage_masters BOOLEAN DEFAULT FALSE,
         can_view_student_report BOOLEAN DEFAULT FALSE, can_view_fee_report BOOLEAN DEFAULT FALSE,
         can_view_outstanding_report BOOLEAN DEFAULT FALSE, can_view_assocref_report BOOLEAN DEFAULT FALSE, can_view_leads_report BOOLEAN DEFAULT FALSE,
         can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE,
@@ -179,6 +179,9 @@ def init_db():
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
     CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -200,6 +203,12 @@ def init_db():
     if not cur.fetchone():
         cur.execute("INSERT INTO academic_sessions (name,start_date,end_date,is_active) VALUES (%s,%s,%s,%s)",
                     ('2025-26','2025-07-01','2026-06-30',True))
+    for c in ['B.Ed','M.Ed','BPT','MBA','BBA','B.Com','M.Com','BA','MA','BCA','MCA','B.Sc','M.Sc','D.El.Ed','B.P.Ed']:
+        cur.execute("INSERT INTO courses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (c,))
+    for sub in ['Hindi','English','Education','Political Science','History','Sociology','Commerce','Computer Application','Management','Science','Mathematics']:
+        cur.execute("INSERT INTO subjects (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (sub,))
+    for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','All Documents']:
+        cur.execute("INSERT INTO document_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (dt,))
     for u in [('Sikkim Alpine University','Sikkim','#3B82F6'),('Sunrise University','Rajasthan','#10B981'),
               ('Glocal University','Uttar Pradesh','#F5A623'),('YBN University','Jharkhand','#8B5CF6'),
               ('Nirwan University','Rajasthan','#F43F5E'),('Manglaytan University','Uttar Pradesh','#06B6D4'),
@@ -231,10 +240,12 @@ def init_db():
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_outstanding_report BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_assocref_report BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_leads_report BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_delete_document BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_masters BOOLEAN DEFAULT FALSE",
               "UPDATE users SET is_active=TRUE WHERE is_active IS NULL"]:
         try: cur.execute(m)
         except Exception: conn.rollback()
-    conn.commit(); conn.close(); print("âœ… Phase 2 DB ready.")
+    conn.commit(); conn.close(); print("Ã¢Å“â€¦ Phase 2 DB ready.")
 
 # App startup pe init_db run karo
 with app.app_context():
@@ -689,6 +700,74 @@ def delete_session(sid):
     if active and active['is_active']: return jsonify({'error':'Cannot delete active session'}), 400
     q("DELETE FROM academic_sessions WHERE id=%s", (sid,), commit=True); return jsonify({'success':True})
 
+# MASTER DATA
+MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types'}
+
+def master_table(kind):
+    table = MASTER_TABLES.get(kind)
+    if not table: return None
+    return table
+
+@app.route('/api/masters/<kind>', methods=['GET'])
+@login_required
+def list_master(kind):
+    table = master_table(kind)
+    if not table: return jsonify({'error':'Invalid master'}), 404
+    if table == 'subjects':
+        rows = q("SELECT id,name,course_name,is_active,created_at FROM subjects ORDER BY name")
+    elif table == 'document_types':
+        rows = q("SELECT id,name,category,is_active,created_at FROM document_types ORDER BY name")
+    else:
+        rows = q("SELECT id,name,is_active,created_at FROM courses ORDER BY name")
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/masters/<kind>', methods=['POST'])
+@login_required
+@require_perm('can_manage_masters')
+def add_master(kind):
+    table = master_table(kind)
+    if not table: return jsonify({'error':'Invalid master'}), 404
+    d = request.json or {}; name = (d.get('name') or '').strip()
+    if not name: return jsonify({'error':'Name required'}), 400
+    try:
+        if table == 'subjects':
+            row = q_ret("INSERT INTO subjects (name,course_name,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('course_name'),d.get('is_active',True)))
+        elif table == 'document_types':
+            row = q_ret("INSERT INTO document_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
+        else:
+            row = q_ret("INSERT INTO courses (name,is_active) VALUES (%s,%s) RETURNING *", (name,d.get('is_active',True)))
+    except psycopg2.errors.UniqueViolation:
+        get_db().rollback(); return jsonify({'error':'Already exists'}), 409
+    log_action('Add','Master',row['id'] if row else None,f'{kind}: {name}')
+    return jsonify(serialize(row)), 201
+
+@app.route('/api/masters/<kind>/<int:mid>', methods=['PUT'])
+@login_required
+@require_perm('can_manage_masters')
+def update_master(kind, mid):
+    table = master_table(kind)
+    if not table: return jsonify({'error':'Invalid master'}), 404
+    d = request.json or {}; name = (d.get('name') or '').strip()
+    if not name: return jsonify({'error':'Name required'}), 400
+    if table == 'subjects':
+        row = q_ret("UPDATE subjects SET name=%s,course_name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('course_name'),d.get('is_active',True),mid))
+    elif table == 'document_types':
+        row = q_ret("UPDATE document_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
+    else:
+        row = q_ret("UPDATE courses SET name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('is_active',True),mid))
+    if not row: return jsonify({'error':'Not found'}), 404
+    log_action('Edit','Master',mid,f'{kind}: {name}')
+    return jsonify(serialize(row))
+
+@app.route('/api/masters/<kind>/<int:mid>', methods=['DELETE'])
+@login_required
+@require_perm('can_manage_masters')
+def delete_master(kind, mid):
+    table = master_table(kind)
+    if not table: return jsonify({'error':'Invalid master'}), 404
+    q(f"DELETE FROM {table} WHERE id=%s", (mid,), commit=True)
+    log_action('Delete','Master',mid,kind)
+    return jsonify({'success':True})
 # DOCUMENTS
 @app.route('/api/documents', methods=['GET'])
 @login_required
@@ -713,9 +792,10 @@ def get_documents():
 @require_perm('can_issue_document')
 def add_document():
     d = request.json or {}
-    q_ret("INSERT INTO documents (student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+    row = q_ret("INSERT INTO documents (student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
           (d.get('student_id'),d.get('student'),d.get('doc_type'),d.get('university'),d.get('issue_date') or None,d.get('status','Delivered'),d.get('delivered_to'),session['user_id']))
-    return jsonify({'success':True}), 201
+    log_action('Issue','Document',row['id'] if row else None,d.get('doc_type'))
+    return jsonify(serialize(row)), 201
 
 @app.route('/api/documents/<int:did>/upload', methods=['POST'])
 @login_required
@@ -733,13 +813,13 @@ def upload_doc_file(did):
 
 @app.route('/api/documents/<int:did>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_perm('can_delete_document')
 def delete_document(did):
     doc = q("SELECT file_path FROM documents WHERE id=%s", (did,), one=True)
     if doc and doc.get('file_path'):
         try: os.remove(os.path.join(UPLOAD_FOLDER, doc['file_path']))
         except: pass
-    q("DELETE FROM documents WHERE id=%s", (did,), commit=True); return jsonify({'success':True})
+    q("DELETE FROM documents WHERE id=%s", (did,), commit=True); log_action('Delete','Document',did); return jsonify({'success':True})
 
 # NOTIFICATIONS
 @app.route('/api/notifications', methods=['GET'])
@@ -789,18 +869,18 @@ def add_user():
         can_view_payments,can_add_payment,
         can_view_associates,can_manage_associates,
         can_view_references,can_manage_references,
-        can_view_documents,can_upload_document,can_issue_document,
+        can_view_documents,can_upload_document,can_issue_document,can_delete_document,can_manage_masters,
         can_view_student_report,can_view_fee_report,
         can_view_outstanding_report,can_view_assocref_report,can_view_leads_report,
         can_manage_universities,can_view_all_students,
         can_manage_leads,can_view_audit_logs)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
           (uid,
            perms.get('can_add_student',True),perms.get('can_edit_student',True),perms.get('can_delete_student',False),
            perms.get('can_view_payments',True),perms.get('can_add_payment',True),
            perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
            perms.get('can_view_references',False),perms.get('can_manage_references',False),
-           perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
+           perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),perms.get('can_delete_document',False),perms.get('can_manage_masters',False),
            perms.get('can_view_student_report',perms.get('can_view_reports',False)),perms.get('can_view_fee_report',perms.get('can_view_reports',False)),
            perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
@@ -829,7 +909,7 @@ def update_user(uid):
             perms.get('can_view_payments',True),perms.get('can_add_payment',True),
             perms.get('can_view_associates',False),perms.get('can_manage_associates',False),
             perms.get('can_view_references',False),perms.get('can_manage_references',False),
-            perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),
+            perms.get('can_view_documents',True),perms.get('can_upload_document',True),perms.get('can_issue_document',False),perms.get('can_delete_document',False),perms.get('can_manage_masters',False),
             perms.get('can_view_student_report',perms.get('can_view_reports',False)),perms.get('can_view_fee_report',perms.get('can_view_reports',False)),
             perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
             perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
@@ -840,7 +920,7 @@ def update_user(uid):
                 can_view_payments=%s,can_add_payment=%s,
                 can_view_associates=%s,can_manage_associates=%s,
                 can_view_references=%s,can_manage_references=%s,
-                can_view_documents=%s,can_upload_document=%s,can_issue_document=%s,
+                can_view_documents=%s,can_upload_document=%s,can_issue_document=%s,can_delete_document=%s,can_manage_masters=%s,
                 can_view_student_report=%s,can_view_fee_report=%s,
                 can_view_outstanding_report=%s,can_view_assocref_report=%s,can_view_leads_report=%s,
                 can_manage_universities=%s,can_view_all_students=%s,
@@ -852,12 +932,12 @@ def update_user(uid):
                 can_view_payments,can_add_payment,
                 can_view_associates,can_manage_associates,
                 can_view_references,can_manage_references,
-                can_view_documents,can_upload_document,can_issue_document,
+                can_view_documents,can_upload_document,can_issue_document,can_delete_document,can_manage_masters,
                 can_view_student_report,can_view_fee_report,
                 can_view_outstanding_report,can_view_assocref_report,can_view_leads_report,
                 can_manage_universities,can_view_all_students,
                 can_manage_leads,can_view_audit_logs)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (uid,)+pv)
     if 'assigned_university_ids' in d:
         q("DELETE FROM user_universities WHERE user_id=%s", (uid,), commit=True)
@@ -998,4 +1078,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
+
+
+
 
