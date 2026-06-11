@@ -182,7 +182,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS associates (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), name TEXT NOT NULL, phone TEXT, student TEXT, work_done TEXT, amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -209,7 +209,7 @@ def init_db():
         cur.execute("INSERT INTO courses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (c,))
     for sub in ['Hindi','English','Education','Political Science','History','Sociology','Commerce','Computer Application','Management','Science','Mathematics']:
         cur.execute("INSERT INTO subjects (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (sub,))
-    for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','All Documents']:
+    for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','PG Marksheet','PG Degree','Affidavit','All Documents']:
         cur.execute("INSERT INTO document_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (dt,))
     for u in [('Sikkim Alpine University','Sikkim','#3B82F6'),('Sunrise University','Rajasthan','#10B981'),
               ('Glocal University','Uttar Pradesh','#F5A623'),('YBN University','Jharkhand','#8B5CF6'),
@@ -230,6 +230,7 @@ def init_db():
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS created_by INTEGER",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS subject TEXT",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS installment_id INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'student_receivable'",
@@ -388,10 +389,10 @@ def add_student():
     univs = get_user_univs(uid)
     if univs and d.get('university') not in univs: return jsonify({'error':'Not assigned to this university'}), 403
     active_sess = get_active_session()
-    row = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+    row = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
                (uid, active_sess['id'] if active_sess else None, d.get('name'), d.get('father'), d.get('mother'),
                 d.get('dob') or None, d.get('gender'), d.get('mobile'), d.get('email'), d.get('aadhar'), d.get('address'),
-                d.get('course'), d.get('university'), d.get('batch'), d.get('enroll_no'), d.get('roll_no'),
+                d.get('course'), d.get('subject'), d.get('university'), d.get('batch'), d.get('enroll_no'), d.get('roll_no'),
                 d.get('adm_date') or None, d.get('remarks'), d.get('total_fee',0), d.get('paid',0),
                 d.get('univ_fee',0), d.get('pay_mode'), d.get('utr'), d.get('doc_notes'), 'Active'))
     paid = float(d.get('paid',0) or 0)
@@ -400,6 +401,8 @@ def add_student():
         cur.execute("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                     (row['id'],uid,paid,'Initial Payment',d.get('pay_mode'),d.get('utr'),d.get('adm_date') or None))
         conn.commit()
+    if row and float(d.get('univ_fee',0) or 0) > 0:
+        q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id", (row['id'],uid,d.get('university'),d.get('name'),d.get('univ_fee',0),'Pending','Auto from student admission'))
     log_action('Add','Student',row['id'] if row else None, d.get('name'))
     return jsonify(serialize(row)), 201
 
@@ -429,8 +432,8 @@ def update_student(sid):
     if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
         return jsonify({'error':'Not found or access denied'}), 404
     d = request.json or {}
-    row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s WHERE id=%s RETURNING *""",
-               (d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),sid))
+    row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s WHERE id=%s RETURNING *""",
+               (d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),sid))
     log_action('Edit','Student',sid,d.get('name'))
     return jsonify(serialize(row))
 
@@ -1132,14 +1135,29 @@ def expenses_api():
 def report_profit():
     uid=session['user_id']; group=request.args.get('group','month')
     fs, fp = student_filter(uid, 's')
+    params=list(fp); where=f" WHERE TRUE {fs}"
+    def add_in(field, key):
+        nonlocal where, params
+        vals=[v for v in request.args.get(key,'').split('|') if v]
+        if vals:
+            where += f" AND {field} IN (" + ','.join(['%s']*len(vals)) + ")"
+            params.extend(vals)
+    add_in('s.name','students'); add_in('s.university','universities'); add_in('s.course','courses'); add_in('s.subject','subjects')
+    add_in('a.name','associates'); add_in('r.name','references')
     expr = {'student':'s.name','year':"TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY')",'associate':"COALESCE(a.name,'Unassigned')",'reference':"COALESCE(r.name,'Unassigned')"}.get(group, "TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY-MM')")
-    rows=q(f"""SELECT {expr} AS bucket, COALESCE(SUM(fp.amount),0) AS income, COALESCE(MAX(s.univ_fee),0) AS university_cost FROM fee_payments fp JOIN students s ON s.id=fp.student_id LEFT JOIN associates a ON a.student=s.name LEFT JOIN references_ r ON r.student=s.name WHERE TRUE {fs} GROUP BY bucket ORDER BY bucket""", fp)
+    rows=q(f"""SELECT {expr} AS bucket, COALESCE(SUM(fp.amount),0) AS income, COALESCE(MAX(s.univ_fee),0) AS university_cost FROM fee_payments fp JOIN students s ON s.id=fp.student_id LEFT JOIN associates a ON a.student=s.name LEFT JOIN references_ r ON r.student=s.name {where} GROUP BY bucket ORDER BY bucket""", params)
     out=[]
     for r in rows:
         bucket=r['bucket'] or 'Unassigned'; income=float(r['income']); exp=float(r['university_cost'])
         out.append({'bucket':bucket,'income':income,'expense':exp,'profit':income-exp})
     return jsonify(out)
 
+@app.route('/api/reports/staff-business')
+@login_required
+@admin_required
+def report_staff_business():
+    rows=q("""SELECT u.id, u.full_name, u.role, COUNT(s.id)::int AS admissions, COALESCE(SUM(s.total_fee),0) AS total_business, COALESCE(SUM(s.paid),0) AS received, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding, COALESCE(SUM(s.univ_fee),0) AS university_payable FROM users u LEFT JOIN students s ON s.created_by=u.id WHERE u.role <> 'Super Admin' GROUP BY u.id,u.full_name,u.role ORDER BY total_business DESC""")
+    return jsonify([serialize(r) for r in rows])
 @app.route('/api/import/students', methods=['POST'])
 @login_required
 @require_perm('can_add_student')
@@ -1151,7 +1169,7 @@ def import_students():
         try:
             if not d.get('name') or not d.get('father') or not d.get('mobile'):
                 errors.append({'row':i,'error':'Required fields missing'}); continue
-            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee') or 0,d.get('paid') or 0,d.get('univ_fee') or 0,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
+            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee') or 0,d.get('paid') or 0,d.get('univ_fee') or 0,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
             if float(d.get('paid') or 0)>0:
                 q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,CURRENT_DATE,%s,%s) RETURNING id", (sid,uid,d.get('paid') or 0,'Initial Payment',d.get('pay_mode') or 'Cash',d.get('utr') or '',d.get('remarks') or 'Imported','student_receivable'))
@@ -1167,6 +1185,7 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
 
 
 
