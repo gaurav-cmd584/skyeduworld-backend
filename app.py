@@ -244,8 +244,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS associates (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), name TEXT NOT NULL, phone TEXT, student TEXT, work_done TEXT, amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS references_ (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), name TEXT NOT NULL, phone TEXT, student TEXT, university TEXT, amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS associates (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), parent_id INTEGER REFERENCES associates(id) ON DELETE CASCADE, name TEXT NOT NULL, phone TEXT, student TEXT, work_done TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS references_ (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), parent_id INTEGER REFERENCES references_(id) ON DELETE CASCADE, name TEXT NOT NULL, phone TEXT, student TEXT, university TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS documents (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE SET NULL, student TEXT NOT NULL, doc_type TEXT NOT NULL, university TEXT, issue_date DATE, status TEXT DEFAULT 'Delivered', delivered_to TEXT, file_path TEXT, file_name TEXT, uploaded_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS student_photos (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, file_path TEXT NOT NULL, file_name TEXT, uploaded_by INTEGER REFERENCES users(id), uploaded_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS leads (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), name TEXT NOT NULL, mobile TEXT, email TEXT, course TEXT, university TEXT, source TEXT DEFAULT 'Walk-in', status TEXT DEFAULT 'New', remarks TEXT, follow_up_date DATE, converted_to INTEGER REFERENCES students(id), created_at TIMESTAMP DEFAULT NOW());
@@ -303,7 +303,11 @@ def init_db():
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'associate_expense'",
               "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'reference_expense'",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS created_by INTEGER",
+              "ALTER TABLE associates ADD COLUMN IF NOT EXISTS parent_id INTEGER",
+              "ALTER TABLE associates ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12,2) DEFAULT 0",
               "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS created_by INTEGER",
+              "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS parent_id INTEGER",
+              "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(12,2) DEFAULT 0",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_leads BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_audit_logs BOOLEAN DEFAULT FALSE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_users BOOLEAN DEFAULT FALSE",
@@ -538,6 +542,7 @@ def upload_photo(sid):
 # FEE PAYMENTS
 @app.route('/api/students/<int:sid>/payments', methods=['GET'])
 @login_required
+@require_perm('can_view_payments')
 def get_payments(sid):
     rows = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s ORDER BY fp.id DESC", (sid,))
     return jsonify([serialize(r) for r in rows])
@@ -562,6 +567,27 @@ def add_payment(sid):
     if new_paid >= float(student['total_fee']): notify_user(uid,'Fee Cleared!',f"{student['name']} ka poora fee jama ho gaya.",'success')
     updated = q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
     return jsonify({'success':True,'new_paid':new_paid,'student':serialize(updated)})
+
+@app.route('/api/students/<int:sid>/payments/<int:pid>', methods=['PUT','DELETE'])
+@login_required
+@require_perm('can_add_payment')
+def payment_item(sid, pid):
+    uid=session['user_id']; fs, fp = student_filter(uid)
+    student=q(f"SELECT * FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
+    if not student: return jsonify({'error':'Not found or access denied'}), 404
+    old=q("SELECT * FROM fee_payments WHERE id=%s AND student_id=%s", (pid,sid), one=True)
+    if not old: return jsonify({'error':'Payment not found'}), 404
+    if request.method == 'DELETE':
+        q("DELETE FROM fee_payments WHERE id=%s", (pid,), commit=True)
+    else:
+        d=request.json or {}; amount=float(d.get('amount',0) or 0)
+        if amount<=0: return jsonify({'error':'Valid amount required'}), 400
+        q("UPDATE fee_payments SET amount=%s, fee_type=%s, pay_mode=%s, ref_no=%s, pay_date=%s, remarks=%s WHERE id=%s", (amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks',''),pid), commit=True)
+    total=q("SELECT COALESCE(SUM(amount),0) AS paid FROM fee_payments WHERE student_id=%s", (sid,), one=True)['paid']
+    q("UPDATE students SET paid=%s WHERE id=%s", (total,sid), commit=True)
+    updated=q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
+    return jsonify({'success':True,'student':serialize(updated)})
+
 
 # INSTALLMENTS
 @app.route('/api/students/<int:sid>/installments', methods=['GET'])
@@ -671,8 +697,8 @@ def delete_lead(lid):
 @require_perm('can_view_associates')
 def get_associates():
     uid = session['user_id']
-    if is_super_admin(): rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by ORDER BY a.id DESC")
-    else: rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.created_by=%s ORDER BY a.id DESC", (uid,))
+    if is_super_admin(): rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL ORDER BY a.id DESC")
+    else: rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL AND a.created_by=%s ORDER BY a.id DESC", (uid,))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/associates', methods=['POST'])
@@ -680,8 +706,8 @@ def get_associates():
 @require_perm('can_manage_associates')
 def add_associate():
     d = request.json or {}
-    row = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    row = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/associates/<int:aid>', methods=['DELETE'])
@@ -698,8 +724,8 @@ def delete_associate(aid):
 @require_perm('can_view_references')
 def get_references():
     uid = session['user_id']
-    if is_super_admin(): rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by ORDER BY r.id DESC")
-    else: rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.created_by=%s ORDER BY r.id DESC", (uid,))
+    if is_super_admin(): rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL ORDER BY r.id DESC")
+    else: rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL AND r.created_by=%s ORDER BY r.id DESC", (uid,))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/references', methods=['POST'])
@@ -707,8 +733,8 @@ def get_references():
 @require_perm('can_manage_references')
 def add_reference():
     d = request.json or {}
-    row = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    row = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/references/<int:rid>', methods=['DELETE'])
@@ -718,6 +744,37 @@ def delete_reference(rid):
     if not is_super_admin():
         if not q("SELECT id FROM references_ WHERE id=%s AND created_by=%s", (rid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
     q("DELETE FROM references_ WHERE id=%s", (rid,), commit=True); return jsonify({'success':True})
+
+
+@app.route('/api/associates/<int:aid>/parts', methods=['GET','POST'])
+@login_required
+@require_perm('can_manage_associates')
+def add_associate_part(aid):
+    uid=session['user_id']; parent=q("SELECT * FROM associates WHERE id=%s AND parent_id IS NULL", (aid,), one=True)
+    if not parent: return jsonify({'error':'Associate record not found'}), 404
+    if not is_super_admin() and parent.get('created_by') != uid: return jsonify({'error':'Access denied'}), 403
+    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM associates WHERE parent_id=%s ORDER BY pay_date,id", (aid,))])
+    d=request.json or {}; amt=float(d.get('amount',0) or 0)
+    if amt<=0: return jsonify({'error':'Valid amount required'}), 400
+    row=q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,aid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('work_done'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM associates WHERE parent_id=%s", (aid,), one=True)['t']
+    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',aid), commit=True)
+    return jsonify(serialize(row)),201
+
+@app.route('/api/references/<int:rid>/parts', methods=['GET','POST'])
+@login_required
+@require_perm('can_manage_references')
+def add_reference_part(rid):
+    uid=session['user_id']; parent=q("SELECT * FROM references_ WHERE id=%s AND parent_id IS NULL", (rid,), one=True)
+    if not parent: return jsonify({'error':'Reference record not found'}), 404
+    if not is_super_admin() and parent.get('created_by') != uid: return jsonify({'error':'Access denied'}), 403
+    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM references_ WHERE parent_id=%s ORDER BY pay_date,id", (rid,))])
+    d=request.json or {}; amt=float(d.get('amount',0) or 0)
+    if amt<=0: return jsonify({'error':'Valid amount required'}), 400
+    row=q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,rid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('university'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM references_ WHERE parent_id=%s", (rid,), one=True)['t']
+    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',rid), commit=True)
+    return jsonify(serialize(row)),201
 
 # UNIVERSITIES
 @app.route('/api/universities', methods=['GET'])
@@ -1328,6 +1385,22 @@ def import_students():
     uid=session['user_id']; ok=0; errors=[]
     for i,d in enumerate(rows, start=1):
         try:
+
+            # Row-wise payment import: copied fee receiving detail sheets usually have one payment per row.
+            row_name = d.get('name') or d.get('student_name') or d.get('student')
+            row_amount = parse_amount(d.get('amount') or d.get('payment_amount') or d.get('received_amount') or d.get('fee_received'))
+            row_date = parse_date_value(d.get('payment_date') or d.get('date') or d.get('pay_date'))
+            if row_name and row_amount > 0 and (not d.get('father') or not d.get('mobile')):
+                st = q("SELECT * FROM students WHERE LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (row_name,), one=True)
+                if not st:
+                    errors.append({'row':i,'error':f'Student not found for payment row: {row_name}'}); continue
+                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,row_amount,d.get('fee_type') or 'Imported Payment',d.get('payment_mode') or d.get('mode') or d.get('pay_mode') or 'Cash',d.get('ref_no') or d.get('utr') or d.get('utr_no') or '',row_date or date.today().isoformat(),d.get('remarks') or d.get('remark') or '', 'student_receivable'))
+                q("UPDATE students SET paid=COALESCE(paid,0)+%s WHERE id=%s", (row_amount,st['id']), commit=True)
+                univ_paid_row=parse_amount(d.get('university_paid') or d.get('univ_paid'))
+                if univ_paid_row>0:
+                    q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,st.get('university'),st.get('name'),parse_amount(d.get('university_payable') or d.get('univ_fee') or st.get('univ_fee')),univ_paid_row,d.get('university_fee_type') or 'Tuition',row_date,d.get('payment_mode') or d.get('mode') or 'Cash',d.get('ref_no') or d.get('utr') or '', 'Pending', d.get('university_remarks') or d.get('remarks') or 'Imported'))
+                ok+=1
+                continue
             if not d.get('name') or not d.get('father') or not d.get('mobile'):
                 errors.append({'row':i,'error':'Required fields missing'}); continue
             student_total=parse_amount(d.get('total_fee'))
