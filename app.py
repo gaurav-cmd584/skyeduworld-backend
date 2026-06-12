@@ -76,7 +76,7 @@ def get_user_perms(user_id):
     if user_row and user_row['role'] == 'Super Admin':
         return {p:True for p in [
             'can_add_student','can_edit_student','can_delete_student','can_save_partial_student',
-            'can_view_payments','can_add_payment',
+            'can_view_payments','can_add_payment','can_view_fee_types','can_manage_fee_types',
             'can_view_associates','can_manage_associates',
             'can_view_references','can_manage_references',
             'can_view_documents','can_upload_document','can_issue_document','can_delete_document','can_manage_masters',
@@ -88,7 +88,7 @@ def get_user_perms(user_id):
     if not perms:
         return {
             'can_add_student':True,'can_edit_student':True,'can_delete_student':False,'can_save_partial_student':False,
-            'can_view_payments':True,'can_add_payment':True,
+            'can_view_payments':True,'can_add_payment':True,'can_view_fee_types':True,'can_manage_fee_types':False,
             'can_view_associates':False,'can_manage_associates':False,
             'can_view_references':False,'can_manage_references':False,
             'can_view_documents':True,'can_upload_document':True,'can_issue_document':False,'can_delete_document':False,'can_manage_masters':False,
@@ -167,7 +167,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         can_add_student BOOLEAN DEFAULT TRUE, can_edit_student BOOLEAN DEFAULT TRUE, can_delete_student BOOLEAN DEFAULT FALSE, can_save_partial_student BOOLEAN DEFAULT FALSE,
-        can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE,
+        can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE, can_view_fee_types BOOLEAN DEFAULT TRUE, can_manage_fee_types BOOLEAN DEFAULT FALSE,
         can_view_associates BOOLEAN DEFAULT FALSE, can_manage_associates BOOLEAN DEFAULT FALSE,
         can_view_references BOOLEAN DEFAULT FALSE, can_manage_references BOOLEAN DEFAULT FALSE,
         can_view_documents BOOLEAN DEFAULT TRUE, can_upload_document BOOLEAN DEFAULT TRUE, can_issue_document BOOLEAN DEFAULT FALSE, can_delete_document BOOLEAN DEFAULT FALSE, can_manage_masters BOOLEAN DEFAULT FALSE,
@@ -179,6 +179,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
     CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS fee_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student Fee', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
@@ -209,6 +210,8 @@ def init_db():
         cur.execute("INSERT INTO courses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (c,))
     for sub in ['Hindi','English','Education','Political Science','History','Sociology','Commerce','Computer Application','Management','Science','Mathematics']:
         cur.execute("INSERT INTO subjects (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (sub,))
+    for ft in ['Tuition Fee','Examination Fee','Registration Fee','Degree','Migration','Notification','Other Fee']:
+        cur.execute("INSERT INTO fee_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ft,))
     for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','PG Marksheet','PG Degree','Affidavit','All Documents']:
         cur.execute("INSERT INTO document_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (dt,))
     for u in [('Sikkim Alpine University','Sikkim','#3B82F6'),('Sunrise University','Rajasthan','#10B981'),
@@ -234,6 +237,8 @@ def init_db():
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_save_partial_student BOOLEAN DEFAULT FALSE",
               "ALTER TABLE university_payables ADD COLUMN IF NOT EXISTS fee_type TEXT DEFAULT 'Tuition'",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_fee_types BOOLEAN DEFAULT TRUE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_fee_types BOOLEAN DEFAULT FALSE",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS installment_id INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'student_receivable'",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'associate_expense'",
@@ -718,7 +723,7 @@ def delete_session(sid):
     q("DELETE FROM academic_sessions WHERE id=%s", (sid,), commit=True); return jsonify({'success':True})
 
 # MASTER DATA
-MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types'}
+MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types','fee-types':'fee_types'}
 
 def master_table(kind):
     table = MASTER_TABLES.get(kind)
@@ -732,6 +737,8 @@ def list_master(kind):
     if not table: return jsonify({'error':'Invalid master'}), 404
     if table == 'subjects':
         rows = q("SELECT id,name,course_name,is_active,created_at FROM subjects ORDER BY name")
+    elif table == 'fee_types':
+        rows = q("SELECT id,name,category,is_active,created_at FROM fee_types ORDER BY name")
     elif table == 'document_types':
         rows = q("SELECT id,name,category,is_active,created_at FROM document_types ORDER BY name")
     else:
@@ -740,8 +747,11 @@ def list_master(kind):
 
 @app.route('/api/masters/<kind>', methods=['POST'])
 @login_required
-@require_perm('can_manage_masters')
 def add_master(kind):
+    if kind == 'fee-types':
+        if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_fee_types')): return jsonify({'error':'Permission denied: can_manage_fee_types'}), 403
+    elif not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_masters')): return jsonify({'error':'Permission denied: can_manage_masters'}), 403
+
     table = master_table(kind)
     if not table: return jsonify({'error':'Invalid master'}), 404
     d = request.json or {}; name = (d.get('name') or '').strip()
@@ -749,6 +759,8 @@ def add_master(kind):
     try:
         if table == 'subjects':
             row = q_ret("INSERT INTO subjects (name,course_name,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('course_name'),d.get('is_active',True)))
+        elif table == 'fee_types':
+            row = q_ret("INSERT INTO fee_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True)))
         elif table == 'document_types':
             row = q_ret("INSERT INTO document_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
         else:
@@ -760,14 +772,18 @@ def add_master(kind):
 
 @app.route('/api/masters/<kind>/<int:mid>', methods=['PUT'])
 @login_required
-@require_perm('can_manage_masters')
 def update_master(kind, mid):
+    if kind == 'fee-types':
+        if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_fee_types')): return jsonify({'error':'Permission denied: can_manage_fee_types'}), 403
+    elif not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_masters')): return jsonify({'error':'Permission denied: can_manage_masters'}), 403
     table = master_table(kind)
     if not table: return jsonify({'error':'Invalid master'}), 404
     d = request.json or {}; name = (d.get('name') or '').strip()
     if not name: return jsonify({'error':'Name required'}), 400
     if table == 'subjects':
         row = q_ret("UPDATE subjects SET name=%s,course_name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('course_name'),d.get('is_active',True),mid))
+    elif table == 'fee_types':
+        row = q_ret("UPDATE fee_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True),mid))
     elif table == 'document_types':
         row = q_ret("UPDATE document_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
     else:
@@ -778,8 +794,10 @@ def update_master(kind, mid):
 
 @app.route('/api/masters/<kind>/<int:mid>', methods=['DELETE'])
 @login_required
-@require_perm('can_manage_masters')
 def delete_master(kind, mid):
+    if kind == 'fee-types':
+        if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_fee_types')): return jsonify({'error':'Permission denied: can_manage_fee_types'}), 403
+    elif not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_masters')): return jsonify({'error':'Permission denied: can_manage_masters'}), 403
     table = master_table(kind)
     if not table: return jsonify({'error':'Invalid master'}), 404
     q(f"DELETE FROM {table} WHERE id=%s", (mid,), commit=True)
@@ -903,7 +921,7 @@ def add_user():
            perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
            perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
-    q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),uid), commit=True)
+    q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),uid), commit=True)
     for univ_id in d.get('assigned_university_ids',[]):
         try: q_ret("INSERT INTO user_universities (user_id,university_id) VALUES (%s,%s) RETURNING id", (uid,univ_id))
         except Exception: get_db().rollback()
@@ -959,7 +977,7 @@ def update_user(uid):
                 can_manage_leads,can_view_audit_logs)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (uid,)+pv)
-        q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),uid), commit=True)
+        q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),uid), commit=True)
     if 'assigned_university_ids' in d:
         q("DELETE FROM user_universities WHERE user_id=%s", (uid,), commit=True)
         for univ_id in d['assigned_university_ids']:
@@ -1136,13 +1154,44 @@ def expenses_api():
     if request.method == 'POST':
         if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
         d=request.json or {}; uid=session['user_id']
-        row=q_ret("INSERT INTO expenses (created_by,expense_date,category,amount,pay_mode,paid_to,student,university,associate,reference_name,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,d.get('expense_date') or None,d.get('category','Office'),d.get('amount',0),d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks')))
+        
+        try: amount_val=float(d.get('amount',0) or 0)
+        except (TypeError, ValueError): amount_val=0
+        if not d.get('category') or not d.get('paid_to') or amount_val <= 0: return jsonify({'error':'Category, Paid To aur valid amount zaroori hai'}), 400
+        row=q_ret("INSERT INTO expenses (created_by,expense_date,category,amount,pay_mode,paid_to,student,university,associate,reference_name,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,d.get('expense_date') or None,d.get('category','Office'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks')))
         log_action('Add','Expense',row['id'] if row else None,d.get('category'))
         return jsonify(serialize(row)),201
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
     uid=session['user_id']
     rows=q("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC") if is_super_admin() else q("SELECT * FROM expenses WHERE created_by=%s ORDER BY expense_date DESC, id DESC", (uid,))
     return jsonify([serialize(r) for r in rows])
+
+
+@app.route('/api/expenses/<int:eid>', methods=['PUT','DELETE'])
+@login_required
+def expense_item(eid):
+    if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
+    if request.method == 'DELETE':
+        q("DELETE FROM expenses WHERE id=%s", (eid,), commit=True); return jsonify({'success':True})
+    d=request.json or {}
+    try: amount_val=float(d.get('amount',0) or 0)
+    except (TypeError, ValueError): amount_val=0
+    if not d.get('category') or not d.get('paid_to') or amount_val <= 0: return jsonify({'error':'Category, Paid To aur valid amount zaroori hai'}), 400
+    row=q_ret("UPDATE expenses SET expense_date=%s,category=%s,amount=%s,pay_mode=%s,paid_to=%s,student=%s,university=%s,associate=%s,reference_name=%s,remarks=%s WHERE id=%s RETURNING *", (d.get('expense_date') or None,d.get('category'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks'),eid))
+    return jsonify(serialize(row))
+
+@app.route('/api/accounts/university-payables/<int:pid>', methods=['PUT','DELETE'])
+@login_required
+def university_payable_item(pid):
+    if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
+    if request.method == 'DELETE':
+        q("DELETE FROM university_payables WHERE id=%s", (pid,), commit=True); return jsonify({'success':True})
+    d=request.json or {}
+    try: paid=float(d.get('paid_amount',0) or 0); amount=float(d.get('amount',0) or 0)
+    except (TypeError, ValueError): return jsonify({'error':'Valid amount zaroori hai'}), 400
+    status='Paid' if amount>0 and paid>=amount else d.get('status','Pending')
+    row=q_ret("UPDATE university_payables SET amount=%s,paid_amount=%s,fee_type=%s,due_date=%s,paid_date=%s,pay_mode=%s,ref_no=%s,status=%s,remarks=%s WHERE id=%s RETURNING *", (amount,paid,d.get('fee_type','Tuition'),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),status,d.get('remarks'),pid))
+    return jsonify(serialize(row))
 
 @app.route('/api/reports/profit')
 @login_required
