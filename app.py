@@ -155,6 +155,14 @@ def get_user_perms(user_id):
             'can_manage_universities':False,'can_view_all_students':False,
             'can_manage_leads':False,'can_view_audit_logs':False,'can_manage_users':False,'can_download_backup':False,'can_view_accounts':False,'can_manage_accounts':False,'can_view_profit_report':False,'can_view_reports':False}
     out = dict(perms)
+    if out.get('can_manage_references'):
+        out['can_view_references'] = True
+    if out.get('can_manage_associates'):
+        out['can_view_associates'] = True
+    if out.get('can_manage_accounts'):
+        out['can_view_accounts'] = True
+    if out.get('can_manage_fee_types'):
+        out['can_view_fee_types'] = True
     out['can_view_reports'] = bool(out.get('can_view_reports') or out.get('can_view_student_report') or out.get('can_view_fee_report') or out.get('can_view_outstanding_report') or out.get('can_view_assocref_report') or out.get('can_view_leads_report') or out.get('can_view_profit_report'))
     return out
 
@@ -1135,7 +1143,6 @@ def delete_user(uid):
 
 @app.route('/api/change-password', methods=['POST'])
 @login_required
-@admin_required
 def change_password():
     d = request.json or {}; user = q("SELECT * FROM users WHERE id=%s", (session['user_id'],), one=True)
     if user['password'] != hash_pw(d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
