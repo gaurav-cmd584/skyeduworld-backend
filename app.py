@@ -21,6 +21,45 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
 MAX_UPLOAD_BYTES = 512 * 1024
 
+
+def parse_amount(v):
+    try: return float(str(v or 0).replace(',','').strip() or 0)
+    except Exception: return 0.0
+
+def parse_date_value(v):
+    v = str(v or '').strip()
+    if not v: return None
+    for fmt in ('%Y-%m-%d','%d-%m-%Y','%d/%m/%Y','%m/%d/%Y'):
+        try: return datetime.strptime(v[:10], fmt).date().isoformat()
+        except Exception: pass
+    return v[:10]
+
+def split_entries(text):
+    if not text: return []
+    return [x.strip() for x in str(text).replace('\n',';').split(';') if x.strip()]
+
+def parse_payment_entries(text, default_type='Tuition Fee', default_mode='Cash'):
+    out=[]
+    for item in split_entries(text):
+        parts=[p.strip() for p in item.split('|')]
+        if len(parts) >= 6:
+            out.append({'date':parse_date_value(parts[0]),'fee_type':parts[1] or default_type,'amount':parse_amount(parts[2]),'mode':parts[3] or default_mode,'ref':parts[4],'remarks':parts[5]})
+        elif len(parts) >= 3:
+            out.append({'date':parse_date_value(parts[0]),'fee_type':default_type,'amount':parse_amount(parts[1]),'mode':default_mode,'ref':'','remarks':parts[2]})
+        elif len(parts) == 1:
+            out.append({'date':None,'fee_type':default_type,'amount':parse_amount(parts[0]),'mode':default_mode,'ref':'','remarks':''})
+    return [x for x in out if x['amount']>0]
+
+def parse_university_entries(text, default_fee_type='Tuition Fee', default_mode='Cash'):
+    out=[]
+    for item in split_entries(text):
+        parts=[p.strip() for p in item.split('|')]
+        if len(parts) >= 7:
+            out.append({'date':parse_date_value(parts[0]),'fee_type':parts[1] or default_fee_type,'payable':parse_amount(parts[2]),'paid':parse_amount(parts[3]),'mode':parts[4] or default_mode,'ref':parts[5],'remarks':parts[6]})
+        elif len(parts) >= 4:
+            out.append({'date':parse_date_value(parts[0]),'fee_type':parts[1] or default_fee_type,'payable':parse_amount(parts[2]),'paid':parse_amount(parts[3]),'mode':default_mode,'ref':'','remarks':''})
+    return [x for x in out if x['payable']>0 or x['paid']>0]
+
 def allowed_file(fn): return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED
 
 def get_db():
@@ -1273,15 +1312,36 @@ def import_students():
         try:
             if not d.get('name') or not d.get('father') or not d.get('mobile'):
                 errors.append({'row':i,'error':'Required fields missing'}); continue
-            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee') or 0,d.get('paid') or 0,d.get('univ_fee') or 0,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
+            student_total=parse_amount(d.get('total_fee'))
+            legacy_paid=parse_amount(d.get('paid'))
+            univ_fee=parse_amount(d.get('univ_fee'))
+            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
-            if float(d.get('paid') or 0)>0:
-                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,CURRENT_DATE,%s,%s) RETURNING id", (sid,uid,d.get('paid') or 0,'Initial Payment',d.get('pay_mode') or 'Cash',d.get('utr') or '',d.get('remarks') or 'Imported','student_receivable'))
-            if float(d.get('univ_fee') or 0)>0:
-                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,fee_type,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,d.get('university'),d.get('name'),d.get('univ_fee') or 0,'Tuition','Pending','Imported from student sheet'))
+            student_payments=parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
+            if not student_payments and legacy_paid>0:
+                student_payments=[{'date':parse_date_value(d.get('payment_date')) or date.today().isoformat(),'fee_type':d.get('fee_type') or 'Initial Payment','amount':legacy_paid,'mode':d.get('pay_mode') or 'Cash','ref':d.get('utr') or '','remarks':d.get('student_fee_remarks') or d.get('remarks') or 'Imported'}]
+            paid_total=0
+            for pay in student_payments:
+                paid_total += pay['amount']
+                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,pay['amount'],pay['fee_type'],pay['mode'],pay['ref'],pay['date'] or date.today().isoformat(),pay['remarks'],'student_receivable'))
+            if paid_total and paid_total != legacy_paid:
+                q("UPDATE students SET paid=%s WHERE id=%s", (paid_total,sid), commit=True)
+            univ_entries=parse_university_entries(d.get('university_payments') or d.get('univ_payments'), d.get('university_fee_type') or 'Tuition', d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash')
+            legacy_univ_paid=parse_amount(d.get('univ_paid'))
+            if not univ_entries and (univ_fee>0 or legacy_univ_paid>0):
+                univ_entries=[{'date':parse_date_value(d.get('univ_payment_date')),'fee_type':d.get('university_fee_type') or 'Tuition','payable':univ_fee,'paid':legacy_univ_paid,'mode':d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash','ref':d.get('univ_ref') or '','remarks':d.get('university_remarks') or 'Imported from student sheet'}]
+            for up in univ_entries:
+                status='Paid' if up['payable']>0 and up['paid']>=up['payable'] else 'Pending'
+                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,d.get('university'),d.get('name'),up['payable'] or univ_fee,up['paid'],up['fee_type'],up['date'],up['mode'],up['ref'],status,up['remarks']))
+            assoc_amt=parse_amount(d.get('associate_amount'))
+            if d.get('associate_name') and assoc_amt>0:
+                q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (uid,d.get('associate_name'),d.get('associate_phone'),d.get('name'),d.get('associate_work') or 'Admission',assoc_amt,parse_date_value(d.get('associate_pay_date')),d.get('associate_pay_mode') or 'Cash',d.get('associate_utr') or '',d.get('associate_status') or 'Paid',d.get('associate_remarks') or 'Imported'))
+            ref_amt=parse_amount(d.get('reference_amount'))
+            if d.get('reference_name') and ref_amt>0:
+                q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (uid,d.get('reference_name'),d.get('reference_phone'),d.get('name'),d.get('university'),ref_amt,parse_date_value(d.get('reference_pay_date')),d.get('reference_pay_mode') or 'Cash',d.get('reference_utr') or '',d.get('reference_status') or 'Paid',d.get('reference_remarks') or 'Imported'))
             ok+=1
         except Exception as ex:
-            get_db().rollback(); errors.append({'row':i,'error':str(ex)[:160]})
+            get_db().rollback(); errors.append({'row':i,'error':str(ex)[:180]})
     get_db().commit(); log_action('Import','Students',None,f'{ok} rows')
     return jsonify({'success':ok,'errors':errors})
 
