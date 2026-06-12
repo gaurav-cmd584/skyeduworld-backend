@@ -961,20 +961,46 @@ var IMPORT_COLS = [
   {h:'Roll Number', f:'roll_no', req:false},
   {h:'Admission Date', f:'adm_date', req:false},
   {h:'Total Fee', f:'total_fee', req:false},
-  {h:'Student Payments', f:'student_payments', req:false},
-  {h:'Fee Type', f:'fee_type', req:false},
-  {h:'Payment Date', f:'payment_date', req:false},
-  {h:'Payment Mode', f:'pay_mode', req:false},
-  {h:'UTR No', f:'utr', req:false},
-  {h:'Student Fee Remarks', f:'student_fee_remarks', req:false},
+  {h:'Payment 1 Date', f:'pay1_date', req:false},
+  {h:'Payment 1 Fee Type', f:'pay1_type', req:false},
+  {h:'Payment 1 Amount', f:'pay1_amount', req:false},
+  {h:'Payment 1 Mode', f:'pay1_mode', req:false},
+  {h:'Payment 1 Ref No', f:'pay1_ref', req:false},
+  {h:'Payment 1 Remark', f:'pay1_remarks', req:false},
+  {h:'Payment 2 Date', f:'pay2_date', req:false},
+  {h:'Payment 2 Fee Type', f:'pay2_type', req:false},
+  {h:'Payment 2 Amount', f:'pay2_amount', req:false},
+  {h:'Payment 2 Mode', f:'pay2_mode', req:false},
+  {h:'Payment 2 Ref No', f:'pay2_ref', req:false},
+  {h:'Payment 2 Remark', f:'pay2_remarks', req:false},
+  {h:'Payment 3 Date', f:'pay3_date', req:false},
+  {h:'Payment 3 Fee Type', f:'pay3_type', req:false},
+  {h:'Payment 3 Amount', f:'pay3_amount', req:false},
+  {h:'Payment 3 Mode', f:'pay3_mode', req:false},
+  {h:'Payment 3 Ref No', f:'pay3_ref', req:false},
+  {h:'Payment 3 Remark', f:'pay3_remarks', req:false},
   {h:'Univ Fee', f:'univ_fee', req:false},
-  {h:'University Payments', f:'university_payments', req:false},
-  {h:'University Fee Type', f:'university_fee_type', req:false},
-  {h:'University Payment Date', f:'univ_payment_date', req:false},
-  {h:'University Paid', f:'univ_paid', req:false},
-  {h:'University Pay Mode', f:'univ_pay_mode', req:false},
-  {h:'University Ref No', f:'univ_ref', req:false},
-  {h:'University Remarks', f:'university_remarks', req:false},
+  {h:'University Pay 1 Date', f:'univ_pay1_date', req:false},
+  {h:'University Pay 1 Fee Type', f:'univ_pay1_type', req:false},
+  {h:'University Pay 1 Payable', f:'univ_pay1_payable', req:false},
+  {h:'University Pay 1 Paid', f:'univ_pay1_paid', req:false},
+  {h:'University Pay 1 Mode', f:'univ_pay1_mode', req:false},
+  {h:'University Pay 1 Ref No', f:'univ_pay1_ref', req:false},
+  {h:'University Pay 1 Remark', f:'univ_pay1_remarks', req:false},
+  {h:'University Pay 2 Date', f:'univ_pay2_date', req:false},
+  {h:'University Pay 2 Fee Type', f:'univ_pay2_type', req:false},
+  {h:'University Pay 2 Payable', f:'univ_pay2_payable', req:false},
+  {h:'University Pay 2 Paid', f:'univ_pay2_paid', req:false},
+  {h:'University Pay 2 Mode', f:'univ_pay2_mode', req:false},
+  {h:'University Pay 2 Ref No', f:'univ_pay2_ref', req:false},
+  {h:'University Pay 2 Remark', f:'univ_pay2_remarks', req:false},
+  {h:'University Pay 3 Date', f:'univ_pay3_date', req:false},
+  {h:'University Pay 3 Fee Type', f:'univ_pay3_type', req:false},
+  {h:'University Pay 3 Payable', f:'univ_pay3_payable', req:false},
+  {h:'University Pay 3 Paid', f:'univ_pay3_paid', req:false},
+  {h:'University Pay 3 Mode', f:'univ_pay3_mode', req:false},
+  {h:'University Pay 3 Ref No', f:'univ_pay3_ref', req:false},
+  {h:'University Pay 3 Remark', f:'univ_pay3_remarks', req:false},
   {h:'Associate Name', f:'associate_name', req:false},
   {h:'Associate Phone', f:'associate_phone', req:false},
   {h:'Associate Work', f:'associate_work', req:false},
@@ -998,7 +1024,7 @@ var IMPORT_COLS = [
 function downloadImportTemplate(){
   if(typeof XLSX==='undefined'){toast('Excel library load nahi hui','er');return;}
   var headers=IMPORT_COLS.map(function(c){return c.h+(c.req?' *':'');});
-  var example=['Rahul Sharma', 'Ram Sharma', '9876543210', 'Sunita Devi', '2000-05-15', 'Male', 'rahul@gmail.com', '1234 5678 9012', 'Alwar, Rajasthan', 'B.Ed', 'Education', 'Sunrise University', '2025-26', 'SAU2025001', '001', '2025-08-01', '50000', '2025-08-01|Tuition Fee|5000|Cash|R001|Admission fee; 2025-09-01|Tuition Fee|5000|UPI|R002|Second installment', 'Tuition Fee', '2025-08-01', 'Cash', 'R001', 'Student paid first installment', '45000', '2025-08-05|Tuition|45000|10000|Bank Transfer|U001|University first payment', 'Tuition', '2025-08-05', '10000', 'Bank Transfer', 'U001', 'University payment remark', 'Amit Associate', '9999999999', 'Admission support', '2000', '2025-08-10', 'UPI', 'A001', 'Associate paid', 'Deepak Ref', '8888888888', '1500', '2025-08-12', 'Cash', 'REF001', 'Reference paid', 'Aadhar pending', 'Good student'];
+  var example=['Rahul Sharma', 'Ram Sharma', '9876543210', 'Sunita Devi', '2000-05-15', 'Male', 'rahul@gmail.com', '1234 5678 9012', 'Alwar, Rajasthan', 'B.Ed', 'Education', 'Sunrise University', '2025-26', 'SAU2025001', '001', '2025-08-01', '50000', '2025-08-01', 'Tuition Fee', '5000', 'Cash', 'R001', 'Admission fee', '2025-09-01', 'Tuition Fee', '5000', 'UPI', 'R002', 'Second installment', '', '', '', '', '', '', '45000', '2025-08-05', 'Tuition', '45000', '10000', 'Bank Transfer', 'U001', 'University first payment', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Amit Associate', '9999999999', 'Admission support', '2000', '2025-08-10', 'UPI', 'A001', 'Associate paid', 'Deepak Ref', '8888888888', '1500', '2025-08-12', 'Cash', 'REF001', 'Reference paid', 'Aadhar pending', 'Good student'];
   var ws=XLSX.utils.aoa_to_sheet([headers,example]);
   // Column widths
   ws['!cols']=IMPORT_COLS.map(function(){return{wch:18};});
@@ -1093,8 +1119,8 @@ function parseAndPreview(raw){
   document.getElementById('imp-error-list').innerHTML=errHtml;
   
   // Preview table Ã¢â‚¬â€ show first 50 valid rows
-  var showCols=['name','father','mobile','course','subject','university','batch','total_fee','student_payments','university_payments','associate_name','associate_amount','reference_name','reference_amount'];
-  var thead='<tr>'+['#','Name','Father','Mobile','Course','Subject','University','Batch','Total Fee','Student Payments','University Payments','Associate','Assoc Amount','Reference','Ref Amount'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
+  var showCols=['name','father','mobile','course','subject','university','batch','total_fee','pay1_amount','pay2_amount','univ_pay1_paid','associate_amount','reference_amount'];
+  var thead='<tr>'+['#','Name','Father','Mobile','Course','Subject','University','Batch','Total Fee','Pay 1','Pay 2','Univ Paid','Assoc Amt','Ref Amt'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
   document.getElementById('imp-thead').innerHTML=thead;
   
   var tbody=validRows.slice(0,50).map(function(r,i){
