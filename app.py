@@ -19,6 +19,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:password@lo
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
+MAX_UPLOAD_BYTES = 512 * 1024
 
 def allowed_file(fn): return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED
 
@@ -838,6 +839,8 @@ def add_document():
 def upload_doc_file(did):
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
+    file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
+    if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"doc_{did}_{uuid.uuid4().hex[:8]}.{ext}"
