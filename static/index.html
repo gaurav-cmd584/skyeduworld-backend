@@ -268,7 +268,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       </div>
       <div class="view" id="view-fees">
         <div class="stats-row" style="grid-template-columns:repeat(3,1fr)" id="fee-stats"></div>
-        <div class="card"><div class="card-hd"><div><div class="card-title">Fee Records</div></div><button class="btn btn-p btn-sm" onclick="openM('m-qfee')">+ Receive Fee</button></div><div class="loading" id="fee-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="fee-tw" style="display:none"><table><thead><tr><th>Student</th><th>University</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-table"></tbody></table></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title">Fee Records</div></div><div class="card-acts"><input class="fi" id="fee-search" placeholder="Search student..." style="width:190px;padding:6px 9px" oninput="renderFeeRows()"><button class="btn btn-p btn-sm" onclick="openM('m-qfee')">+ Receive Fee</button></div></div><div class="loading" id="fee-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="fee-tw" style="display:none"><table><thead><tr><th>Student</th><th>University</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-table"></tbody></table></div></div>
       </div>
       <div class="view" id="view-feereceive">
         <div style="display:grid;grid-template-columns:1fr 290px;gap:16px">
@@ -282,7 +282,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           <div class="info-box blue"><div style="font-size:24px;flex-shrink:0">&#129309;</div><div><h4 style="color:#0F44B5">Associate</h4><p>Person who <strong>helps complete the admission process</strong> &mdash; paperwork, follow-ups, documents.</p></div></div>
           <div class="info-box amber"><div style="font-size:24px;flex-shrink:0">&#128101;</div><div><h4 style="color:#92400E">Reference</h4><p>Person who <strong>provides you the student lead</strong>. You pay them an <strong>incentive/commission</strong>.</p></div></div>
         </div>
-        <div class="card"><div class="card-hd"><div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div><div class="card-acts"><button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">&#129309; Associates</button><button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">&#128101; References</button><button class="btn btn-p btn-sm" onclick="openIncModal()">+ Add Record</button></div></div><div class="loading" id="inc-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div><div class="card-acts"><button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">&#129309; Associates</button><button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">&#128101; References</button><input class="fi" id="inc-search" placeholder="Search..." style="width:170px;padding:6px 9px" oninput="renderIncRows()"><button class="btn btn-p btn-sm" onclick="openIncModal()">+ Add Record</button></div></div><div class="loading" id="inc-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div></div>
       </div>
       <div class="view" id="view-accounts">
         <div class="stats-row" id="acct-stats" style="grid-template-columns:repeat(4,1fr)"></div>
@@ -304,7 +304,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <!-- IMPORT CARD -->
         <div class="card" style="margin-bottom:16px;border-top:3px solid var(--em)">
           <div class="card-hd">
-            <div><div class="card-title">&#128229; Students Import</div><div class="card-sub">Students, subject, date-wise payments, university, associate and reference import</div></div>
+            <div><div class="card-title">&#128229; Students Import</div><div class="card-sub">Row-wise fee receiving import: one row = one payment</div></div>
             <button class="btn btn-g btn-sm" onclick="downloadImportTemplate()">&#128229; Template Download</button>
           </div>
           <div style="padding:16px">
@@ -360,6 +360,9 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
   </div>
 </div>
 <!-- MODALS -->
+<div class="modal-bg" id="m-ledger"><div class="modal" style="max-width:820px"><div class="modal-hd"><div><div class="modal-title" id="ledger-title">Student Fee Ledger</div><div class="cm" id="ledger-sub"></div></div><button class="mcls" onclick="closeM('m-ledger')">&#10005;</button></div><div style="padding:14px 18px;display:flex;gap:8px;align-items:center"><input class="fi" id="ledger-search" placeholder="Search ledger..." oninput="renderLedgerRows()"><button class="btn btn-p btn-sm" onclick="addLedgerPayment()">+ Add Entry</button></div><div class="tw" style="max-height:420px;overflow:auto"><table><thead><tr><th>Date</th><th>Fee Type</th><th>Amount</th><th>Mode</th><th>Ref</th><th>Remarks</th><th>By</th><th>Actions</th></tr></thead><tbody id="ledger-table"></tbody></table></div></div></div>
+<div class="modal-bg" id="m-ledger-pay"><div class="modal" style="max-width:520px"><div class="modal-hd"><div class="modal-title" id="ledger-pay-title">Edit Fee Entry</div><button class="mcls" onclick="closeM('m-ledger-pay')">&#10005;</button></div><input type="hidden" id="lp-student"><input type="hidden" id="lp-id"><div class="form-grid"><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="lp-date"></div><div class="fg"><label class="fl">Fee Type</label><select class="fs" id="lp-type"></select></div><div class="fg"><label class="fl">Amount</label><input class="fi" type="number" id="lp-amount"></div><div class="fg"><label class="fl">Mode</label><select class="fs" id="lp-mode"><option>Cash</option><option>Bank Transfer / NEFT</option><option>UPI / PhonePe / GPay</option><option>Cheque</option><option>Direct to University Account</option></select></div><div class="fg full"><label class="fl">Ref No.</label><input class="fi" id="lp-ref"></div><div class="fg full"><label class="fl">Remarks</label><input class="fi" id="lp-rem"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-ledger-pay')">Cancel</button><button class="btn btn-p" onclick="saveLedgerPayment()">Save Entry</button></div></div></div>
+<div class="modal-bg" id="m-inc-part"><div class="modal" style="max-width:520px"><div class="modal-hd"><div><div class="modal-title" id="inc-part-title">Incentive Parts</div><div class="cm" id="inc-part-sub"></div></div><button class="mcls" onclick="closeM('m-inc-part')">&#10005;</button></div><div style="padding:14px 18px"><div class="form-grid" style="padding:0"><input type="hidden" id="ip-kind"><input type="hidden" id="ip-parent"><div class="fg"><label class="fl">Amount</label><input class="fi" type="number" id="ip-amount"></div><div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="ip-date"></div><div class="fg"><label class="fl">Mode</label><select class="fs" id="ip-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div><div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="ip-utr"></div><div class="fg full"><label class="fl">Notes</label><input class="fi" id="ip-notes"></div></div><div style="margin-top:10px"><button class="btn btn-p btn-sm" onclick="saveIncPart()">+ Add Part Payment</button></div></div><div class="tw" style="max-height:260px;overflow:auto"><table><thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>UTR</th><th>Notes</th></tr></thead><tbody id="inc-part-table"></tbody></table></div></div></div>
 <div class="modal-bg" id="m-qfee"><div class="modal"><div class="modal-hd"><div class="modal-title">&#128184; Receive Fee</div><button class="mcls" onclick="closeM('m-qfee')">&#10005;</button></div><div class="form-grid"><div class="fg full"><label class="fl">Student *</label><select class="fs" id="qf-s"></select></div><div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="qf-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="qf-date"></div><div class="fg"><label class="fl">Fee Type</label><select class="fs" id="qf-type"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other</option></select></div><div class="fg"><label class="fl">Mode</label><select class="fs" id="qf-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select></div><div class="fg full"><label class="fl">UTR / Ref</label><input class="fi" id="qf-ref" placeholder="Optional"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-qfee')">Cancel</button><button class="btn btn-p" onclick="quickFee()">&#9989; Confirm &amp; Save</button></div></div></div>
 <div class="modal-bg" id="m-associate"><div class="modal"><div class="modal-hd"><div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:7px;background:var(--sky-lt);display:flex;align-items:center;justify-content:center;font-size:15px">&#129309;</div><div><div class="modal-title">Add Associate Payment</div></div></div><button class="mcls" onclick="closeM('m-associate')">&#10005;</button></div><div class="form-grid"><div class="fg"><label class="fl">Associate Name *</label><input class="fi" id="ma-name" placeholder="e.g. Harish Ji"></div><div class="fg"><label class="fl">Mobile</label><input class="fi" id="ma-phone" placeholder="Phone number"></div><div class="fg full"><label class="fl">Student *</label><select class="fs" id="ma-s"></select></div><div class="fg full"><label class="fl">Work Done *</label><input class="fi" id="ma-work" placeholder="e.g. Document submission&#8230;"></div><div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="ma-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="ma-date"></div><div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="ma-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div><div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="ma-utr" placeholder="Optional"></div><div class="fg full"><label class="fl">Notes</label><input class="fi" id="ma-notes" placeholder="Optional&#8230;"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-associate')">Cancel</button><button class="btn btn-p" onclick="saveAssociate()">&#128190; Save</button></div></div></div>
 <div class="modal-bg" id="m-reference"><div class="modal"><div class="modal-hd"><div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:7px;background:#FFF8EC;display:flex;align-items:center;justify-content:center;font-size:15px">&#128101;</div><div><div class="modal-title">Add Reference Incentive</div></div></div><button class="mcls" onclick="closeM('m-reference')">&#10005;</button></div><div class="form-grid"><div class="fg"><label class="fl">Reference Person *</label><input class="fi" id="mr-name" placeholder="e.g. Deepak Ji"></div><div class="fg"><label class="fl">Mobile</label><input class="fi" id="mr-phone" placeholder="Phone number"></div><div class="fg full"><label class="fl">Student Referred *</label><select class="fs" id="mr-s"></select></div><div class="fg"><label class="fl">University</label><select class="fs" id="mr-u"></select></div><div class="fg"><label class="fl">Amount (&#8377;) *</label><input class="fi" type="number" id="mr-amt" placeholder="0"></div><div class="fg"><label class="fl">Date *</label><input class="fi" type="date" id="mr-date"></div><div class="fg"><label class="fl">Payment Mode</label><select class="fs" id="mr-mode"><option>Cash</option><option>Bank Transfer</option><option>UPI / PhonePe</option><option>Cheque</option></select></div><div class="fg"><label class="fl">UTR / Ref</label><input class="fi" id="mr-utr" placeholder="Optional"></div><div class="fg full"><label class="fl">Notes</label><input class="fi" id="mr-notes" placeholder="Optional&#8230;"></div></div><div class="form-footer"><button class="btn btn-g" onclick="closeM('m-reference')">Cancel</button><button class="btn btn-p" onclick="saveReference()">&#128190; Save</button></div></div></div>
@@ -597,12 +600,12 @@ async function delStudent(id){
 }
 async function loadFees(){
   document.getElementById('fee-loading').style.display='flex';document.getElementById('fee-tw').style.display='none';
-  const data=await api('GET','/students');if(!data)return;
-  const total=data.reduce((a,s)=>a+s.total_fee,0),paid=data.reduce((a,s)=>a+s.paid,0);
+  const data=await api('GET','/students');if(!data)return;window._feeStudents=data;
+  const total=data.reduce((a,s)=>a+Number(s.total_fee||0),0),paid=data.reduce((a,s)=>a+Number(s.paid||0),0);
   document.getElementById('fee-stats').innerHTML='<div class="sc gold"><div class="sc-ico gold">&#128176;</div><div class="sc-lbl">Total Fee Decided</div><div class="sc-val">'+fmt(total)+'</div></div><div class="sc green"><div class="sc-ico green">&#9989;</div><div class="sc-lbl">Collected</div><div class="sc-val">'+fmt(paid)+'</div></div><div class="sc rose"><div class="sc-ico rose">&#9203;</div><div class="sc-lbl">Outstanding</div><div class="sc-val">'+fmt(total-paid)+'</div></div>';
-  document.getElementById('fee-loading').style.display='none';document.getElementById('fee-tw').style.display='block';
-  document.getElementById('fee-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid,pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="cp">'+s.name+'</div><div class="cm">'+s.mobile+'</div></td><td class="cm">'+(s.university||'').split(' ').slice(0,2).join(' ')+'</td><td class="cmo">'+fmt(s.total_fee)+'</td><td class="cmo" style="color:var(--em)">'+fmt(s.paid)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td>'+(b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>')+'</td><td style="display:flex;gap:5px"><button class="btn btn-p btn-sm" onclick="quickFeeFor('+s.id+')">+ Fee</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button></td></tr>';}).join('');
+  document.getElementById('fee-loading').style.display='none';document.getElementById('fee-tw').style.display='block';renderFeeRows();
 }
+function renderFeeRows(){var data=window._feeStudents||[];var q=(document.getElementById('fee-search')?.value||'').toLowerCase();if(q)data=data.filter(s=>String(s.name+' '+s.mobile+' '+s.university+' '+s.course).toLowerCase().includes(q));document.getElementById('fee-table').innerHTML=data.map(function(s){const b=Number(s.total_fee||0)-Number(s.paid||0),pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="cp">'+escH(s.name)+'</div><div class="cm">'+escH(s.mobile||'')+'</div></td><td class="cm">'+escH((s.university||'').split(' ').slice(0,2).join(' '))+'</td><td class="cmo">'+fmt(s.total_fee)+'</td><td class="cmo" style="color:var(--em)">'+fmt(s.paid)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td>'+(b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>')+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="quickFeeFor('+s.id+')">+ Fee</button><button class="btn btn-g btn-sm" onclick="openStudentLedger('+s.id+')">Ledger</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button></td></tr>';}).join('');}
 function quickFeeFor(id){openM('m-qfee');setTimeout(()=>{document.getElementById('qf-s').value=id;},50);}
 async function loadFeeInfo(){
   const id=parseInt(document.getElementById('fr-s').value);
@@ -636,36 +639,44 @@ function showReceipt(s,amt,type,mode){
 async function showLastReceipt(id){const s=allStudents.find(x=>x.id===id);if(!s)return;const pmts=await api('GET','/students/'+id+'/payments');const last=pmts?.[0];showReceipt(s,last?.amount||s.paid,last?.fee_type||'Fee',last?.pay_mode||'\u2014');}
 async function loadIncStats(){
   const[a,r]=await Promise.all([api('GET','/associates'),api('GET','/references')]);
-  const ap=(a||[]).reduce((s,x)=>s+x.amount,0),rp=(r||[]).reduce((s,x)=>s+x.amount,0);
-  document.getElementById('inc-stats').innerHTML='<div class="sc blue"><div class="sc-ico blue">&#129309;</div><div class="sc-lbl">Total Associates</div><div class="sc-val">'+(a||[]).length+'</div></div><div class="sc gold"><div class="sc-ico gold">&#128184;</div><div class="sc-lbl">Associate Payments</div><div class="sc-val">'+fmt(ap)+'</div></div><div class="sc green"><div class="sc-ico green">&#128101;</div><div class="sc-lbl">Total References</div><div class="sc-val">'+(r||[]).length+'</div></div><div class="sc rose"><div class="sc-ico rose">&#127873;</div><div class="sc-lbl">Reference Incentives</div><div class="sc-val">'+fmt(rp)+'</div></div>';
+  const ap=(a||[]).reduce((s,x)=>s+Number(x.paid_amount||0),0),rp=(r||[]).reduce((s,x)=>s+Number(x.paid_amount||0),0);
+  document.getElementById('inc-stats').innerHTML='<div class="sc blue"><div class="sc-ico blue">&#129309;</div><div class="sc-lbl">Total Associates</div><div class="sc-val">'+(a||[]).length+'</div></div><div class="sc gold"><div class="sc-ico gold">&#128184;</div><div class="sc-lbl">Associate Paid</div><div class="sc-val">'+fmt(ap)+'</div></div><div class="sc green"><div class="sc-ico green">&#128101;</div><div class="sc-lbl">Total References</div><div class="sc-val">'+(r||[]).length+'</div></div><div class="sc rose"><div class="sc-ico rose">&#127873;</div><div class="sc-lbl">Reference Paid</div><div class="sc-val">'+fmt(rp)+'</div></div>';
 }
 async function loadIncTab(){
   document.getElementById('inc-loading').style.display='flex';document.getElementById('inc-tw').style.display='none';
   if(incTab==='associate'){
-    document.getElementById('inc-title').textContent='Associate Payments';document.getElementById('inc-sub').textContent='Amounts paid for admission process help';document.getElementById('btn-assoc').style.cssText='border-color:var(--sky);color:var(--sky)';document.getElementById('btn-ref').style.cssText='';
-    document.getElementById('inc-hd').innerHTML='<th>Associate</th><th>Student</th><th>Work Done</th><th>Amount</th><th>Date</th><th>Mode</th><th>Status</th><th></th>';
-    const data=await api('GET','/associates')||[];
-    document.getElementById('inc-table').innerHTML=data.map(function(a){return'<tr><td><div class="cp">'+a.name+'</div><div class="cm">'+(a.phone||'')+'</div></td><td>'+(a.student||'\u2014')+'</td><td style="max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--slate)">'+(a.work_done||'\u2014')+'</td><td class="cmo" style="color:var(--sky);font-weight:700">'+fmt(a.amount)+'</td><td class="cm">'+(a.pay_date||'\u2014')+'</td><td><span class="tag tsl">'+(a.pay_mode||'\u2014')+'</span></td><td>'+stag(a.status)+'</td><td><button class="btn btn-r btn-sm" onclick="delAssoc('+a.id+')">&#128465;</button></td></tr>';}).join('');
+    document.getElementById('inc-title').textContent='Associate Incentive Ledger';document.getElementById('inc-sub').textContent='Decided incentive, paid parts and pending balance';document.getElementById('btn-assoc').style.cssText='border-color:var(--sky);color:var(--sky)';document.getElementById('btn-ref').style.cssText='';
+    document.getElementById('inc-hd').innerHTML='<th>Associate</th><th>Student</th><th>Work Done</th><th>Decided</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th>';
+    window._incRows=await api('GET','/associates')||[];
   }else{
-    document.getElementById('inc-title').textContent='Reference Incentives';document.getElementById('inc-sub').textContent='Incentives paid for student referrals';document.getElementById('btn-ref').style.cssText='border-color:var(--gold);color:var(--gold)';document.getElementById('btn-assoc').style.cssText='';
-    document.getElementById('inc-hd').innerHTML='<th>Reference Person</th><th>Student Referred</th><th>University</th><th>Incentive</th><th>Date</th><th>Mode</th><th>Status</th><th></th>';
-    const data=await api('GET','/references')||[];
-    document.getElementById('inc-table').innerHTML=data.map(function(r){return'<tr><td><div class="cp">'+r.name+'</div><div class="cm">'+(r.phone||'')+'</div></td><td>'+(r.student||'\u2014')+'</td><td class="cm">'+(r.university||'\u2014').split(' ').slice(0,2).join(' ')+'</td><td class="cmo" style="color:var(--gold);font-weight:700">'+fmt(r.amount)+'</td><td class="cm">'+(r.pay_date||'\u2014')+'</td><td><span class="tag tsl">'+(r.pay_mode||'\u2014')+'</span></td><td>'+stag(r.status)+'</td><td><button class="btn btn-r btn-sm" onclick="delRef('+r.id+')">&#128465;</button></td></tr>';}).join('');
+    document.getElementById('inc-title').textContent='Reference Incentive Ledger';document.getElementById('inc-sub').textContent='Reference wise decided incentive, paid parts and pending balance';document.getElementById('btn-ref').style.cssText='border-color:var(--gold);color:var(--gold)';document.getElementById('btn-assoc').style.cssText='';
+    document.getElementById('inc-hd').innerHTML='<th>Reference Person</th><th>Student</th><th>University</th><th>Decided</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th>';
+    window._incRows=await api('GET','/references')||[];
   }
+  renderIncRows();
   document.getElementById('inc-loading').style.display='none';document.getElementById('inc-tw').style.display='block';
+}
+function renderIncRows(){
+  var data=(window._incRows||[]);var q=(document.getElementById('inc-search')?.value||'').toLowerCase();
+  if(q)data=data.filter(function(x){return String((x.name||'')+' '+(x.phone||'')+' '+(x.student||'')+' '+(x.work_done||'')+' '+(x.university||'')+' '+(x.status||'')).toLowerCase().includes(q);});
+  if(incTab==='associate'){
+    document.getElementById('inc-table').innerHTML=data.map(function(a){var dec=Number(a.amount||0),paid=Number(a.paid_amount||0),bal=Math.max(dec-paid,0);return'<tr><td><div class="cp">'+escH(a.name||'')+'</div><div class="cm">'+escH(a.phone||'')+'</div></td><td>'+escH(a.student||'\u2014')+'</td><td style="max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--slate)">'+escH(a.work_done||'\u2014')+'</td><td class="cmo" style="font-weight:700">'+fmt(dec)+'</td><td class="cmo" style="color:var(--em);font-weight:700">'+fmt(paid)+'</td><td class="cmo" style="color:'+(bal>0?'var(--rose)':'var(--em)')+';font-weight:700">'+fmt(bal)+'</td><td>'+stag(a.status||'Pending')+'</td><td><div style="display:flex;gap:5px"><button class="btn btn-g btn-sm" onclick="openIncParts(\'associate\','+a.id+')">Parts</button><button class="btn btn-r btn-sm" onclick="delAssoc('+a.id+')">&#128465;</button></div></td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No associate records</td></tr>';
+  }else{
+    document.getElementById('inc-table').innerHTML=data.map(function(r){var dec=Number(r.amount||0),paid=Number(r.paid_amount||0),bal=Math.max(dec-paid,0);return'<tr><td><div class="cp">'+escH(r.name||'')+'</div><div class="cm">'+escH(r.phone||'')+'</div></td><td>'+escH(r.student||'\u2014')+'</td><td class="cm">'+escH(r.university||'\u2014')+'</td><td class="cmo" style="font-weight:700">'+fmt(dec)+'</td><td class="cmo" style="color:var(--em);font-weight:700">'+fmt(paid)+'</td><td class="cmo" style="color:'+(bal>0?'var(--rose)':'var(--em)')+';font-weight:700">'+fmt(bal)+'</td><td>'+stag(r.status||'Pending')+'</td><td><div style="display:flex;gap:5px"><button class="btn btn-g btn-sm" onclick="openIncParts(\'reference\','+r.id+')">Parts</button><button class="btn btn-r btn-sm" onclick="delRef('+r.id+')">&#128465;</button></div></td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No reference records</td></tr>';
+  }
 }
 function switchIncTab(tab){incTab=tab;loadIncTab();}
 function openIncModal(){if(incTab==='associate'){document.getElementById('ma-date').valueAsDate=new Date();openM('m-associate');}else{document.getElementById('mr-date').valueAsDate=new Date();openM('m-reference');}}
 async function saveAssociate(){
   const name=document.getElementById('ma-name').value.trim();const sEl=document.getElementById('ma-s');const student=sEl.options[sEl.selectedIndex]?.text;const amt=parseFloat(document.getElementById('ma-amt').value);
-  if(!name||!student||student==='Select student\u2026'||!amt){toast('Fill required fields','er');return;}
-  const r=await api('POST','/associates',{name,phone:document.getElementById('ma-phone').value,student,work_done:document.getElementById('ma-work').value,amount:amt,pay_date:document.getElementById('ma-date').value,pay_mode:document.getElementById('ma-mode').value,utr:document.getElementById('ma-utr').value,notes:document.getElementById('ma-notes').value,status:'Paid'});
-  if(!r)return;closeM('m-associate');['ma-name','ma-phone','ma-work','ma-amt','ma-utr','ma-notes'].forEach(id=>document.getElementById(id).value='');loadIncTab();loadIncStats();toast('Associate payment saved!','ok');
+  if(!name||!student||student==='Select student?'||!amt){toast('Fill required fields','er');return;}
+  const r=await api('POST','/associates',{name,phone:document.getElementById('ma-phone').value,student,work_done:document.getElementById('ma-work').value,amount:amt,paid_amount:0,pay_date:document.getElementById('ma-date').value,pay_mode:document.getElementById('ma-mode').value,utr:document.getElementById('ma-utr').value,notes:document.getElementById('ma-notes').value,status:'Pending'});
+  if(!r)return;closeM('m-associate');['ma-name','ma-phone','ma-work','ma-amt','ma-utr','ma-notes'].forEach(id=>document.getElementById(id).value='');loadIncTab();loadIncStats();toast('Associate incentive saved!','ok');
 }
 async function saveReference(){
   const name=document.getElementById('mr-name').value.trim();const sEl=document.getElementById('mr-s');const student=sEl.options[sEl.selectedIndex]?.text;const amt=parseFloat(document.getElementById('mr-amt').value);
-  if(!name||!student||student==='Select student\u2026'||!amt){toast('Fill required fields','er');return;}
-  const r=await api('POST','/references',{name,phone:document.getElementById('mr-phone').value,student,university:document.getElementById('mr-u').value,amount:amt,pay_date:document.getElementById('mr-date').value,pay_mode:document.getElementById('mr-mode').value,utr:document.getElementById('mr-utr').value,notes:document.getElementById('mr-notes').value,status:'Paid'});
+  if(!name||!student||student==='Select student?'||!amt){toast('Fill required fields','er');return;}
+  const r=await api('POST','/references',{name,phone:document.getElementById('mr-phone').value,student,university:document.getElementById('mr-u').value,amount:amt,paid_amount:0,pay_date:document.getElementById('mr-date').value,pay_mode:document.getElementById('mr-mode').value,utr:document.getElementById('mr-utr').value,notes:document.getElementById('mr-notes').value,status:'Pending'});
   if(!r)return;closeM('m-reference');['mr-name','mr-phone','mr-amt','mr-utr','mr-notes'].forEach(id=>document.getElementById(id).value='');loadIncTab();loadIncStats();toast('Reference incentive saved!','ok');
 }
 async function delAssoc(id){if(!confirm('Delete?'))return;await api('DELETE','/associates/'+id);loadIncTab();loadIncStats();toast('Deleted','ok');}
@@ -944,87 +955,32 @@ const RPT_CFG={
 
 // Column mapping: Excel header Ã¢â€ â€™ DB field
 var IMPORT_COLS = [
-  {h:'Name', f:'name', req:true},
-  {h:'Father Name', f:'father', req:true},
-  {h:'Mobile', f:'mobile', req:true},
-  {h:'Mother Name', f:'mother', req:false},
-  {h:'Date of Birth', f:'dob', req:false},
-  {h:'Gender', f:'gender', req:false},
-  {h:'Email', f:'email', req:false},
-  {h:'Aadhar No', f:'aadhar', req:false},
-  {h:'Address', f:'address', req:false},
+  {h:'Student Name', f:'name', req:true},
+  {h:'Amount', f:'amount', req:true},
+  {h:'Payment Date', f:'payment_date', req:false},
+  {h:'Payment Mode', f:'payment_mode', req:false},
+  {h:'Ref No / UTR', f:'ref_no', req:false},
+  {h:'Remarks', f:'remarks', req:false},
+  {h:'Fee Type', f:'fee_type', req:false},
+  {h:'University Paid', f:'university_paid', req:false},
+  {h:'University Payable', f:'university_payable', req:false},
+  {h:'University Remarks', f:'university_remarks', req:false},
+  {h:'Father Name', f:'father', req:false},
+  {h:'Mobile', f:'mobile', req:false},
   {h:'Course', f:'course', req:false},
   {h:'Subject', f:'subject', req:false},
   {h:'University', f:'university', req:false},
   {h:'Batch', f:'batch', req:false},
-  {h:'Enrollment No', f:'enroll_no', req:false},
-  {h:'Roll Number', f:'roll_no', req:false},
-  {h:'Admission Date', f:'adm_date', req:false},
   {h:'Total Fee', f:'total_fee', req:false},
-  {h:'Payment 1 Date', f:'pay1_date', req:false},
-  {h:'Payment 1 Fee Type', f:'pay1_type', req:false},
-  {h:'Payment 1 Amount', f:'pay1_amount', req:false},
-  {h:'Payment 1 Mode', f:'pay1_mode', req:false},
-  {h:'Payment 1 Ref No', f:'pay1_ref', req:false},
-  {h:'Payment 1 Remark', f:'pay1_remarks', req:false},
-  {h:'Payment 2 Date', f:'pay2_date', req:false},
-  {h:'Payment 2 Fee Type', f:'pay2_type', req:false},
-  {h:'Payment 2 Amount', f:'pay2_amount', req:false},
-  {h:'Payment 2 Mode', f:'pay2_mode', req:false},
-  {h:'Payment 2 Ref No', f:'pay2_ref', req:false},
-  {h:'Payment 2 Remark', f:'pay2_remarks', req:false},
-  {h:'Payment 3 Date', f:'pay3_date', req:false},
-  {h:'Payment 3 Fee Type', f:'pay3_type', req:false},
-  {h:'Payment 3 Amount', f:'pay3_amount', req:false},
-  {h:'Payment 3 Mode', f:'pay3_mode', req:false},
-  {h:'Payment 3 Ref No', f:'pay3_ref', req:false},
-  {h:'Payment 3 Remark', f:'pay3_remarks', req:false},
   {h:'Univ Fee', f:'univ_fee', req:false},
-  {h:'University Pay 1 Date', f:'univ_pay1_date', req:false},
-  {h:'University Pay 1 Fee Type', f:'univ_pay1_type', req:false},
-  {h:'University Pay 1 Payable', f:'univ_pay1_payable', req:false},
-  {h:'University Pay 1 Paid', f:'univ_pay1_paid', req:false},
-  {h:'University Pay 1 Mode', f:'univ_pay1_mode', req:false},
-  {h:'University Pay 1 Ref No', f:'univ_pay1_ref', req:false},
-  {h:'University Pay 1 Remark', f:'univ_pay1_remarks', req:false},
-  {h:'University Pay 2 Date', f:'univ_pay2_date', req:false},
-  {h:'University Pay 2 Fee Type', f:'univ_pay2_type', req:false},
-  {h:'University Pay 2 Payable', f:'univ_pay2_payable', req:false},
-  {h:'University Pay 2 Paid', f:'univ_pay2_paid', req:false},
-  {h:'University Pay 2 Mode', f:'univ_pay2_mode', req:false},
-  {h:'University Pay 2 Ref No', f:'univ_pay2_ref', req:false},
-  {h:'University Pay 2 Remark', f:'univ_pay2_remarks', req:false},
-  {h:'University Pay 3 Date', f:'univ_pay3_date', req:false},
-  {h:'University Pay 3 Fee Type', f:'univ_pay3_type', req:false},
-  {h:'University Pay 3 Payable', f:'univ_pay3_payable', req:false},
-  {h:'University Pay 3 Paid', f:'univ_pay3_paid', req:false},
-  {h:'University Pay 3 Mode', f:'univ_pay3_mode', req:false},
-  {h:'University Pay 3 Ref No', f:'univ_pay3_ref', req:false},
-  {h:'University Pay 3 Remark', f:'univ_pay3_remarks', req:false},
-  {h:'Associate Name', f:'associate_name', req:false},
-  {h:'Associate Phone', f:'associate_phone', req:false},
-  {h:'Associate Work', f:'associate_work', req:false},
-  {h:'Associate Amount', f:'associate_amount', req:false},
-  {h:'Associate Pay Date', f:'associate_pay_date', req:false},
-  {h:'Associate Pay Mode', f:'associate_pay_mode', req:false},
-  {h:'Associate UTR', f:'associate_utr', req:false},
-  {h:'Associate Remarks', f:'associate_remarks', req:false},
-  {h:'Reference Name', f:'reference_name', req:false},
-  {h:'Reference Phone', f:'reference_phone', req:false},
-  {h:'Reference Amount', f:'reference_amount', req:false},
-  {h:'Reference Pay Date', f:'reference_pay_date', req:false},
-  {h:'Reference Pay Mode', f:'reference_pay_mode', req:false},
-  {h:'Reference UTR', f:'reference_utr', req:false},
-  {h:'Reference Remarks', f:'reference_remarks', req:false},
-  {h:'Document Notes', f:'doc_notes', req:false},
-  {h:'Student Remarks', f:'remarks', req:false},
+  {h:'Admission Date', f:'adm_date', req:false},
 ];
 
 // Download blank template
 function downloadImportTemplate(){
   if(typeof XLSX==='undefined'){toast('Excel library load nahi hui','er');return;}
   var headers=IMPORT_COLS.map(function(c){return c.h+(c.req?' *':'');});
-  var example=['Rahul Sharma', 'Ram Sharma', '9876543210', 'Sunita Devi', '2000-05-15', 'Male', 'rahul@gmail.com', '1234 5678 9012', 'Alwar, Rajasthan', 'B.Ed', 'Education', 'Sunrise University', '2025-26', 'SAU2025001', '001', '2025-08-01', '50000', '2025-08-01', 'Tuition Fee', '5000', 'Cash', 'R001', 'Admission fee', '2025-09-01', 'Tuition Fee', '5000', 'UPI', 'R002', 'Second installment', '', '', '', '', '', '', '45000', '2025-08-05', 'Tuition', '45000', '10000', 'Bank Transfer', 'U001', 'University first payment', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Amit Associate', '9999999999', 'Admission support', '2000', '2025-08-10', 'UPI', 'A001', 'Associate paid', 'Deepak Ref', '8888888888', '1500', '2025-08-12', 'Cash', 'REF001', 'Reference paid', 'Aadhar pending', 'Good student'];
+  var example=['Gone Prem Kumar', '50000', '2023-01-30', 'Online', 'Alphabet Edu T2301301050516395261508', 'First installment', 'Tuition Fee', '0', '197000', '', '', '', '', '', '', '', '', '', ''];
   var ws=XLSX.utils.aoa_to_sheet([headers,example]);
   // Column widths
   ws['!cols']=IMPORT_COLS.map(function(){return{wch:18};});
@@ -1119,8 +1075,8 @@ function parseAndPreview(raw){
   document.getElementById('imp-error-list').innerHTML=errHtml;
   
   // Preview table Ã¢â‚¬â€ show first 50 valid rows
-  var showCols=['name','father','mobile','course','subject','university','batch','total_fee','pay1_amount','pay2_amount','univ_pay1_paid','associate_amount','reference_amount'];
-  var thead='<tr>'+['#','Name','Father','Mobile','Course','Subject','University','Batch','Total Fee','Pay 1','Pay 2','Univ Paid','Assoc Amt','Ref Amt'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
+  var showCols=['name','amount','payment_date','payment_mode','ref_no','remarks','university_paid','university_payable'];
+  var thead='<tr>'+['#','Student','Amount','Date','Mode','Ref','Remarks','Univ Paid','Univ Payable'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
   document.getElementById('imp-thead').innerHTML=thead;
   
   var tbody=validRows.slice(0,50).map(function(r,i){
@@ -1199,6 +1155,17 @@ async function deleteUniversityPay(id){if(!confirm('University payment delete ka
 
 async function showStudentDetail(id){var s=await api('GET','/students/'+id);if(!s)return;var pic=s.photo_path?'<img src="/uploads/'+s.photo_path+'" style="width:94px;height:94px;border-radius:10px;object-fit:cover;border:1px solid var(--bd)">':studentAv(s,94);document.getElementById('student-detail-body').innerHTML='<div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">'+pic+'<div><div style="font-size:20px;font-weight:800">'+escH(s.name)+'</div><div class="cm">'+escH(s.course||'')+' '+escH(s.subject||'')+' / '+escH(s.university||'')+'</div><div class="cm">Mobile: '+escH(s.mobile||'')+'</div></div></div><div class="stats-row" style="grid-template-columns:repeat(3,1fr)"><div class="sc blue"><div><div class="sc-l">Total Fee</div><div class="sc-v">'+rs(s.total_fee)+'</div></div></div><div class="sc green"><div><div class="sc-l">Paid</div><div class="sc-v">'+rs(s.paid)+'</div></div></div><div class="sc gold"><div><div class="sc-l">Balance</div><div class="sc-v">'+rs(Number(s.total_fee||0)-Number(s.paid||0))+'</div></div></div></div>';openM('m-student-detail');}
 async function loadStaffBusiness(){var tb=document.getElementById('staffbiz-table');if(!tb)return;if(!isAdm()){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:18px">Admin only</td></tr>';return;}var data=await api('GET','/reports/staff-business')||[];tb.innerHTML=data.map(function(r){return '<tr><td>'+escH(r.full_name||'')+'<div class="cm">'+escH(r.role||'')+'</div></td><td>'+r.admissions+'</td><td>'+rs(r.total_business)+'</td><td>'+rs(r.received)+'</td><td>'+rs(r.outstanding)+'</td><td>'+rs(r.university_payable)+'</td></tr>';}).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:18px">No staff business yet</td></tr>';}
+
+let _ledgerRows=[],_ledgerStudent=null;
+async function openStudentLedger(id){_ledgerStudent=(window._feeStudents||allStudents||[]).find(s=>String(s.id)===String(id));if(!_ledgerStudent){toast('Student not found','er');return;}document.getElementById('ledger-title').textContent='Fee Ledger - '+_ledgerStudent.name;document.getElementById('ledger-sub').textContent='Total '+fmt(_ledgerStudent.total_fee)+' / Paid '+fmt(_ledgerStudent.paid);_ledgerRows=await api('GET','/students/'+id+'/payments')||[];renderLedgerRows();openM('m-ledger');}
+function renderLedgerRows(){var q=(document.getElementById('ledger-search')?.value||'').toLowerCase();var rows=_ledgerRows;if(q)rows=rows.filter(r=>String((r.pay_date||'')+' '+(r.fee_type||'')+' '+(r.amount||'')+' '+(r.pay_mode||'')+' '+(r.ref_no||'')+' '+(r.remarks||'')).toLowerCase().includes(q));document.getElementById('ledger-table').innerHTML=rows.map(r=>'<tr><td>'+escH(r.pay_date||'')+'</td><td>'+escH(r.fee_type||'')+'</td><td>'+fmt(r.amount)+'</td><td>'+escH(r.pay_mode||'')+'</td><td>'+escH(r.ref_no||'')+'</td><td>'+escH(r.remarks||'')+'</td><td class="cm">'+escH(r.by_name||'')+'</td><td><div style="display:flex;gap:5px"><button class="btn btn-g btn-sm" onclick="editLedgerPayment('+r.id+')">Edit</button><button class="btn btn-r btn-sm" onclick="deleteLedgerPayment('+r.id+')">&#128465;</button></div></td></tr>').join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No fee entries</td></tr>';}
+function addLedgerPayment(){if(!_ledgerStudent){toast('Student not found','er');return;}populateDropdowns();document.getElementById('ledger-pay-title').textContent='Add Fee Entry';document.getElementById('lp-student').value=_ledgerStudent.id;document.getElementById('lp-id').value='';document.getElementById('lp-date').value=new Date().toISOString().slice(0,10);document.getElementById('lp-type').innerHTML=feeTypeOptions();document.getElementById('lp-type').value='Tuition Fee';document.getElementById('lp-amount').value='';document.getElementById('lp-mode').value='Cash';document.getElementById('lp-ref').value='';document.getElementById('lp-rem').value='';openM('m-ledger-pay');}
+function editLedgerPayment(pid){var r=_ledgerRows.find(x=>x.id===pid);if(!r)return;populateDropdowns();document.getElementById('ledger-pay-title').textContent='Edit Fee Entry';document.getElementById('lp-student').value=_ledgerStudent.id;document.getElementById('lp-id').value=pid;document.getElementById('lp-date').value=r.pay_date||'';document.getElementById('lp-type').innerHTML=feeTypeOptions();document.getElementById('lp-type').value=r.fee_type||'Tuition Fee';document.getElementById('lp-amount').value=r.amount||0;document.getElementById('lp-mode').value=r.pay_mode||'Cash';document.getElementById('lp-ref').value=r.ref_no||'';document.getElementById('lp-rem').value=r.remarks||'';openM('m-ledger-pay');}
+async function saveLedgerPayment(){var sid=document.getElementById('lp-student').value,pid=document.getElementById('lp-id').value;var body={amount:parseFloat(document.getElementById('lp-amount').value)||0,fee_type:document.getElementById('lp-type').value,pay_mode:document.getElementById('lp-mode').value,ref_no:document.getElementById('lp-ref').value,pay_date:document.getElementById('lp-date').value,remarks:document.getElementById('lp-rem').value};if(!body.amount){toast('Amount required','er');return;}var r=pid?await api('PUT','/students/'+sid+'/payments/'+pid,body):await api('POST','/students/'+sid+'/payments',body);if(r){closeM('m-ledger-pay');toast(pid?'Ledger updated':'Fee entry added','ok');allStudents=await api('GET','/students')||[];window._feeStudents=allStudents;await openStudentLedger(sid);loadFees();}}
+async function deleteLedgerPayment(pid){if(!_ledgerStudent||!confirm('Delete fee entry?'))return;var r=await api('DELETE','/students/'+_ledgerStudent.id+'/payments/'+pid);if(r){toast('Ledger entry deleted','ok');allStudents=await api('GET','/students')||[];window._feeStudents=allStudents;await openStudentLedger(_ledgerStudent.id);loadFees();}}
+async function openIncParts(kind,id){document.getElementById('ip-kind').value=kind;document.getElementById('ip-parent').value=id;document.getElementById('ip-date').valueAsDate=new Date();var arr=kind==='associate'?(await api('GET','/associates/'+id+'/parts')||[]):(await api('GET','/references/'+id+'/parts')||[]);document.getElementById('inc-part-table').innerHTML=arr.map(x=>'<tr><td>'+escH(x.pay_date||'')+'</td><td>'+fmt(x.paid_amount||x.amount)+'</td><td>'+escH(x.pay_mode||'')+'</td><td>'+escH(x.utr||'')+'</td><td>'+escH(x.notes||'')+'</td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;padding:14px;color:var(--slate)">No part payments</td></tr>';openM('m-inc-part');}
+async function saveIncPart(){var kind=document.getElementById('ip-kind').value,id=document.getElementById('ip-parent').value;var body={amount:parseFloat(document.getElementById('ip-amount').value)||0,pay_date:document.getElementById('ip-date').value,pay_mode:document.getElementById('ip-mode').value,utr:document.getElementById('ip-utr').value,notes:document.getElementById('ip-notes').value};if(!body.amount){toast('Amount required','er');return;}var path=kind==='associate'?'/associates/'+id+'/parts':'/references/'+id+'/parts';var r=await api('POST',path,body);if(r){toast('Part payment added','ok');document.getElementById('ip-amount').value='';openIncParts(kind,id);loadIncTab();loadIncStats();}}
+
 window.addEventListener('load',async function(){
   try{
     const r=await fetch('/api/me',{credentials:'same-origin'});
