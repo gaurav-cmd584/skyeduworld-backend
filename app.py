@@ -50,6 +50,24 @@ def parse_payment_entries(text, default_type='Tuition Fee', default_mode='Cash')
             out.append({'date':None,'fee_type':default_type,'amount':parse_amount(parts[0]),'mode':default_mode,'ref':'','remarks':''})
     return [x for x in out if x['amount']>0]
 
+
+def collect_numbered_payments(d, prefix, count=5, default_type='Tuition Fee', default_mode='Cash'):
+    out=[]
+    for n in range(1,count+1):
+        amt=parse_amount(d.get(f'{prefix}{n}_amount'))
+        if amt<=0: continue
+        out.append({'date':parse_date_value(d.get(f'{prefix}{n}_date')),'fee_type':d.get(f'{prefix}{n}_type') or default_type,'amount':amt,'mode':d.get(f'{prefix}{n}_mode') or default_mode,'ref':d.get(f'{prefix}{n}_ref') or '','remarks':d.get(f'{prefix}{n}_remarks') or ''})
+    return out
+
+def collect_numbered_university_payments(d, prefix='univ_pay', count=5, default_type='Tuition', default_mode='Cash'):
+    out=[]
+    for n in range(1,count+1):
+        payable=parse_amount(d.get(f'{prefix}{n}_payable'))
+        paid=parse_amount(d.get(f'{prefix}{n}_paid'))
+        if payable<=0 and paid<=0: continue
+        out.append({'date':parse_date_value(d.get(f'{prefix}{n}_date')),'fee_type':d.get(f'{prefix}{n}_type') or default_type,'payable':payable,'paid':paid,'mode':d.get(f'{prefix}{n}_mode') or default_mode,'ref':d.get(f'{prefix}{n}_ref') or '','remarks':d.get(f'{prefix}{n}_remarks') or ''})
+    return out
+
 def parse_university_entries(text, default_fee_type='Tuition Fee', default_mode='Cash'):
     out=[]
     for item in split_entries(text):
@@ -1317,7 +1335,7 @@ def import_students():
             univ_fee=parse_amount(d.get('univ_fee'))
             row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
-            student_payments=parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
+            student_payments=collect_numbered_payments(d,'pay',5,d.get('fee_type') or 'Initial Payment',d.get('pay_mode') or 'Cash') or parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
             if not student_payments and legacy_paid>0:
                 student_payments=[{'date':parse_date_value(d.get('payment_date')) or date.today().isoformat(),'fee_type':d.get('fee_type') or 'Initial Payment','amount':legacy_paid,'mode':d.get('pay_mode') or 'Cash','ref':d.get('utr') or '','remarks':d.get('student_fee_remarks') or d.get('remarks') or 'Imported'}]
             paid_total=0
@@ -1326,7 +1344,7 @@ def import_students():
                 q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,pay['amount'],pay['fee_type'],pay['mode'],pay['ref'],pay['date'] or date.today().isoformat(),pay['remarks'],'student_receivable'))
             if paid_total and paid_total != legacy_paid:
                 q("UPDATE students SET paid=%s WHERE id=%s", (paid_total,sid), commit=True)
-            univ_entries=parse_university_entries(d.get('university_payments') or d.get('univ_payments'), d.get('university_fee_type') or 'Tuition', d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash')
+            univ_entries=collect_numbered_university_payments(d,'univ_pay',5,d.get('university_fee_type') or 'Tuition',d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash') or parse_university_entries(d.get('university_payments') or d.get('univ_payments'), d.get('university_fee_type') or 'Tuition', d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash')
             legacy_univ_paid=parse_amount(d.get('univ_paid'))
             if not univ_entries and (univ_fee>0 or legacy_univ_paid>0):
                 univ_entries=[{'date':parse_date_value(d.get('univ_payment_date')),'fee_type':d.get('university_fee_type') or 'Tuition','payable':univ_fee,'paid':legacy_univ_paid,'mode':d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash','ref':d.get('univ_ref') or '','remarks':d.get('university_remarks') or 'Imported from student sheet'}]
