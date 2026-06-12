@@ -3,7 +3,7 @@ Sky Eduworld Ã¢â‚¬â€ Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
 """
 
-import os, csv, io, hashlib, uuid
+import os, csv, io, hashlib, uuid, json
 from datetime import datetime, timedelta, date
 from functools import wraps
 
@@ -84,7 +84,7 @@ def get_user_perms(user_id):
             'can_view_student_report','can_view_fee_report',
             'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
             'can_manage_universities','can_view_all_students','can_view_accounts','can_manage_accounts','can_view_profit_report',
-            'can_manage_leads','can_view_audit_logs','can_manage_users','can_view_reports']}
+            'can_manage_leads','can_view_audit_logs','can_manage_users','can_download_backup','can_view_reports']}
     perms = q("SELECT * FROM user_permissions WHERE user_id=%s", (user_id,), one=True)
     if not perms:
         return {
@@ -96,7 +96,7 @@ def get_user_perms(user_id):
             'can_view_student_report':False,'can_view_fee_report':False,
             'can_view_outstanding_report':False,'can_view_assocref_report':False,'can_view_leads_report':False,
             'can_manage_universities':False,'can_view_all_students':False,
-            'can_manage_leads':False,'can_view_audit_logs':False,'can_manage_users':False,'can_view_accounts':False,'can_manage_accounts':False,'can_view_profit_report':False,'can_view_reports':False}
+            'can_manage_leads':False,'can_view_audit_logs':False,'can_manage_users':False,'can_download_backup':False,'can_view_accounts':False,'can_manage_accounts':False,'can_view_profit_report':False,'can_view_reports':False}
     out = dict(perms)
     out['can_view_reports'] = bool(out.get('can_view_reports') or out.get('can_view_student_report') or out.get('can_view_fee_report') or out.get('can_view_outstanding_report') or out.get('can_view_assocref_report') or out.get('can_view_leads_report') or out.get('can_view_profit_report'))
     return out
@@ -175,7 +175,7 @@ def init_db():
         can_view_student_report BOOLEAN DEFAULT FALSE, can_view_fee_report BOOLEAN DEFAULT FALSE,
         can_view_outstanding_report BOOLEAN DEFAULT FALSE, can_view_assocref_report BOOLEAN DEFAULT FALSE, can_view_leads_report BOOLEAN DEFAULT FALSE,
         can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE,
-        can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, can_manage_users BOOLEAN DEFAULT FALSE, can_view_accounts BOOLEAN DEFAULT FALSE, can_manage_accounts BOOLEAN DEFAULT FALSE, can_view_profit_report BOOLEAN DEFAULT FALSE,
+        can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, can_manage_users BOOLEAN DEFAULT FALSE, can_download_backup BOOLEAN DEFAULT FALSE, can_view_accounts BOOLEAN DEFAULT FALSE, can_manage_accounts BOOLEAN DEFAULT FALSE, can_view_profit_report BOOLEAN DEFAULT FALSE,
         UNIQUE(user_id));
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
@@ -240,6 +240,7 @@ def init_db():
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_view_fee_types BOOLEAN DEFAULT TRUE",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_manage_fee_types BOOLEAN DEFAULT FALSE",
+              "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_download_backup BOOLEAN DEFAULT FALSE",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS installment_id INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'student_receivable'",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'associate_expense'",
@@ -278,7 +279,10 @@ def index(): return send_from_directory('static','index.html')
 
 @app.route('/uploads/<path:filename>')
 @login_required
-def serve_upload(filename): return send_from_directory(UPLOAD_FOLDER, filename)
+def serve_upload(filename):
+    if filename.startswith('doc_') and not is_admin():
+        return jsonify({'error':'Only Admin/Super Admin can open uploaded document files'}), 403
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 # AUTH
 @app.route('/api/login', methods=['POST'])
@@ -819,7 +823,7 @@ def get_documents():
     result = []
     for r in q(sql+' ORDER BY d.id DESC', params):
         sr = serialize(r)
-        if r.get('file_path'): sr['file_url'] = f'/uploads/{r["file_path"]}'
+        if r.get('file_path') and is_admin(): sr['file_url'] = f'/uploads/{r["file_path"]}'
         result.append(sr)
     return jsonify(result)
 
@@ -924,7 +928,7 @@ def add_user():
            perms.get('can_view_outstanding_report',perms.get('can_view_reports',False)),perms.get('can_view_assocref_report',perms.get('can_view_reports',False)),perms.get('can_view_leads_report',perms.get('can_view_reports',False)),
            perms.get('can_manage_universities',False),perms.get('can_view_all_students',False),
            perms.get('can_manage_leads',False),perms.get('can_view_audit_logs',False)))
-    q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),uid), commit=True)
+    q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s, can_download_backup=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),perms.get('can_download_backup',False),uid), commit=True)
     for univ_id in d.get('assigned_university_ids',[]):
         try: q_ret("INSERT INTO user_universities (user_id,university_id) VALUES (%s,%s) RETURNING id", (uid,univ_id))
         except Exception: get_db().rollback()
@@ -980,7 +984,7 @@ def update_user(uid):
                 can_manage_leads,can_view_audit_logs)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (uid,)+pv)
-        q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),uid), commit=True)
+        q("UPDATE user_permissions SET can_view_accounts=%s, can_manage_accounts=%s, can_view_profit_report=%s, can_manage_users=%s, can_save_partial_student=%s, can_view_fee_types=%s, can_manage_fee_types=%s, can_download_backup=%s WHERE user_id=%s", (perms.get('can_view_accounts',False),perms.get('can_manage_accounts',False),perms.get('can_view_profit_report',False),perms.get('can_manage_users',False),perms.get('can_save_partial_student',False),perms.get('can_view_fee_types',True),perms.get('can_manage_fee_types',False),perms.get('can_download_backup',False),uid), commit=True)
     if 'assigned_university_ids' in d:
         q("DELETE FROM user_universities WHERE user_id=%s", (uid,), commit=True)
         for univ_id in d['assigned_university_ids']:
@@ -1013,7 +1017,7 @@ def force_logout_user(uid):
 @require_perm('can_manage_users')
 def delete_user(uid):
     if uid == session.get('user_id'): return jsonify({'error':'Cannot delete yourself'}), 400
-    q("DELETE FROM users WHERE id=%s", (uid,), commit=True); return jsonify({'success':True})
+    q("UPDATE users SET is_active=FALSE, session_token=NULL WHERE id=%s", (uid,), commit=True); log_action('Disable','User',uid); return jsonify({'success':True,'disabled':True})
 
 @app.route('/api/change-password', methods=['POST'])
 @login_required
@@ -1201,7 +1205,10 @@ def university_payable_item(pid):
 @require_perm('can_view_profit_report')
 def report_profit():
     uid=session['user_id']; group=request.args.get('group','month')
-    fs, fp = student_filter(uid, 's')
+    if is_admin():
+        fs, fp = student_filter(uid, 's')
+    else:
+        fs, fp = ' AND s.created_by = %s', [uid]
     params=list(fp); where=f" WHERE TRUE {fs}"
     def add_in(field, key):
         nonlocal where, params
@@ -1225,6 +1232,36 @@ def report_profit():
 def report_staff_business():
     rows=q("""SELECT u.id, u.full_name, u.role, COUNT(s.id)::int AS admissions, COALESCE(SUM(s.total_fee),0) AS total_business, COALESCE(SUM(s.paid),0) AS received, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding, COALESCE(SUM(s.univ_fee),0) AS university_payable FROM users u LEFT JOIN students s ON s.created_by=u.id WHERE u.role <> 'Super Admin' GROUP BY u.id,u.full_name,u.role ORDER BY total_business DESC""")
     return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/backup')
+@login_required
+@require_perm('can_download_backup')
+def download_backup():
+    uid=session['user_id']
+    scope=request.args.get('scope','mine')
+    system = scope == 'system' and is_admin()
+    data = {'generated_at': datetime.now().isoformat(timespec='seconds'), 'scope': 'system' if system else 'mine', 'user_id': uid, 'tables': {}}
+    def rows(sql, params=()): return [serialize(r) for r in q(sql, params)]
+    if system:
+        table_names=['users','universities','academic_sessions','courses','subjects','fee_types','document_types','students','fee_payments','fee_installments','university_payables','expenses','associates','references_','documents','leads','follow_ups','activity_logs','login_history']
+        for t in table_names:
+            try: data['tables'][t]=rows(f"SELECT * FROM {t} ORDER BY id")
+            except Exception as ex: data['tables'][t]={'error':str(ex)[:120]}
+    else:
+        data['tables']['students']=rows("SELECT * FROM students WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['fee_payments']=rows("SELECT fp.* FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE s.created_by=%s OR fp.recorded_by=%s ORDER BY fp.id", (uid,uid))
+        data['tables']['fee_installments']=rows("SELECT fi.* FROM fee_installments fi JOIN students s ON s.id=fi.student_id WHERE s.created_by=%s OR fi.created_by=%s ORDER BY fi.id", (uid,uid))
+        data['tables']['university_payables']=rows("SELECT up.* FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE s.created_by=%s OR up.created_by=%s ORDER BY up.id", (uid,uid))
+        data['tables']['expenses']=rows("SELECT * FROM expenses WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['associates']=rows("SELECT * FROM associates WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['references_']=rows("SELECT * FROM references_ WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['documents']=rows("SELECT d.* FROM documents d LEFT JOIN students s ON s.id=d.student_id WHERE s.created_by=%s OR d.uploaded_by=%s ORDER BY d.id", (uid,uid))
+        data['tables']['leads']=rows("SELECT * FROM leads WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['follow_ups']=rows("SELECT * FROM follow_ups WHERE created_by=%s ORDER BY id", (uid,))
+    payload=json.dumps(data, ensure_ascii=False, indent=2)
+    fname=f"sky_backup_{data['scope']}_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    return Response(payload, mimetype='application/json', headers={'Content-Disposition': f'attachment; filename={fname}'})
+
 @app.route('/api/import/students', methods=['POST'])
 @login_required
 @require_perm('can_add_student')
