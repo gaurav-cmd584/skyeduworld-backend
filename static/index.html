@@ -311,11 +311,11 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
             <div id="import-drop" onclick="document.getElementById('import-file').click()" style="border:2px dashed var(--bd);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--em)';this.style.background='var(--em-lt)'" onmouseout="this.style.borderColor='var(--bd)';this.style.background=''">
               <div style="font-size:32px">&#128196;</div>
               <div style="font-weight:600;color:var(--ink);margin-top:8px">Click karo ya file yahan drop karo</div>
-              <div style="font-size:11px;color:var(--slate);margin-top:4px">Excel (.xlsx) ya CSV (.csv) Ã¢â‚¬â€ max 1000 rows</div>
+              <div style="font-size:11px;color:var(--slate);margin-top:4px">Excel multi-sheet template recommended. CSV/single sheet bhi supported.</div>
             </div>
             <input type="file" id="import-file" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleImportFile(this.files[0])">
             <div style="margin-top:10px;font-size:11px;color:var(--slate)">
-              &#128161; <b>Steps:</b> Template download karo &rarr; data fill karo &rarr; file upload karo &rarr; preview check karo &rarr; confirm karo
+              &#128161; <b>Steps:</b> Multi template download karo &rarr; Students, Payments, University, Incentive sheets fill karo &rarr; preview check karo &rarr; confirm karo
             </div>
           </div>
         </div>
@@ -1000,22 +1000,45 @@ var IMPORT_COLS = [
   {h:'Admission Date', f:'adm_date', req:false},
 ];
 
+var MULTI_IMPORT_SHEETS = {
+  'Students': {
+    headers: ['Student Name *','Father Name *','Mother Name','Mobile *','Email','DOB','Address','Aadhar','Course','Subject','University','Batch','University Reg No','Admission Date','Total Fee','Univ Fee','Remarks'],
+    example: ['Bansude Rahul','Siddarth','Kewda Bai','9999999999','rahul@example.com','','','0','PhD','Physics','Sikkim Alpine University','2022','T3911220020','2026-05-12','255000','255000','Imported']
+  },
+  'Student Payments': {
+    headers: ['Student Name *','Mobile','Amount *','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
+    example: ['Bansude Rahul','9999999999','100000','2026-05-12','Online','UTR-SBIN126132072719','Tuition Fee','First receipt']
+  },
+  'University Payments': {
+    headers: ['Student Name *','Mobile','Payable Amount','Paid Amount','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
+    example: ['Bansude Rahul','9999999999','255000','100000','2026-05-12','Online','UTR-SBIN126132072719','Tuition','Direct in university account']
+  },
+  'Associates': {
+    headers: ['Associate Name *','Phone','Student Name','Work Done','Decided Amount *','Paid Amount','Payment Date','Payment Mode','UTR','Remarks'],
+    example: ['Associate 1','','Bansude Rahul','Admission','25000','10000','2026-05-20','Online','','Part paid']
+  },
+  'References': {
+    headers: ['Reference Name *','Phone','Student Name','University','Decided Amount *','Paid Amount','Payment Date','Payment Mode','UTR','Remarks'],
+    example: ['Reference 1','','Bansude Rahul','Sikkim Alpine University','15000','5000','2026-05-20','Online','','Part paid']
+  }
+};
+
 // Download blank template
 function downloadImportTemplate(){
   if(typeof XLSX==='undefined'){toast('Excel library load nahi hui','er');return;}
-  var headers=IMPORT_COLS.map(function(c){return c.h+(c.req?' *':'');});
-  var example=['Gone Prem Kumar', '50000', '2023-01-30', 'Online', 'Alphabet Edu T2301301050516395261508', 'First installment', 'Tuition Fee', '0', '197000', '', '', '', '', '', '', '', '', '', ''];
-  var ws=XLSX.utils.aoa_to_sheet([headers,example]);
-  // Column widths
-  ws['!cols']=IMPORT_COLS.map(function(){return{wch:18};});
-  // Style header row note
   var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Students');
-  XLSX.writeFile(wb,'Sky_Eduworld_Import_Template.xlsx');
-  toast('Template downloaded!','ok');
+  Object.keys(MULTI_IMPORT_SHEETS).forEach(function(name){
+    var cfg=MULTI_IMPORT_SHEETS[name];
+    var ws=XLSX.utils.aoa_to_sheet([cfg.headers,cfg.example]);
+    ws['!cols']=cfg.headers.map(function(){return{wch:20};});
+    XLSX.utils.book_append_sheet(wb,ws,name);
+  });
+  XLSX.writeFile(wb,'Sky_Eduworld_Multi_Import_Template.xlsx');
+  toast('Multi import template downloaded!','ok');
 }
 
 var _importRows=[];
+var _importPayload=null;
 
 // Handle file upload
 function handleImportFile(file){
@@ -1028,11 +1051,15 @@ function handleImportFile(file){
     try{
       var data=new Uint8Array(e.target.result);
       var wb=XLSX.read(data,{type:'array',cellDates:true});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
-      if(!raw||raw.length===0){toast('File mein koi data nahi mila','er');return;}
-      if(raw.length>1000){toast('Max 1000 rows allowed. File mein '+raw.length+' rows hain.','er');return;}
-      parseAndPreview(raw);
+      if(wb.SheetNames.some(function(n){return MULTI_IMPORT_SHEETS[n];})){
+        parseAndPreviewMulti(wb);
+      }else{
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        var raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+        if(!raw||raw.length===0){toast('File mein koi data nahi mila','er');return;}
+        if(raw.length>1000){toast('Max 1000 rows allowed. File mein '+raw.length+' rows hain.','er');return;}
+        parseAndPreview(raw);
+      }
     }catch(ex){toast('File parse error: '+ex.message,'er');}
     // Reset file input
     document.getElementById('import-file').value='';
@@ -1042,6 +1069,60 @@ function handleImportFile(file){
 
 // Normalize header (case-insensitive, trim, remove * and spaces)
 function normalizeHeader(h){return String(h||'').trim().replace(/\s*\*\s*$/,'').toLowerCase().replace(/\s+/g,' ');}
+
+function rowHasData(row){
+  return Object.keys(row||{}).some(function(k){return String(row[k]||'').trim()!=='';});
+}
+
+function parseAndPreviewMulti(wb){
+  var payload={}, total=0, valid=0, errors=[];
+  Object.keys(MULTI_IMPORT_SHEETS).forEach(function(sheetName){
+    var ws=wb.Sheets[sheetName];
+    var rows=ws?XLSX.utils.sheet_to_json(ws,{defval:'',raw:false}).filter(rowHasData):[];
+    if(rows.length>1000){errors.push({sheet:sheetName,row:'-',errors:['Max 1000 rows allowed']}); rows=[];}
+    payload[sheetName]=rows;
+    total+=rows.length;
+    rows.forEach(function(row,i){
+      var e=[];
+      if(sheetName==='Students'){
+        if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
+        if(!row['Father Name *']&&!row['Father Name'])e.push('Father Name missing');
+        if(!row['Mobile *']&&!row['Mobile'])e.push('Mobile missing');
+      }else if(sheetName==='Student Payments'){
+        if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
+        if(!row['Amount *']&&!row['Amount'])e.push('Amount missing');
+      }else if(sheetName==='University Payments'){
+        if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
+        if(!row['Payable Amount']&&!row['Paid Amount'])e.push('Payable/Paid amount missing');
+      }else if(sheetName==='Associates'){
+        if(!row['Associate Name *']&&!row['Associate Name'])e.push('Associate Name missing');
+        if(!row['Decided Amount *']&&!row['Decided Amount'])e.push('Decided Amount missing');
+      }else if(sheetName==='References'){
+        if(!row['Reference Name *']&&!row['Reference Name'])e.push('Reference Name missing');
+        if(!row['Decided Amount *']&&!row['Decided Amount'])e.push('Decided Amount missing');
+      }
+      if(e.length)errors.push({sheet:sheetName,row:i+2,errors:e}); else valid++;
+    });
+  });
+  if(total===0){toast('Workbook mein import sheets empty hain','er');return;}
+  _importPayload=payload; _importRows=[];
+  document.getElementById('import-preview-sub').textContent='Multi import: '+total+' rows across '+Object.keys(payload).length+' sheets';
+  document.getElementById('imp-total').textContent=total;
+  document.getElementById('imp-valid').textContent=valid;
+  document.getElementById('imp-errors').textContent=errors.length;
+  document.getElementById('imp-error-list').innerHTML=errors.slice(0,12).map(function(e){return'<div>&#10060; '+e.sheet+' Row '+e.row+': '+e.errors.join(', ')+'</div>';}).join('');
+  var names=Object.keys(MULTI_IMPORT_SHEETS);
+  document.getElementById('imp-thead').innerHTML='<tr>'+['Sheet','Rows','Sample'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
+  document.getElementById('imp-tbody').innerHTML=names.map(function(name){
+    var rows=payload[name]||[], sample=rows[0]||{};
+    var sampleText=Object.keys(sample).slice(0,4).map(function(k){return sample[k];}).filter(Boolean).join(' / ')||'-';
+    return'<tr><td style="padding:7px 10px;font-weight:600">'+name+'</td><td style="padding:7px 10px">'+rows.length+'</td><td style="padding:7px 10px">'+sampleText+'</td></tr>';
+  }).join('');
+  var btn=document.getElementById('imp-confirm-btn');
+  btn.disabled=valid===0 || errors.length>0;
+  btn.textContent=errors.length?'Errors fix karo':'&#9989; Multi Import Confirm';
+  document.getElementById('m-import').classList.add('open');
+}
 
 // Map raw row to student fields
 function mapRow(raw, headerMap){
@@ -1084,6 +1165,7 @@ function parseAndPreview(raw){
   });
   
   _importRows=validRows;
+  _importPayload=null;
   
   // Update preview modal
   document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili Ã¢â‚¬â€ preview check karo';
@@ -1120,14 +1202,15 @@ function parseAndPreview(raw){
 }
 
 async function confirmImport(){
-  if(!_importRows||_importRows.length===0){toast('Import karne ke liye koi valid row nahi','er');return;}
+  if((!_importRows||_importRows.length===0)&&!_importPayload){toast('Import karne ke liye koi valid row nahi','er');return;}
   var btn=document.getElementById('imp-confirm-btn');
   btn.disabled=true;btn.textContent='Importing...';
   try{
-    var r=await api('POST','/import/students',_importRows);
+    var r=_importPayload?await api('POST','/import/multi',_importPayload):await api('POST','/import/students',_importRows);
     if(!r){btn.disabled=false;btn.textContent='Retry';return;}
     closeM('m-import');
-    var msg=r.success+' students import ho gaye!';
+    var msg=_importPayload?'Multi import complete: '+(r.success||0)+' records':' '+r.success+' students import ho gaye!';
+    if(r.stats)msg+=' (Students '+((r.stats.students_created||0)+(r.stats.students_updated||0))+', Fees '+(r.stats.student_payments||0)+', Univ '+(r.stats.university_payments||0)+')';
     if(r.errors&&r.errors.length)msg+=' ('+r.errors.length+' rows skip hue)';
     toast(msg,'ok');
     // Refresh students list
@@ -1135,6 +1218,7 @@ async function confirmImport(){
     document.getElementById('nb-s').textContent=allStudents.length;
     populateDropdowns();
     _importRows=[];
+    _importPayload=null;
   }catch(ex){toast('Import error: '+ex.message,'er');}
   btn.disabled=false;btn.textContent='&#9989; Import Karo';
 }
@@ -1206,8 +1290,6 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
-
-
 
 
 
