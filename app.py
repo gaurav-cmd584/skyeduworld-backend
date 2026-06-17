@@ -78,6 +78,38 @@ def parse_university_entries(text, default_fee_type='Tuition Fee', default_mode=
             out.append({'date':parse_date_value(parts[0]),'fee_type':parts[1] or default_fee_type,'payable':parse_amount(parts[2]),'paid':parse_amount(parts[3]),'mode':default_mode,'ref':'','remarks':''})
     return [x for x in out if x['payable']>0 or x['paid']>0]
 
+def norm_key(v):
+    return str(v or '').strip().lower().replace('*','').replace('_',' ')
+
+def first_val(d, *keys):
+    if not d: return ''
+    normalized = {norm_key(k): v for k, v in d.items()}
+    for key in keys:
+        if key in d and str(d.get(key) or '').strip() != '':
+            return d.get(key)
+        nk = norm_key(key)
+        if nk in normalized and str(normalized[nk] or '').strip() != '':
+            return normalized[nk]
+    return ''
+
+def clean_row(row):
+    return {str(k or '').strip().replace('*','').strip(): ('' if v is None else str(v).strip()) for k, v in (row or {}).items()}
+
+def find_student_for_import(row):
+    sid = first_val(row, 'student_id', 'Student ID', 'ID')
+    if sid:
+        st = q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
+        if st: return st
+    mobile = first_val(row, 'mobile', 'Contact No', 'Contact', 'Phone')
+    name = first_val(row, 'name', 'student_name', 'Student Name', 'Student')
+    if mobile:
+        st = q("SELECT * FROM students WHERE regexp_replace(COALESCE(mobile,''),'[^0-9]','','g')=regexp_replace(%s,'[^0-9]','','g') ORDER BY id DESC LIMIT 1", (mobile,), one=True)
+        if st: return st
+    if name:
+        st = q("SELECT * FROM students WHERE LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (name,), one=True)
+        if st: return st
+    return None
+
 def allowed_file(fn): return '.' in fn and fn.rsplit('.',1)[1].lower() in ALLOWED
 
 def get_db():
@@ -1383,6 +1415,124 @@ def download_backup():
     fname=f"sky_backup_{data['scope']}_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
     return Response(payload, mimetype='application/json', headers={'Content-Disposition': f'attachment; filename={fname}'})
 
+@app.route('/api/import/multi', methods=['POST'])
+@login_required
+def import_multi():
+    payload = request.json or {}
+    if not isinstance(payload, dict): return jsonify({'error':'Invalid multi import data'}), 400
+    uid = session['user_id']
+    perms = get_user_perms(uid)
+    if not (is_super_admin() or perms.get('can_add_student')): return jsonify({'error':'Permission denied: can_add_student'}), 403
+
+    sheets = {str(k or '').strip().lower(): v for k, v in payload.items() if isinstance(v, list)}
+    students = [clean_row(r) for r in (sheets.get('students') or [])]
+    fee_rows = [clean_row(r) for r in (sheets.get('student payments') or sheets.get('fee payments') or [])]
+    univ_rows = [clean_row(r) for r in (sheets.get('university payments') or sheets.get('university payables') or [])]
+    associate_rows = [clean_row(r) for r in (sheets.get('associates') or sheets.get('associate incentives') or [])]
+    reference_rows = [clean_row(r) for r in (sheets.get('references') or sheets.get('reference incentives') or [])]
+
+    active_sess = get_active_session()
+    stats = {'students_created':0,'students_updated':0,'student_payments':0,'university_payments':0,'associates':0,'references':0}
+    errors = []
+
+    def student_payload(row):
+        return {
+            'name': first_val(row,'Student Name','Name','student_name'),
+            'father': first_val(row,'Father Name','Father','father'),
+            'mother': first_val(row,'Mother Name','Mother','mother'),
+            'dob': parse_date_value(first_val(row,'DOB','Date of Birth')),
+            'gender': first_val(row,'Gender'),
+            'mobile': first_val(row,'Mobile','Contact No','Contact','Phone'),
+            'email': first_val(row,'Email','Mail ID','Mail'),
+            'aadhar': first_val(row,'Aadhar','Adhar No','Aadhar No'),
+            'address': first_val(row,'Address'),
+            'course': first_val(row,'Course','Course Name'),
+            'subject': first_val(row,'Subject','Subject Name'),
+            'university': first_val(row,'University','University Name'),
+            'batch': first_val(row,'Batch','Session'),
+            'enroll_no': first_val(row,'Enroll No','University Reg No','Registration No'),
+            'roll_no': first_val(row,'Roll No'),
+            'adm_date': parse_date_value(first_val(row,'Admission Date','Adm Date','Date of Admission')),
+            'remarks': first_val(row,'Remarks','Student Remarks'),
+            'total_fee': parse_amount(first_val(row,'Total Fee','Student Decided Fee','Decided Fee for Student','Fee Decided')),
+            'univ_fee': parse_amount(first_val(row,'Univ Fee','University Fee','University Decided Fee','Decided for University')),
+        }
+
+    try:
+        for idx, raw in enumerate(students, start=2):
+            d = student_payload(raw)
+            if not d['name'] or not d['father'] or not d['mobile']:
+                errors.append({'sheet':'Students','row':idx,'error':'Student Name, Father Name, Mobile required'}); continue
+            st = find_student_for_import(raw)
+            if st:
+                q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,status=COALESCE(status,'Active') WHERE id=%s""",
+                  (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],st['id']), commit=True)
+                stats['students_updated'] += 1
+            else:
+                q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,'Active') RETURNING id""",
+                  (uid,active_sess['id'] if active_sess else None,d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee']))
+                stats['students_created'] += 1
+
+        for idx, raw in enumerate(fee_rows, start=2):
+            st = find_student_for_import(raw)
+            amount = parse_amount(first_val(raw,'Amount','Received Amount','Payment Amount','Fee Received'))
+            if not st or amount <= 0:
+                errors.append({'sheet':'Student Payments','row':idx,'error':'Valid existing student and amount required'}); continue
+            q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (st['id'],uid,amount,first_val(raw,'Fee Type','Type') or 'Tuition Fee',first_val(raw,'Payment Mode','Mode','Pay Mode') or 'Cash',first_val(raw,'Ref No / UTR','UTR','Ref No'),parse_date_value(first_val(raw,'Payment Date','Receiving Date','Reciving Date','Date')) or date.today().isoformat(),first_val(raw,'Remarks','Remark'),'student_receivable'))
+            q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
+            stats['student_payments'] += 1
+
+        for idx, raw in enumerate(univ_rows, start=2):
+            st = find_student_for_import(raw)
+            payable = parse_amount(first_val(raw,'Payable Amount','University Payable','Decided for University','University Decided Fee','Univ Fee'))
+            paid = parse_amount(first_val(raw,'Paid Amount','University Paid','Paid'))
+            if not st or (payable <= 0 and paid <= 0):
+                errors.append({'sheet':'University Payments','row':idx,'error':'Valid existing student and payable/paid amount required'}); continue
+            if payable <= 0: payable = parse_amount(st.get('univ_fee'))
+            status = 'Paid' if payable > 0 and paid >= payable else 'Pending'
+            q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (st['id'],uid,st.get('university'),st.get('name'),payable,paid,first_val(raw,'Fee Type','University Fee Type') or 'Tuition',parse_date_value(first_val(raw,'Due Date')),parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode','Pay Mode'),first_val(raw,'Ref No / UTR','UTR','Ref No'),status,first_val(raw,'Remarks','Remark')))
+            stats['university_payments'] += 1
+
+        for idx, raw in enumerate(associate_rows, start=2):
+            name = first_val(raw,'Associate Name','Name')
+            decided = parse_amount(first_val(raw,'Decided Amount','Amount','Associate Amount'))
+            paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
+            student_name = first_val(raw,'Student Name','Student')
+            if not name or decided <= 0:
+                errors.append({'sheet':'Associates','row':idx,'error':'Associate name and decided amount required'}); continue
+            parent = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                  (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
+            if paid > 0 and parent:
+                q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+            stats['associates'] += 1
+
+        for idx, raw in enumerate(reference_rows, start=2):
+            name = first_val(raw,'Reference Name','Reference','Name')
+            decided = parse_amount(first_val(raw,'Decided Amount','Amount','Reference Amount'))
+            paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
+            student_name = first_val(raw,'Student Name','Student')
+            if not name or decided <= 0:
+                errors.append({'sheet':'References','row':idx,'error':'Reference name and decided amount required'}); continue
+            parent = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                  (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
+            if paid > 0 and parent:
+                q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                  (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+            stats['references'] += 1
+
+        get_db().commit()
+    except Exception as ex:
+        get_db().rollback()
+        return jsonify({'error':str(ex)[:220], 'stats':stats, 'errors':errors}), 500
+
+    log_action('Import','Multi',None,json.dumps(stats))
+    return jsonify({'success':sum(stats.values()), 'stats':stats, 'errors':errors})
+
 @app.route('/api/import/students', methods=['POST'])
 @login_required
 @require_perm('can_add_student')
@@ -1447,8 +1597,6 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
-
-
 
 
 
