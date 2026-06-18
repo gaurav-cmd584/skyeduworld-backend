@@ -583,6 +583,27 @@ def delete_student(sid):
     q("DELETE FROM students WHERE id=%s", (sid,), commit=True)
     return jsonify({'success':True})
 
+
+@app.route('/api/students/bulk-delete', methods=['POST'])
+@login_required
+@require_perm('can_delete_student')
+def bulk_delete_students():
+    d = request.json or {}
+    uid = session['user_id']
+    fs, fp = student_filter(uid, 's')
+    sql = f"SELECT s.id FROM students s WHERE TRUE {fs}"
+    params = list(fp)
+    if d.get('university'):
+        sql += " AND s.university=%s"; params.append(d.get('university'))
+    if d.get('status'):
+        sql += " AND s.status=%s"; params.append(d.get('status'))
+    ids = [r['id'] for r in q(sql, params)]
+    if not ids:
+        return jsonify({'success': True, 'deleted': 0})
+    q("DELETE FROM students WHERE id = ANY(%s)", (ids,), commit=True)
+    log_action('Bulk Delete', 'Student', None, f'{len(ids)} students')
+    return jsonify({'success': True, 'deleted': len(ids)})
+
 @app.route('/api/students/<int:sid>/photo', methods=['POST'])
 @login_required
 def upload_photo(sid):
@@ -1619,6 +1640,7 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
 
 
 
