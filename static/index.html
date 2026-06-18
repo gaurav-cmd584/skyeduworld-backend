@@ -879,7 +879,7 @@ async function saveUser(){
 const _origOpenM=openM;
 openM=function(id){_origOpenM(id);if(id==='m-user'){const list=document.getElementById('nu-univ-list');if(list&&allUnivs&&allUnivs.length){list.innerHTML=allUnivs.map(u=>'<label><input type="checkbox" name="nu-univ" value="'+u.id+'"> '+u.name+'</label>').join('');}}};
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ MULTI-SELECT Ã¢â€â‚¬Ã¢â€â‚¬
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ MULTI-SELECT ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 function buildMS(id,opts,ph,lbl){
   var items=opts.map(function(o){
     var safe=o.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
@@ -905,7 +905,7 @@ function msAll(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-l
 function msClear(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-list-'+id+' input'),function(c){c.checked=false;});_mslbl(id);}
 function _mslbl(id){var sel=getMS(id);var lbl=document.getElementById('ms-lbl-'+id);var wrap=document.getElementById('ms-'+id);var ph=wrap?wrap.getAttribute('data-ph'):'All';if(!lbl)return;if(sel.length===0){lbl.textContent=ph;lbl.style.color='var(--slate)';lbl.style.fontWeight='';}else if(sel.length===1){lbl.textContent=sel[0];lbl.style.color='var(--ink)';lbl.style.fontWeight='';}else{lbl.textContent=sel.length+' selected';lbl.style.color='var(--sky)';lbl.style.fontWeight='700';}}
 document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap')){document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});}});
-// Ã¢â€â‚¬Ã¢â€â‚¬ REPORT SYSTEM Ã¢â€â‚¬Ã¢â€â‚¬
+// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ REPORT SYSTEM ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 let currentRpt=null,rptFmt='csv';
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
 function escH(val){return String(val||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -973,11 +973,11 @@ const RPT_CFG={
   }
 };
 
-// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+// ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
 // IMPORT / EXPORT FUNCTIONS
-// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+// ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
 
-// Column mapping: Excel header Ã¢â€ â€™ DB field
+// Column mapping: Excel header ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ DB field
 var IMPORT_COLS = [
   {h:'Student Name', f:'name', req:true},
   {h:'Amount', f:'amount', req:true},
@@ -1002,7 +1002,7 @@ var IMPORT_COLS = [
 
 var MULTI_IMPORT_SHEETS = {
   'Students': {
-    headers: ['Student Name *','Father Name *','Mother Name','Mobile *','Email','DOB','Address','Aadhar','Course','Subject','University','Batch','University Reg No','Admission Date','Total Fee','Univ Fee','Remarks'],
+    headers: ['Student Name *','Father Name','Mother Name','Mobile *','Email','DOB','Address','Aadhar','Course','Subject','University','Batch','University Reg No','Admission Date','Total Fee','Univ Fee','Remarks'],
     example: ['Bansude Rahul','Siddarth','Kewda Bai','9999999999','rahul@example.com','','','0','PhD','Physics','Sikkim Alpine University','2022','T3911220020','2026-05-12','255000','255000','Imported']
   },
   'Student Payments': {
@@ -1086,7 +1086,6 @@ function parseAndPreviewMulti(wb){
       var e=[];
       if(sheetName==='Students'){
         if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
-        if(!row['Father Name *']&&!row['Father Name'])e.push('Father Name missing');
         if(!row['Mobile *']&&!row['Mobile'])e.push('Mobile missing');
       }else if(sheetName==='Student Payments'){
         if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
@@ -1157,7 +1156,6 @@ function parseAndPreview(raw){
     var errs=[];
     // Required field check
     if(!mapped.name)errs.push('Name missing');
-    if(!mapped.father)errs.push('Father Name missing');
     if(!mapped.mobile)errs.push('Mobile missing');
     else if(!/^\d{10}$/.test(mapped.mobile.replace(/[\s-]/g,'')))errs.push('Mobile 10 digits hona chahiye');
     if(errs.length){errorRows.push({row:i+2,errors:errs,data:mapped});}
@@ -1168,7 +1166,7 @@ function parseAndPreview(raw){
   _importPayload=null;
   
   // Update preview modal
-  document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili Ã¢â‚¬â€ preview check karo';
+  document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â preview check karo';
   document.getElementById('imp-total').textContent=raw.length;
   document.getElementById('imp-valid').textContent=validRows.length;
   document.getElementById('imp-errors').textContent=errorRows.length;
@@ -1180,7 +1178,7 @@ function parseAndPreview(raw){
   if(errorRows.length>10)errHtml+='<div>...aur '+(errorRows.length-10)+' errors hain</div>';
   document.getElementById('imp-error-list').innerHTML=errHtml;
   
-  // Preview table Ã¢â‚¬â€ show first 50 valid rows
+  // Preview table ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show first 50 valid rows
   var showCols=['name','amount','payment_date','payment_mode','ref_no','remarks','university_paid','university_payable'];
   var thead='<tr>'+['#','Student','Amount','Date','Mode','Ref','Remarks','Univ Paid','Univ Payable'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
   document.getElementById('imp-thead').innerHTML=thead;
@@ -1188,7 +1186,7 @@ function parseAndPreview(raw){
   var tbody=validRows.slice(0,50).map(function(r,i){
     return'<tr style="border-bottom:1px solid var(--bd)">'
       +'<td style="padding:6px 10px;color:var(--slate);font-size:11px">'+(i+1)+'</td>'
-      +showCols.map(function(f){return'<td style="padding:6px 10px;font-size:11.5px">'+(r[f]||'Ã¢â‚¬â€')+'</td>';}).join('')
+      +showCols.map(function(f){return'<td style="padding:6px 10px;font-size:11.5px">'+(r[f]||'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â')+'</td>';}).join('')
       +'</tr>';
   }).join('');
   if(validRows.length>50)tbody+='<tr><td colspan="15" style="padding:8px 10px;text-align:center;font-size:11px;color:var(--slate)">...aur '+(validRows.length-50)+' aur rows hain</td></tr>';
@@ -1290,6 +1288,8 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
+
 
 
 
