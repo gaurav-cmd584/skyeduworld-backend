@@ -952,12 +952,34 @@ function dlPDF(headers,rows,title){
 <div class="modal-bg" id="m-import">
   <div class="modal" style="max-width:900px">
     <div class="modal-hd"><div><div class="modal-title">&#128229; Import Preview</div><div style="font-size:11px;color:var(--slate);margin-top:2px" id="import-preview-sub">0 rows found</div></div><button class="mcls" onclick="closeM('m-import')">&#10005;</button></div>
-    <div style="padding:12px 18px 6px;border-bottom:1px solid var(--bd)"><div style="display:flex;gap:16px;font-size:12px"><span><span id="imp-total" style="font-weight:700;color:var(--sky)">0</span> total rows</span><span><span id="imp-valid" style="font-weight:700;color:var(--em)">0</span> valid</span><span><span id="imp-errors" style="font-weight:700;color:var(--rose)">0</span> errors</span></div><div id="imp-error-list" style="margin-top:8px;font-size:11px;color:var(--rose);max-height:80px;overflow-y:auto"></div></div>
+    <div style="padding:12px 18px 6px;border-bottom:1px solid var(--bd)"><div style="display:flex;gap:16px;font-size:12px"><span><span id="imp-total" style="font-weight:700;color:var(--sky)">0</span> total rows</span><span><span id="imp-valid" style="font-weight:700;color:var(--em)">0</span> valid</span><span><span id="imp-errors" style="font-weight:700;color:var(--rose)">0</span> errors</span></div><div id="imp-progress-wrap" style="display:none;margin-top:10px"><div style="height:9px;background:#E2E8F0;border-radius:99px;overflow:hidden"><div id="imp-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#1A6CF6,#10B981);transition:width .25s ease"></div></div><div id="imp-progress-text" style="margin-top:6px;font-size:11px;color:var(--slate)">Ready</div></div><div id="imp-summary" style="display:none;margin-top:10px;font-size:11.5px;background:#F8FAFC;border:1px solid var(--bd);border-radius:8px;padding:10px;color:var(--ink)"></div><div id="imp-error-list" style="margin-top:8px;font-size:11px;color:var(--rose);max-height:80px;overflow-y:auto"></div></div>
     <div style="overflow-x:auto;max-height:380px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead id="imp-thead" style="position:sticky;top:0"></thead><tbody id="imp-tbody"></tbody></table></div>
     <div class="form-footer"><button class="btn btn-g" onclick="closeM('m-import')">Cancel</button><button class="btn btn-p" id="imp-confirm-btn" onclick="confirmImport()">&#9989; Confirm & Import</button></div>
   </div>
 </div>`);
 })();
+function setImportProgress(pct,text){
+  var w=document.getElementById('imp-progress-wrap'),b=document.getElementById('imp-progress-bar'),t=document.getElementById('imp-progress-text');
+  if(w)w.style.display='block'; if(b)b.style.width=Math.max(0,Math.min(100,pct))+'%'; if(t)t.textContent=text||'';
+}
+function resetImportProgress(){
+  var w=document.getElementById('imp-progress-wrap'),b=document.getElementById('imp-progress-bar'),t=document.getElementById('imp-progress-text'),s=document.getElementById('imp-summary');
+  if(w)w.style.display='none'; if(b)b.style.width='0%'; if(t)t.textContent='Ready'; if(s){s.style.display='none';s.innerHTML='';}
+}
+function showImportSummary(r,total){
+  var s=document.getElementById('imp-summary'); if(!s)return;
+  var stats=r.stats||{};
+  var studentDone=(stats.students_created||0)+(stats.students_updated||0);
+  var success=r.success||studentDone||0;
+  var skipped=(r.errors||[]).length;
+  var parts=['<b>Import Summary</b>', 'Total preview rows: '+total, 'Imported/processed: '+success];
+  if(r.stats)parts.push('Students created: '+(stats.students_created||0), 'Students updated: '+(stats.students_updated||0), 'Student payments: '+(stats.student_payments||0), 'University payments: '+(stats.university_payments||0), 'Associates: '+(stats.associates||0), 'References: '+(stats.references||0));
+  parts.push('Skipped/errors: '+skipped);
+  var errHtml='';
+  if(skipped){errHtml='<div style="margin-top:8px;color:var(--rose);max-height:120px;overflow:auto">'+(r.errors||[]).slice(0,20).map(function(e){return '&#10060; '+(e.sheet?e.sheet+' ':'')+'Row '+(e.row||'-')+': '+(e.error||e.errors||'Error');}).join('<br>')+(skipped>20?'<br>...aur '+(skipped-20)+' errors':'')+'</div>';}
+  s.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 12px">'+parts.map(function(x,i){return '<div>'+(i?x:'<span style="font-size:13px">'+x+'</span>')+'</div>';}).join('')+'</div>'+errHtml;
+  s.style.display='block';
+}
 function courseNames(){return (allCourses&&allCourses.length?allCourses.map(c=>c.name):['B.Ed','M.Ed','BPT','MBA','BBA','B.Com','BA','MA','BCA','MCA','B.Sc','M.Sc','D.El.Ed','B.P.Ed']);}
 function subjectNames(){return (allSubjects&&allSubjects.length?allSubjects.map(s=>s.name):['Hindi','English','Education','Political Science','History','Sociology','Commerce']);}
 const BATCHES=['2025-26','2024-25','2023-24'];
@@ -1119,7 +1141,7 @@ function parseAndPreviewMulti(wb){
     });
   });
   if(total===0){toast('Workbook mein import sheets empty hain','er');return;}
-  _importPayload=payload; _importRows=[];
+  _importPayload=payload; _importRows=[]; resetImportProgress();
   document.getElementById('import-preview-sub').textContent='Multi import: '+total+' rows across '+Object.keys(payload).length+' sheets';
   document.getElementById('imp-total').textContent=total;
   document.getElementById('imp-valid').textContent=valid;
@@ -1177,7 +1199,7 @@ function parseAndPreview(raw){
   });
   
   _importRows=validRows;
-  _importPayload=null;
+  _importPayload=null; resetImportProgress();
   
   // Update preview modal
   document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â preview check karo';
@@ -1216,23 +1238,27 @@ function parseAndPreview(raw){
 async function confirmImport(){
   if((!_importRows||_importRows.length===0)&&!_importPayload){toast('Import karne ke liye koi valid row nahi','er');return;}
   var btn=document.getElementById('imp-confirm-btn');
+  var total=_importPayload?Object.keys(_importPayload).reduce(function(n,k){return n+((_importPayload[k]||[]).length);},0):(_importRows||[]).length;
   btn.disabled=true;btn.textContent='Importing...';
+  setImportProgress(8,'Preparing '+total+' rows...');
   try{
+    setImportProgress(35,'Uploading data to server...');
     var r=_importPayload?await api('POST','/import/multi',_importPayload):await api('POST','/import/students',_importRows);
-    if(!r){btn.disabled=false;btn.textContent='Retry';return;}
-    closeM('m-import');
-    var msg=_importPayload?'Multi import complete: '+(r.success||0)+' records':' '+r.success+' students import ho gaye!';
-    if(r.stats)msg+=' (Students '+((r.stats.students_created||0)+(r.stats.students_updated||0))+', Fees '+(r.stats.student_payments||0)+', Univ '+(r.stats.university_payments||0)+')';
-    if(r.errors&&r.errors.length)msg+=' ('+r.errors.length+' rows skip hue)';
-    toast(msg,'ok');
-    // Refresh students list
+    if(!r){setImportProgress(100,'Import failed. Server ne error diya.');btn.disabled=false;btn.textContent='Retry';return;}
+    setImportProgress(85,'Refreshing student list...');
     allStudents=await api('GET','/students')||[];
     document.getElementById('nb-s').textContent=allStudents.length;
     populateDropdowns();
+    setImportProgress(100,'Import complete');
+    showImportSummary(r,total);
+    var msg=_importPayload?'Multi import complete':'Import complete';
+    if(r.stats)msg+=': students '+((r.stats.students_created||0)+(r.stats.students_updated||0))+', skipped '+((r.errors||[]).length);
+    else msg+=': '+(r.success||0)+' students, skipped '+((r.errors||[]).length);
+    toast(msg,'ok');
     _importRows=[];
     _importPayload=null;
-  }catch(ex){toast('Import error: '+ex.message,'er');}
-  btn.disabled=false;btn.textContent='&#9989; Import Karo';
+  }catch(ex){setImportProgress(100,'Import failed');showImportSummary({success:0,errors:[{row:'-',error:ex.message}]},total);toast('Import error: '+ex.message,'er');}
+  btn.disabled=false;btn.textContent='Close';btn.onclick=function(){closeM('m-import');btn.onclick=confirmImport;btn.textContent='&#9989; Import Karo';resetImportProgress();};
 }
 
 // Drag & drop support for import
@@ -1302,6 +1328,7 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
 
 
 
