@@ -1508,7 +1508,14 @@ def import_multi():
             d = student_payload(raw)
             if not d['name']:
                 errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
-            st = find_student_for_import(raw, allow_name_match=False)
+            st = q("""SELECT * FROM students
+                    WHERE LOWER(TRIM(COALESCE(name,'')))=LOWER(TRIM(%s))
+                      AND LOWER(TRIM(COALESCE(father,'')))=LOWER(TRIM(%s))
+                      AND LOWER(TRIM(COALESCE(course,'')))=LOWER(TRIM(%s))
+                      AND LOWER(TRIM(COALESCE(subject,'')))=LOWER(TRIM(%s))
+                      AND LOWER(TRIM(COALESCE(university,'')))=LOWER(TRIM(%s))
+                    ORDER BY id DESC LIMIT 1""",
+                   (d['name'], d['father'], d['course'], d['subject'], d['university']), one=True)
             if st:
                 q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,status=COALESCE(status,'Active') WHERE id=%s""",
                   (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],st['id']), commit=True)
@@ -1644,6 +1651,7 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
 
 
 
