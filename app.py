@@ -1,5 +1,5 @@
 """
-Sky Eduworld Ã¢â‚¬â€ Management System (PHASE 2 UPGRADE)
+Sky Eduworld ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
 """
 
@@ -365,7 +365,7 @@ def init_db():
               "UPDATE users SET is_active=TRUE WHERE is_active IS NULL"]:
         try: cur.execute(m)
         except Exception: conn.rollback()
-    conn.commit(); conn.close(); print("Ã¢Å“â€¦ Phase 2 DB ready.")
+    conn.commit(); conn.close(); print("ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Phase 2 DB ready.")
 
 # App startup pe init_db run karo
 with app.app_context():
@@ -1461,8 +1461,8 @@ def import_multi():
     try:
         for idx, raw in enumerate(students, start=2):
             d = student_payload(raw)
-            if not d['name'] or not d['father'] or not d['mobile']:
-                errors.append({'sheet':'Students','row':idx,'error':'Student Name, Father Name, Mobile required'}); continue
+            if not d['name'] or not d['mobile']:
+                errors.append({'sheet':'Students','row':idx,'error':'Student Name and Mobile required'}); continue
             st = find_student_for_import(raw)
             if st:
                 q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,status=COALESCE(status,'Active') WHERE id=%s""",
@@ -1558,7 +1558,7 @@ def import_students():
                     q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,st.get('university'),st.get('name'),parse_amount(d.get('university_payable') or d.get('univ_fee') or st.get('univ_fee')),univ_paid_row,d.get('university_fee_type') or 'Tuition',row_date,d.get('payment_mode') or d.get('mode') or 'Cash',d.get('ref_no') or d.get('utr') or '', 'Pending', d.get('university_remarks') or d.get('remarks') or 'Imported'))
                 ok+=1
                 continue
-            if not d.get('name') or not d.get('father') or not d.get('mobile'):
+            if not d.get('name') or not d.get('mobile'):
                 errors.append({'row':i,'error':'Required fields missing'}); continue
             student_total=parse_amount(d.get('total_fee'))
             legacy_paid=parse_amount(d.get('paid'))
@@ -1597,6 +1597,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
+
 
 
 
