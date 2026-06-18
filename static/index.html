@@ -249,7 +249,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         </div>
       </div>
       <div class="view" id="view-students">
-        <div class="card"><div class="card-hd"><div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading&#8230;</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading&#8230;</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option><option>Active</option><option>Pending</option><option>Completed</option></select><button class="btn btn-r btn-sm" id="bulk-del-btn" onclick="bulkDeleteStudents()" style="display:none">Bulk Delete</button><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button></div></div>
           <div class="loading" id="s-loading"><div class="spin"></div>Loading students&#8230;</div>
           <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr></thead><tbody id="s-table"></tbody></table></div>
         </div>
@@ -533,6 +533,7 @@ async function loadStudents(q){
   document.getElementById('nb-s').textContent=allStudents.length;
   document.getElementById('s-sub').textContent=allStudents.length+' student'+(allStudents.length!==1?'s':'')+' found';
   document.getElementById('s-loading').style.display='none';document.getElementById('s-table-wrap').style.display='block';
+  var bd=document.getElementById('bulk-del-btn');if(bd)bd.style.display=(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student))?'inline-flex':'none';
   document.getElementById('s-table').innerHTML=allStudents.map(function(s){const b=s.total_fee-s.paid;return'<tr><td class="cmo">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</td><td><div class="av-cell">'+studentAv(s)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+(s.mobile||'')+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap">'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('');
   populateDropdowns();
 }
@@ -597,6 +598,21 @@ async function delStudent(id){
   if(!confirm('Delete this student? This cannot be undone.'))return;
   const r=await api('DELETE','/students/'+id);if(!r)return;
   allStudents=allStudents.filter(s=>s.id!==id);document.getElementById('nb-s').textContent=allStudents.length;populateDropdowns();loadStudents();toast('Student deleted','ok');
+}
+async function bulkDeleteStudents(){
+  const univ=document.getElementById('flt-u').value||'';
+  const stat=document.getElementById('flt-s').value||'';
+  const count=allStudents.length;
+  if(!count){toast('Delete karne ke liye koi student nahi','er');return;}
+  var scope=(univ||stat)?'current filter ke '+count+' student':'saare accessible '+count+' student';
+  if(!confirm('Bulk delete: '+scope+' delete honge. Ye action undo nahi hoga. Continue?'))return;
+  var typed=prompt('Confirm karne ke liye DELETE type karo');
+  if(typed!=='DELETE'){toast('Bulk delete cancel ho gaya','er');return;}
+  const r=await api('POST','/students/bulk-delete',{university:univ,status:stat});
+  if(!r)return;
+  toast((r.deleted||0)+' students deleted','ok');
+  await loadStudents();
+  await loadDashboard();
 }
 async function loadFees(){
   document.getElementById('fee-loading').style.display='flex';document.getElementById('fee-tw').style.display='none';
@@ -1286,6 +1302,7 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
 
 
 
