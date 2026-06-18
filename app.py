@@ -95,6 +95,18 @@ def first_val(d, *keys):
 def clean_row(row):
     return {str(k or '').strip().replace('*','').strip(): ('' if v is None else str(v).strip()) for k, v in (row or {}).items()}
 
+def make_student_code(sid):
+    try:
+        return f"STU{int(sid):06d}"
+    except Exception:
+        return ''
+
+def assign_student_code(sid):
+    code = make_student_code(sid)
+    if not code: return None
+    q("UPDATE students SET student_code=COALESCE(NULLIF(student_code,''),%s) WHERE id=%s", (code, sid), commit=True)
+    return code
+
 def find_student_for_import(row):
     sid = first_val(row, 'student_id', 'Student ID', 'ID')
     if sid:
@@ -281,7 +293,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_code TEXT UNIQUE, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS associates (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), parent_id INTEGER REFERENCES associates(id) ON DELETE CASCADE, name TEXT NOT NULL, phone TEXT, student TEXT, work_done TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, pay_date DATE, pay_mode TEXT, utr TEXT, status TEXT DEFAULT 'Paid', notes TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -328,6 +340,9 @@ def init_db():
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
+"ALTER TABLE students ADD COLUMN IF NOT EXISTS student_code TEXT",
+              "UPDATE students SET student_code='STU' || LPAD(id::text,6,'0') WHERE student_code IS NULL OR student_code=''",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_students_student_code ON students(student_code)",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS created_by INTEGER",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
@@ -487,8 +502,8 @@ def get_students():
     params = list(fp)
     if is_super_admin() and target_user: sql += " AND s.created_by=%s"; params.append(int(target_user))
     if search:
-        sql += " AND (s.name ILIKE %s OR s.father ILIKE %s OR s.mobile ILIKE %s OR s.course ILIKE %s OR s.university ILIKE %s OR s.enroll_no ILIKE %s)"
-        p = f'%{search}%'; params += [p,p,p,p,p,p]
+        sql += " AND (s.student_code ILIKE %s OR s.name ILIKE %s OR s.father ILIKE %s OR s.mobile ILIKE %s OR s.course ILIKE %s OR s.university ILIKE %s OR s.enroll_no ILIKE %s)"
+        p = f'%{search}%'; params += [p,p,p,p,p,p,p]
     if univ: sql += " AND s.university=%s"; params.append(univ)
     if status: sql += " AND s.status=%s"; params.append(status)
     if sess_id: sql += " AND s.session_id=%s"; params.append(int(sess_id))
@@ -518,6 +533,9 @@ def add_student():
         cur.execute("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                     (row['id'],uid,paid,'Initial Payment',d.get('pay_mode'),d.get('utr'),d.get('adm_date') or None))
         conn.commit()
+    if row:
+        assign_student_code(row['id'])
+        row = q('SELECT * FROM students WHERE id=%s', (row['id'],), one=True)
     if row and float(d.get('univ_fee',0) or 0) > 0:
         q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,fee_type,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (row['id'],uid,d.get('university'),d.get('name'),d.get('univ_fee',0),'Tuition','Pending','Auto from student admission'))
     log_action('Add','Student',row['id'] if row else None, d.get('name'))
@@ -713,6 +731,8 @@ def convert_lead(lid):
     row = q_ret("INSERT INTO students (created_by,session_id,name,mobile,email,course,university,status,adm_date) VALUES (%s,%s,%s,%s,%s,%s,%s,'Active',CURRENT_DATE) RETURNING *",
                 (session['user_id'], active_sess['id'] if active_sess else None, lead['name'],lead['mobile'],lead['email'],lead['course'],lead['university']))
     if row:
+        assign_student_code(row['id'])
+        row = q('SELECT * FROM students WHERE id=%s', (row['id'],), one=True)
         q("UPDATE leads SET status='Converted', converted_to=%s WHERE id=%s", (row['id'],lid), commit=True)
         log_action('Convert','Lead',lid,lead['name'])
     return jsonify({'success':True,'student_id':row['id'] if row else None})
@@ -1461,16 +1481,17 @@ def import_multi():
     try:
         for idx, raw in enumerate(students, start=2):
             d = student_payload(raw)
-            if not d['name'] or not d['mobile']:
-                errors.append({'sheet':'Students','row':idx,'error':'Student Name and Mobile required'}); continue
+            if not d['name']:
+                errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
             st = find_student_for_import(raw)
             if st:
                 q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,status=COALESCE(status,'Active') WHERE id=%s""",
                   (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],st['id']), commit=True)
                 stats['students_updated'] += 1
             else:
-                q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,'Active') RETURNING id""",
+                new_student = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,'Active') RETURNING id""",
                   (uid,active_sess['id'] if active_sess else None,d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee']))
+                if new_student: assign_student_code(new_student['id'])
                 stats['students_created'] += 1
 
         for idx, raw in enumerate(fee_rows, start=2):
@@ -1558,13 +1579,14 @@ def import_students():
                     q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,st.get('university'),st.get('name'),parse_amount(d.get('university_payable') or d.get('univ_fee') or st.get('univ_fee')),univ_paid_row,d.get('university_fee_type') or 'Tuition',row_date,d.get('payment_mode') or d.get('mode') or 'Cash',d.get('ref_no') or d.get('utr') or '', 'Pending', d.get('university_remarks') or d.get('remarks') or 'Imported'))
                 ok+=1
                 continue
-            if not d.get('name') or not d.get('mobile'):
+            if not d.get('name'):
                 errors.append({'row':i,'error':'Required fields missing'}); continue
             student_total=parse_amount(d.get('total_fee'))
             legacy_paid=parse_amount(d.get('paid'))
             univ_fee=parse_amount(d.get('univ_fee'))
             row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
+            assign_student_code(sid)
             student_payments=collect_numbered_payments(d,'pay',5,d.get('fee_type') or 'Initial Payment',d.get('pay_mode') or 'Cash') or parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
             if not student_payments and legacy_paid>0:
                 student_payments=[{'date':parse_date_value(d.get('payment_date')) or date.today().isoformat(),'fee_type':d.get('fee_type') or 'Initial Payment','amount':legacy_paid,'mode':d.get('pay_mode') or 'Cash','ref':d.get('utr') or '','remarks':d.get('student_fee_remarks') or d.get('remarks') or 'Imported'}]
@@ -1597,6 +1619,8 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
+
 
 
 
