@@ -107,17 +107,21 @@ def assign_student_code(sid):
     q("UPDATE students SET student_code=COALESCE(NULLIF(student_code,''),%s) WHERE id=%s", (code, sid), commit=True)
     return code
 
-def find_student_for_import(row):
+def find_student_for_import(row, allow_name_match=True):
     sid = first_val(row, 'student_id', 'Student ID', 'ID')
     if sid:
         st = q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
+        if st: return st
+    student_code = first_val(row, 'student_code', 'Student Code', 'Auto ID', 'Code')
+    if student_code:
+        st = q("SELECT * FROM students WHERE UPPER(student_code)=UPPER(%s) ORDER BY id DESC LIMIT 1", (student_code,), one=True)
         if st: return st
     mobile = first_val(row, 'mobile', 'Contact No', 'Contact', 'Phone')
     name = first_val(row, 'name', 'student_name', 'Student Name', 'Student')
     if mobile:
         st = q("SELECT * FROM students WHERE regexp_replace(COALESCE(mobile,''),'[^0-9]','','g')=regexp_replace(%s,'[^0-9]','','g') ORDER BY id DESC LIMIT 1", (mobile,), one=True)
         if st: return st
-    if name:
+    if allow_name_match and name:
         st = q("SELECT * FROM students WHERE LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (name,), one=True)
         if st: return st
     return None
@@ -1504,7 +1508,7 @@ def import_multi():
             d = student_payload(raw)
             if not d['name']:
                 errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
-            st = find_student_for_import(raw)
+            st = find_student_for_import(raw, allow_name_match=False)
             if st:
                 q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,status=COALESCE(status,'Active') WHERE id=%s""",
                   (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],st['id']), commit=True)
@@ -1640,6 +1644,9 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
+
+
 
 
 
