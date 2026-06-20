@@ -681,10 +681,16 @@ def add_payment(sid):
     new_paid = min(float(student['paid']) + amount, float(student['total_fee']))
     conn = get_db(); cur = conn.cursor()
     cur.execute("UPDATE students SET paid=%s WHERE id=%s", (new_paid,sid))
-    cur.execute("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                (sid,uid,amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks','')))
+    installment_id = d.get('installment_id') or None
+    if installment_id and not q("SELECT id FROM fee_installments WHERE id=%s AND student_id=%s", (installment_id, sid), one=True):
+        return jsonify({'error':'Selected fee breakup not found'}), 404
+    cur.execute("INSERT INTO fee_payments (student_id,recorded_by,installment_id,amount,fee_type,pay_mode,ref_no,pay_date,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (sid,uid,installment_id,amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks','')))
     if d.get('installment_id'):
-        cur.execute("UPDATE fee_installments SET status='Paid', paid_date=CURRENT_DATE WHERE id=%s", (d['installment_id'],))
+        cur.execute("""UPDATE fee_installments
+                       SET status=CASE WHEN COALESCE((SELECT SUM(amount) FROM fee_payments WHERE installment_id=%s),0) >= amount THEN 'Paid' ELSE 'Pending' END,
+                           paid_date=CASE WHEN COALESCE((SELECT SUM(amount) FROM fee_payments WHERE installment_id=%s),0) >= amount THEN CURRENT_DATE ELSE NULL END
+                       WHERE id=%s""", (d['installment_id'], d['installment_id'], d['installment_id']))
     conn.commit()
     log_action('Payment','Fee',sid,f"Rs{amount}")
     if new_paid >= float(student['total_fee']): notify_user(uid,'Fee Cleared!',f"{student['name']} ka poora fee jama ho gaya.",'success')
@@ -706,6 +712,11 @@ def payment_item(sid, pid):
         d=request.json or {}; amount=float(d.get('amount',0) or 0)
         if amount<=0: return jsonify({'error':'Valid amount required'}), 400
         q("UPDATE fee_payments SET amount=%s, fee_type=%s, pay_mode=%s, ref_no=%s, pay_date=%s, remarks=%s WHERE id=%s", (amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks',''),pid), commit=True)
+    if old.get('installment_id'):
+        q("""UPDATE fee_installments
+             SET status=CASE WHEN COALESCE((SELECT SUM(amount) FROM fee_payments WHERE installment_id=%s),0) >= amount THEN 'Paid' ELSE 'Pending' END,
+                 paid_date=CASE WHEN COALESCE((SELECT SUM(amount) FROM fee_payments WHERE installment_id=%s),0) >= amount THEN CURRENT_DATE ELSE NULL END
+             WHERE id=%s""", (old.get('installment_id'), old.get('installment_id'), old.get('installment_id')), commit=True)
     total=q("SELECT COALESCE(SUM(amount),0) AS paid FROM fee_payments WHERE student_id=%s", (sid,), one=True)['paid']
     q("UPDATE students SET paid=%s WHERE id=%s", (total,sid), commit=True)
     updated=q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
@@ -713,6 +724,11 @@ def payment_item(sid, pid):
 
 
 # INSTALLMENTS
+def refresh_student_fee_total(sid):
+    total = q("SELECT COALESCE(SUM(amount),0) AS total FROM fee_installments WHERE student_id=%s", (sid,), one=True)['total']
+    q("UPDATE students SET total_fee=%s WHERE id=%s", (total, sid), commit=True)
+    return total
+
 @app.route('/api/students/<int:sid>/installments', methods=['GET'])
 @login_required
 def get_installments(sid):
@@ -721,10 +737,44 @@ def get_installments(sid):
 @app.route('/api/students/<int:sid>/installments', methods=['POST'])
 @login_required
 def add_installment(sid):
+    uid = session['user_id']; fs, fp = student_filter(uid)
+    if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
+        return jsonify({'error':'Not found or access denied'}), 404
     d = request.json or {}
+    amount = float(d.get('amount',0) or 0)
+    if amount <= 0:
+        return jsonify({'error':'Valid amount required'}), 400
     row = q_ret("INSERT INTO fee_installments (student_id,created_by,amount,fee_type,due_date,remarks) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
-                (sid, session['user_id'], d.get('amount',0), d.get('fee_type') or 'Tuition Fee', d.get('due_date') or None, d.get('remarks')))
-    return jsonify(serialize(row)), 201
+                (sid, uid, amount, d.get('fee_type') or 'Tuition Fee', d.get('due_date') or None, d.get('remarks')))
+    total = refresh_student_fee_total(sid)
+    out = serialize(row); out['student_total_fee'] = total
+    log_action('Add','Fee Breakup',sid,d.get('fee_type') or 'Tuition Fee')
+    return jsonify(out), 201
+
+@app.route('/api/students/<int:sid>/installments/<int:iid>', methods=['PUT','DELETE'])
+@login_required
+def installment_item(sid, iid):
+    uid = session['user_id']; fs, fp = student_filter(uid)
+    if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
+        return jsonify({'error':'Not found or access denied'}), 404
+    old = q("SELECT * FROM fee_installments WHERE id=%s AND student_id=%s", (iid, sid), one=True)
+    if not old:
+        return jsonify({'error':'Fee breakup not found'}), 404
+    if request.method == 'DELETE':
+        q("DELETE FROM fee_installments WHERE id=%s", (iid,), commit=True)
+        total = refresh_student_fee_total(sid)
+        log_action('Delete','Fee Breakup',sid,old.get('fee_type'))
+        return jsonify({'success':True,'student_total_fee':total})
+    d = request.json or {}
+    amount = float(d.get('amount',0) or 0)
+    if amount <= 0:
+        return jsonify({'error':'Valid amount required'}), 400
+    row = q_ret("UPDATE fee_installments SET amount=%s, fee_type=%s, due_date=%s, remarks=%s, status=%s WHERE id=%s AND student_id=%s RETURNING *",
+                (amount, d.get('fee_type') or 'Tuition Fee', d.get('due_date') or None, d.get('remarks'), d.get('status') or old.get('status') or 'Pending', iid, sid))
+    total = refresh_student_fee_total(sid)
+    out = serialize(row); out['student_total_fee'] = total
+    log_action('Edit','Fee Breakup',sid,d.get('fee_type') or old.get('fee_type'))
+    return jsonify(out)
 
 @app.route('/api/installments/overdue')
 @login_required
