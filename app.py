@@ -117,6 +117,15 @@ def student_import_key(d):
         return None
     return hashlib.md5('|'.join(parts).encode('utf-8')).hexdigest()
 
+
+def ensure_student_import_columns():
+    try:
+        q("ALTER TABLE students ADD COLUMN IF NOT EXISTS import_key TEXT", commit=True)
+        q("ALTER TABLE students ADD COLUMN IF NOT EXISTS student_code TEXT", commit=True)
+        q("CREATE INDEX IF NOT EXISTS idx_students_import_key ON students(import_key)", commit=True)
+    except Exception:
+        get_db().rollback()
+
 def find_student_for_import(row, allow_name_match=True):
     sid = first_val(row, 'student_id', 'Student ID', 'ID')
     if sid:
@@ -1489,6 +1498,7 @@ def import_multi():
     associate_rows = [clean_row(r) for r in (sheets.get('associates') or sheets.get('associate incentives') or [])]
     reference_rows = [clean_row(r) for r in (sheets.get('references') or sheets.get('reference incentives') or [])]
 
+    ensure_student_import_columns()
     active_sess = get_active_session()
     stats = {'students_created':0,'students_updated':0,'student_payments':0,'university_payments':0,'associates':0,'references':0}
     errors = []
@@ -1518,29 +1528,34 @@ def import_multi():
 
     try:
         for idx, raw in enumerate(students, start=2):
-            d = student_payload(raw)
-            if not d['name']:
-                errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
-            imp_key = student_import_key(d)
-            st = q("SELECT * FROM students WHERE import_key=%s ORDER BY id DESC LIMIT 1", (imp_key,), one=True) if imp_key else None
-            if not st and imp_key:
-                st = q("""SELECT * FROM students
-                        WHERE LOWER(TRIM(COALESCE(name,'')))=LOWER(TRIM(%s))
-                          AND LOWER(TRIM(COALESCE(father,'')))=LOWER(TRIM(%s))
-                          AND LOWER(TRIM(COALESCE(course,'')))=LOWER(TRIM(%s))
-                          AND LOWER(TRIM(COALESCE(subject,'')))=LOWER(TRIM(%s))
-                          AND LOWER(TRIM(COALESCE(university,'')))=LOWER(TRIM(%s))
-                        ORDER BY id DESC LIMIT 1""",
-                       (d['name'], d['father'], d['course'], d['subject'], d['university']), one=True)
-            if st:
-                q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,import_key=%s,status=COALESCE(status,'Active') WHERE id=%s""",
-                  (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key,st['id']), commit=True)
-                stats['students_updated'] += 1
-            else:
-                new_student = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,import_key,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,'Active') RETURNING id""",
-                  (uid,active_sess['id'] if active_sess else None,d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key))
-                if new_student: assign_student_code(new_student['id'])
-                stats['students_created'] += 1
+            try:
+                d = student_payload(raw)
+                if not d['name']:
+                    errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
+                imp_key = student_import_key(d)
+                st = q("SELECT * FROM students WHERE import_key=%s ORDER BY id DESC LIMIT 1", (imp_key,), one=True) if imp_key else None
+                if not st and imp_key:
+                    st = q("""SELECT * FROM students
+                            WHERE LOWER(TRIM(COALESCE(name,'')))=LOWER(TRIM(%s))
+                              AND LOWER(TRIM(COALESCE(father,'')))=LOWER(TRIM(%s))
+                              AND LOWER(TRIM(COALESCE(course,'')))=LOWER(TRIM(%s))
+                              AND LOWER(TRIM(COALESCE(subject,'')))=LOWER(TRIM(%s))
+                              AND LOWER(TRIM(COALESCE(university,'')))=LOWER(TRIM(%s))
+                            ORDER BY id DESC LIMIT 1""",
+                           (d['name'], d['father'], d['course'], d['subject'], d['university']), one=True)
+                if st:
+                    q("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,import_key=%s,status=COALESCE(status,'Active') WHERE id=%s""",
+                      (d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key,st['id']), commit=True)
+                    stats['students_updated'] += 1
+                else:
+                    new_student = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,import_key,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,'Active') RETURNING id""",
+                      (uid,active_sess['id'] if active_sess else None,d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key))
+                    if new_student: assign_student_code(new_student['id'])
+                    stats['students_created'] += 1
+            except Exception as row_ex:
+                get_db().rollback()
+                errors.append({'sheet':'Students','row':idx,'error':str(row_ex)[:180]})
+                continue
 
         for idx, raw in enumerate(fee_rows, start=2):
             st = find_student_for_import(raw)
@@ -1667,6 +1682,7 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT',5000))
     print(f"\n{'='*50}\n  Sky Eduworld Phase 2\n  URL: http://localhost:{port}\n  Login: admin / sky@2024\n{'='*50}\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV')=='development')
+
 
 
 
