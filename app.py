@@ -885,12 +885,17 @@ def add_associate():
                 (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
-@app.route('/api/associates/<int:aid>', methods=['DELETE'])
+@app.route('/api/associates/<int:aid>', methods=['PUT','DELETE'])
 @login_required
 @require_perm('can_manage_associates')
 def delete_associate(aid):
     if not is_super_admin():
         if not q("SELECT id FROM associates WHERE id=%s AND created_by=%s", (aid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
+    if request.method == 'PUT':
+        d = request.json or {}
+        row = q_ret("UPDATE associates SET name=%s,phone=%s,student=%s,work_done=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s RETURNING *",
+                    (d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),aid))
+        return jsonify(serialize(row))
     q("DELETE FROM associates WHERE id=%s", (aid,), commit=True); return jsonify({'success':True})
 
 @app.route('/api/associates/bulk-delete', methods=['POST'])
@@ -925,12 +930,17 @@ def add_reference():
                 (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
-@app.route('/api/references/<int:rid>', methods=['DELETE'])
+@app.route('/api/references/<int:rid>', methods=['PUT','DELETE'])
 @login_required
 @require_perm('can_manage_references')
 def delete_reference(rid):
     if not is_super_admin():
         if not q("SELECT id FROM references_ WHERE id=%s AND created_by=%s", (rid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
+    if request.method == 'PUT':
+        d = request.json or {}
+        row = q_ret("UPDATE references_ SET name=%s,phone=%s,student=%s,university=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s RETURNING *",
+                    (d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),rid))
+        return jsonify(serialize(row))
     q("DELETE FROM references_ WHERE id=%s", (rid,), commit=True); return jsonify({'success':True})
 
 @app.route('/api/references/bulk-delete', methods=['POST'])
