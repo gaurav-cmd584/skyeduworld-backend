@@ -282,7 +282,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           <div class="info-box blue"><div style="font-size:24px;flex-shrink:0">&#129309;</div><div><h4 style="color:#0F44B5">Associate</h4><p>Person who <strong>helps complete the admission process</strong> &mdash; paperwork, follow-ups, documents.</p></div></div>
           <div class="info-box amber"><div style="font-size:24px;flex-shrink:0">&#128101;</div><div><h4 style="color:#92400E">Reference</h4><p>Person who <strong>provides you the student lead</strong>. You pay them an <strong>incentive/commission</strong>.</p></div></div>
         </div>
-        <div class="card"><div class="card-hd"><div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div><div class="card-acts"><button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">&#129309; Associates</button><button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">&#128101; References</button><input class="fi" id="inc-search" placeholder="Search..." style="width:170px;padding:6px 9px" oninput="renderIncRows()"><button class="btn btn-p btn-sm" id="inc-add-btn" onclick="openIncModal()">+ Add Record</button></div></div><div class="loading" id="inc-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title" id="inc-title">Associate Payments</div><div class="card-sub" id="inc-sub">Paid for helping with admission process</div></div><div class="card-acts"><button class="btn btn-g btn-sm" id="btn-assoc" onclick="switchIncTab('associate')" style="border-color:var(--sky);color:var(--sky)">&#129309; Associates</button><button class="btn btn-g btn-sm" id="btn-ref" onclick="switchIncTab('reference')">&#128101; References</button><input class="fi" id="inc-search" placeholder="Search..." style="width:170px;padding:6px 9px" oninput="renderIncRows()"><button class="btn btn-r btn-sm" id="inc-bulk-btn" onclick="bulkDeleteInc()">Bulk Delete</button><button class="btn btn-p btn-sm" id="inc-add-btn" onclick="openIncModal()">+ Add Record</button></div></div><div class="loading" id="inc-loading"><div class="spin"></div>Loading&#8230;</div><div class="tw" id="inc-tw" style="display:none"><table><thead><tr id="inc-hd"></tr></thead><tbody id="inc-table"></tbody></table></div></div>
       </div>
       <div class="view" id="view-accounts">
         <div class="stats-row" id="acct-stats" style="grid-template-columns:repeat(4,1fr)"></div>
@@ -678,10 +678,11 @@ async function loadIncTab(){
   var prm=incPerms();
   if(!prm.vA&&incTab==='associate'&&prm.vR)incTab='reference';
   if(!prm.vR&&incTab==='reference'&&prm.vA)incTab='associate';
-  var ba=document.getElementById('btn-assoc'),br=document.getElementById('btn-ref'),add=document.getElementById('inc-add-btn');
+  var ba=document.getElementById('btn-assoc'),br=document.getElementById('btn-ref'),add=document.getElementById('inc-add-btn'),bulk=document.getElementById('inc-bulk-btn');
   if(ba)ba.style.display=prm.vA?'inline-flex':'none';
   if(br)br.style.display=prm.vR?'inline-flex':'none';
   if(add)add.style.display=((incTab==='associate'&&prm.mA)||(incTab==='reference'&&prm.mR))?'inline-flex':'none';
+  if(bulk)bulk.style.display=((incTab==='associate'&&prm.mA)||(incTab==='reference'&&prm.mR))?'inline-flex':'none';
   document.getElementById('inc-loading').style.display='flex';document.getElementById('inc-tw').style.display='none';
   if(!prm.vA&&!prm.vR){document.getElementById('inc-title').textContent='Associate & Reference';document.getElementById('inc-sub').textContent='Permission nahi hai';document.getElementById('inc-hd').innerHTML='';document.getElementById('inc-table').innerHTML='<tr><td style="text-align:center;padding:18px;color:var(--slate)">Permission nahi hai</td></tr>';document.getElementById('inc-loading').style.display='none';document.getElementById('inc-tw').style.display='block';return;}
   if(incTab==='associate'){
@@ -696,6 +697,7 @@ async function loadIncTab(){
     window._incRows=await api('GET','/references')||[];
   }
   if(add)add.style.display=((incTab==='associate'&&prm.mA)||(incTab==='reference'&&prm.mR))?'inline-flex':'none';
+  if(bulk)bulk.style.display=((incTab==='associate'&&prm.mA)||(incTab==='reference'&&prm.mR))?'inline-flex':'none';
   renderIncRows();
   document.getElementById('inc-loading').style.display='none';document.getElementById('inc-tw').style.display='block';
 }
@@ -727,6 +729,21 @@ async function saveReference(){
 }
 async function delAssoc(id){if(!incPerms().mA){toast('Associate manage permission nahi hai','er');return;}if(!confirm('Delete?'))return;await api('DELETE','/associates/'+id);loadIncTab();loadIncStats();toast('Deleted','ok');}
 async function delRef(id){if(!incPerms().mR){toast('Reference manage permission nahi hai','er');return;}if(!confirm('Delete?'))return;await api('DELETE','/references/'+id);loadIncTab();loadIncStats();toast('Deleted','ok');}
+async function bulkDeleteInc(){
+  var prm=incPerms(), isAssoc=incTab==='associate';
+  if(isAssoc&&!prm.mA){toast('Associate manage permission nahi hai','er');return;}
+  if(!isAssoc&&!prm.mR){toast('Reference manage permission nahi hai','er');return;}
+  var q=(document.getElementById('inc-search')?.value||'').toLowerCase();
+  var rows=(window._incRows||[]);
+  if(q)rows=rows.filter(function(x){return String((x.name||'')+' '+(x.phone||'')+' '+(x.student||'')+' '+(x.work_done||'')+' '+(x.university||'')+' '+(x.status||'')).toLowerCase().includes(q);});
+  var ids=rows.map(function(x){return x.id;}).filter(Boolean);
+  if(!ids.length){toast('Delete karne ke liye records nahi mile','er');return;}
+  var word=prompt((isAssoc?'Associates':'References')+' ke '+ids.length+' visible records delete karne ke liye DELETE type karo');
+  if(word!=='DELETE'){toast('Bulk delete cancel','er');return;}
+  var path=isAssoc?'/associates/bulk-delete':'/references/bulk-delete';
+  var r=await api('POST',path,{ids:ids,confirm:'DELETE'});
+  if(r){toast((r.deleted||0)+' records deleted','ok');await loadIncTab();loadIncStats();}
+}
 async function renderUnivGrid(){
   const data=await api('GET','/universities');if(!data)return;
   document.getElementById('univ-grid').innerHTML=data.map(function(u){
