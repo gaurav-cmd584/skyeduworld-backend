@@ -1585,56 +1585,72 @@ def import_multi():
                 errors.append({'sheet':'Student Fee Structure','row':idx,'error':str(ex)[:180]})
 
         for idx, raw in enumerate(fee_rows, start=2):
-            st = find_student_for_import(raw)
-            amount = parse_amount(first_val(raw,'Amount','Received Amount','Payment Amount','Fee Received'))
-            if not st or amount <= 0:
-                errors.append({'sheet':'Student Payments','row':idx,'error':'Valid existing student and amount required'}); continue
-            q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                  (st['id'],uid,amount,first_val(raw,'Fee Type','Type') or 'Tuition Fee',first_val(raw,'Payment Mode','Mode','Pay Mode') or 'Cash',first_val(raw,'Ref No / UTR','UTR','Ref No'),parse_date_value(first_val(raw,'Payment Date','Receiving Date','Reciving Date','Date')) or date.today().isoformat(),first_val(raw,'Remarks','Remark'),'student_receivable'))
-            q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
-            stats['student_payments'] += 1
+            try:
+                st = find_student_for_import(raw)
+                amount = parse_amount(first_val(raw,'Amount','Received Amount','Payment Amount','Fee Received'))
+                if not st or amount <= 0:
+                    errors.append({'sheet':'Student Payments','row':idx,'error':'Valid existing student and amount required'}); continue
+                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (st['id'],uid,amount,first_val(raw,'Fee Type','Type') or 'Tuition Fee',first_val(raw,'Payment Mode','Mode','Pay Mode') or 'Cash',first_val(raw,'Ref No / UTR','UTR','Ref No'),parse_date_value(first_val(raw,'Payment Date','Receiving Date','Reciving Date','Date')) or date.today().isoformat(),first_val(raw,'Remarks','Remark'),'student_receivable'))
+                q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
+                stats['student_payments'] += 1
+            except Exception as ex:
+                get_db().rollback()
+                errors.append({'sheet':'Student Payments','row':idx,'error':str(ex)[:180]})
 
         for idx, raw in enumerate(univ_rows, start=2):
-            st = find_student_for_import(raw)
-            payable = parse_amount(first_val(raw,'Payable Amount','University Payable','Decided for University','University Decided Fee','Univ Fee'))
-            paid = parse_amount(first_val(raw,'Paid Amount','University Paid','Paid'))
-            if not st or (payable <= 0 and paid <= 0):
-                errors.append({'sheet':'University Payments','row':idx,'error':'Valid existing student and payable/paid amount required'}); continue
-            if payable <= 0: payable = parse_amount(st.get('univ_fee'))
-            status = 'Paid' if payable > 0 and paid >= payable else 'Pending'
-            q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                  (st['id'],uid,st.get('university'),st.get('name'),payable,paid,first_val(raw,'Fee Type','University Fee Type') or 'Tuition',parse_date_value(first_val(raw,'Due Date')),parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode','Pay Mode'),first_val(raw,'Ref No / UTR','UTR','Ref No'),status,first_val(raw,'Remarks','Remark')))
-            stats['university_payments'] += 1
+            try:
+                st = find_student_for_import(raw)
+                payable = parse_amount(first_val(raw,'Payable Amount','University Payable','Decided for University','University Decided Fee','Univ Fee'))
+                paid = parse_amount(first_val(raw,'Paid Amount','University Paid','Paid'))
+                if not st or (payable <= 0 and paid <= 0):
+                    errors.append({'sheet':'University Payments','row':idx,'error':'Valid existing student and payable/paid amount required'}); continue
+                if payable < 0: payable = 0
+                status = 'Paid' if payable > 0 and paid >= payable else 'Pending'
+                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (st['id'],uid,st.get('university'),st.get('name'),payable,paid,first_val(raw,'Fee Type','University Fee Type') or 'Tuition',parse_date_value(first_val(raw,'Due Date')),parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode','Pay Mode'),first_val(raw,'Ref No / UTR','UTR','Ref No'),status,first_val(raw,'Remarks','Remark')))
+                stats['university_payments'] += 1
+            except Exception as ex:
+                get_db().rollback()
+                errors.append({'sheet':'University Payments','row':idx,'error':str(ex)[:180]})
 
         for idx, raw in enumerate(associate_rows, start=2):
-            name = first_val(raw,'Associate Name','Name')
-            decided = parse_amount(first_val(raw,'Decided Amount','Amount','Associate Amount'))
-            paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
-            student_name = first_val(raw,'Student Name','Student')
-            if not name or decided <= 0:
-                errors.append({'sheet':'Associates','row':idx,'error':'Associate name and decided amount required'}); continue
-            parent = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                  (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
-            if paid > 0 and parent:
-                q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                  (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
-                q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
-            stats['associates'] += 1
+            try:
+                name = first_val(raw,'Associate Name','Name')
+                decided = parse_amount(first_val(raw,'Decided Amount','Amount','Associate Amount'))
+                paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
+                student_name = first_val(raw,'Student Name','Student')
+                if not name or decided <= 0:
+                    errors.append({'sheet':'Associates','row':idx,'error':'Associate name and decided amount required'}); continue
+                parent = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
+                if paid > 0 and parent:
+                    q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+                stats['associates'] += 1
+            except Exception as ex:
+                get_db().rollback()
+                errors.append({'sheet':'Associates','row':idx,'error':str(ex)[:180]})
 
         for idx, raw in enumerate(reference_rows, start=2):
-            name = first_val(raw,'Reference Name','Reference','Name')
-            decided = parse_amount(first_val(raw,'Decided Amount','Amount','Reference Amount'))
-            paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
-            student_name = first_val(raw,'Student Name','Student')
-            if not name or decided <= 0:
-                errors.append({'sheet':'References','row':idx,'error':'Reference name and decided amount required'}); continue
-            parent = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                  (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
-            if paid > 0 and parent:
-                q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                  (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
-                q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
-            stats['references'] += 1
+            try:
+                name = first_val(raw,'Reference Name','Reference','Name')
+                decided = parse_amount(first_val(raw,'Decided Amount','Amount','Reference Amount'))
+                paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
+                student_name = first_val(raw,'Student Name','Student')
+                if not name or decided <= 0:
+                    errors.append({'sheet':'References','row':idx,'error':'Reference name and decided amount required'}); continue
+                parent = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
+                if paid > 0 and parent:
+                    q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+                stats['references'] += 1
+            except Exception as ex:
+                get_db().rollback()
+                errors.append({'sheet':'References','row':idx,'error':str(ex)[:180]})
 
         get_db().commit()
     except Exception as ex:
