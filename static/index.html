@@ -1129,7 +1129,7 @@ function rowHasData(row){
 function parseAndPreviewMulti(wb){
   var payload={}, total=0, valid=0, errors=[];
   Object.keys(MULTI_IMPORT_SHEETS).forEach(function(sheetName){
-    var ws=wb.Sheets[sheetName];
+    var ws=wb.Sheets[sheetName]||wb.Sheets[sheetName.replaceAll(' ','_')];
     var rows=ws?XLSX.utils.sheet_to_json(ws,{defval:'',raw:false}).filter(rowHasData):[];
     if(rows.length>1000){errors.push({sheet:sheetName,row:'-',errors:['Max 1000 rows allowed']}); rows=[];}
     payload[sheetName]=rows;
@@ -1378,6 +1378,7 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
 
 
 
