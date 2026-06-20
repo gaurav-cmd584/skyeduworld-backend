@@ -983,7 +983,7 @@ function showImportSummary(r,total){
   var success=r.success||studentDone||0;
   var skipped=(r.errors||[]).length;
   var parts=['<b>Import Summary</b>', 'Total preview rows: '+total, 'Imported/processed: '+success];
-  if(r.stats)parts.push('Students created: '+(stats.students_created||0), 'Students updated: '+(stats.students_updated||0), 'Student payments: '+(stats.student_payments||0), 'University payments: '+(stats.university_payments||0), 'Associates: '+(stats.associates||0), 'References: '+(stats.references||0));
+  if(r.stats)parts.push('Students created: '+(stats.students_created||0), 'Students updated: '+(stats.students_updated||0), 'Fee structure rows: '+(stats.fee_structures||0), 'Student payments: '+(stats.student_payments||0), 'University payments: '+(stats.university_payments||0), 'Associates: '+(stats.associates||0), 'References: '+(stats.references||0));
   parts.push('Skipped/errors: '+skipped);
   var errHtml='';
   if(skipped){errHtml='<div style="margin-top:8px;color:var(--rose);max-height:120px;overflow:auto">'+(r.errors||[]).slice(0,20).map(function(e){return '&#10060; '+(e.sheet?e.sheet+' ':'')+'Row '+(e.row||'-')+': '+(e.error||e.errors||'Error');}).join('<br>')+(skipped>20?'<br>...aur '+(skipped-20)+' errors':'')+'</div>';}
@@ -1050,16 +1050,20 @@ var IMPORT_COLS = [
 
 var MULTI_IMPORT_SHEETS = {
   'Students': {
-    headers: ['Student Name *','Father Name','Mother Name','Mobile','Email','DOB','Address','Aadhar','Course','Subject','University','Batch','University Reg No','Admission Date','Total Fee','Univ Fee','Remarks'],
-    example: ['Bansude Rahul','Siddarth','Kewda Bai','9999999999','rahul@example.com','','','0','PhD','Physics','Sikkim Alpine University','2022','T3911220020','2026-05-12','255000','255000','Imported']
+    headers: ['Student ID','Student Name *','Father Name','Mother Name','Mobile','Email','DOB','Address','Aadhar','Course','Subject','University','Batch','University Reg No','Admission Date','Total Fee','Univ Fee','Remarks'],
+    example: ['317','Bansude Rahul','Siddarth','Kewda Bai','9999999999','rahul@example.com','','','0','PhD','Physics','Sikkim Alpine University','2022','T3911220020','2026-05-12','255000','255000','Imported']
+  },
+  'Student Fee Structure': {
+    headers: ['Student ID','Student Name *','Mobile','Fee Type *','Amount *','Due Date','Remarks'],
+    example: ['326','UTNOORI ADITHYA GOUD','','Tuition Fee','430000','','Decided fee']
   },
   'Student Payments': {
-    headers: ['Student Name *','Mobile','Amount *','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
-    example: ['Bansude Rahul','9999999999','100000','2026-05-12','Online','UTR-SBIN126132072719','Tuition Fee','First receipt']
+    headers: ['Student ID','Student Name *','Mobile','Amount *','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
+    example: ['326','UTNOORI ADITHYA GOUD','','100000','2026-06-08','Online','UTR-667050955582','Tuition Fee','First receipt']
   },
   'University Payments': {
-    headers: ['Student Name *','Mobile','Payable Amount','Paid Amount','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
-    example: ['Bansude Rahul','9999999999','255000','100000','2026-05-12','Online','UTR-SBIN126132072719','Tuition','Direct in university account']
+    headers: ['Student ID','Student Name *','Mobile','Payable Amount','Paid Amount','Payment Date','Payment Mode','Ref No / UTR','Fee Type','Remarks'],
+    example: ['317','Bansude Rahul','9999999999','255000','100000','2026-05-12','Online','UTR-SBIN126132072719','Tuition','Direct in university account']
   },
   'Associates': {
     headers: ['Associate Name *','Phone','Student Name','Work Done','Decided Amount *','Paid Amount','Payment Date','Payment Mode','UTR','Remarks'],
@@ -1134,8 +1138,12 @@ function parseAndPreviewMulti(wb){
       var e=[];
       if(sheetName==='Students'){
         if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
+      }else if(sheetName==='Student Fee Structure'){
+        if(!row['Student ID']&&!row['Student Name *']&&!row['Student Name'])e.push('Student missing');
+        if(!row['Fee Type *']&&!row['Fee Type'])e.push('Fee Type missing');
+        if(!row['Amount *']&&!row['Amount'])e.push('Amount missing');
       }else if(sheetName==='Student Payments'){
-        if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
+        if(!row['Student ID']&&!row['Student Name *']&&!row['Student Name'])e.push('Student missing');
         if(!row['Amount *']&&!row['Amount'])e.push('Amount missing');
       }else if(sheetName==='University Payments'){
         if(!row['Student Name *']&&!row['Student Name'])e.push('Student Name missing');
@@ -1247,7 +1255,7 @@ function parseAndPreview(raw){
 
 function mergeImportResult(totalResult,r){
   if(!r)return totalResult;
-  var keys=['students_created','students_updated','student_payments','university_payments','associates','references'];
+  var keys=['students_created','students_updated','fee_structures','student_payments','university_payments','associates','references'];
   totalResult.stats=totalResult.stats||{};
   keys.forEach(function(k){totalResult.stats[k]=(totalResult.stats[k]||0)+(((r.stats||{})[k])||0);});
   totalResult.success=(totalResult.success||0)+(r.success||0);
@@ -1260,7 +1268,7 @@ async function confirmImport(){
   if((!_importRows||_importRows.length===0)&&!_importPayload){toast('Import karne ke liye koi valid row nahi','er');return;}
   var btn=document.getElementById('imp-confirm-btn');
   var total=_importPayload?Object.keys(_importPayload).reduce(function(n,k){return n+((_importPayload[k]||[]).length);},0):(_importRows||[]).length;
-  var result={success:0,stats:{students_created:0,students_updated:0,student_payments:0,university_payments:0,associates:0,references:0},errors:[]};
+  var result={success:0,stats:{students_created:0,students_updated:0,fee_structures:0,student_payments:0,university_payments:0,associates:0,references:0},errors:[]};
   btn.disabled=true;btn.textContent='Importing...';
   setImportProgress(5,'Preparing '+total+' rows...');
   try{
@@ -1370,6 +1378,8 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
+
 
 
 
