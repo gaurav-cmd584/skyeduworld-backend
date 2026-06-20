@@ -1283,11 +1283,15 @@ async function confirmImport(){
         done+=batchPayload.Students.length;
         setImportProgress(5+Math.round((done/Math.max(total,1))*80),'Imported batch '+Math.min(done,students.length)+'/'+students.length);
       }
-      var otherPayload={};
-      Object.keys(_importPayload).forEach(function(k){if(k!=='Students'&&k!=='students'&&(_importPayload[k]||[]).length)otherPayload[k]=_importPayload[k];});
-      if(Object.keys(otherPayload).length){
-        setImportProgress(90,'Importing payments/other sheets...');
-        mergeImportResult(result,await api('POST','/import/multi',otherPayload));
+      var sheetNames=Object.keys(_importPayload).filter(function(k){return k!=='Students'&&k!=='students'&&(_importPayload[k]||[]).length;});
+      for(var sidx=0;sidx<sheetNames.length;sidx++){
+        var sheet=sheetNames[sidx], rowsForSheet=_importPayload[sheet]||[];
+        for(var si=0;si<rowsForSheet.length;si+=batchSize){
+          var sheetPayload={};
+          sheetPayload[sheet]=rowsForSheet.slice(si,si+batchSize);
+          setImportProgress(85+Math.round(((sidx+si/Math.max(rowsForSheet.length,1))/Math.max(sheetNames.length,1))*12),'Importing '+sheet+' '+Math.min(si+batchSize,rowsForSheet.length)+'/'+rowsForSheet.length+'...');
+          mergeImportResult(result,await api('POST','/import/multi',sheetPayload));
+        }
       }
     }else{
       var rows=_importRows||[], batchSize2=25, done2=0;
