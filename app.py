@@ -131,10 +131,13 @@ def ensure_student_import_columns():
 def find_student_for_import(row, allow_name_match=True):
     sid = first_val(row, 'student_id', 'Student ID', 'ID', 'Access ID', 'Old Student ID', 'Import Student ID')
     if sid:
-        st = q("SELECT * FROM students WHERE external_id=%s ORDER BY id DESC LIMIT 1", (str(sid).strip(),), one=True)
+        sid_text = str(sid).strip()
+        sid_int = sid_text[:-2] if sid_text.endswith('.0') else sid_text
+        st = q("SELECT * FROM students WHERE external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (sid_text, sid_int), one=True)
         if st: return st
-        st = q("SELECT * FROM students WHERE id=%s", (sid,), one=True)
-        if st: return st
+        if sid_int.isdigit():
+            st = q("SELECT * FROM students WHERE id=%s", (sid_int,), one=True)
+            if st: return st
     student_code = first_val(row, 'student_code', 'Student Code', 'Auto ID', 'Code')
     if student_code:
         st = q("SELECT * FROM students WHERE UPPER(student_code)=UPPER(%s) ORDER BY id DESC LIMIT 1", (student_code,), one=True)
@@ -145,7 +148,10 @@ def find_student_for_import(row, allow_name_match=True):
         st = q("SELECT * FROM students WHERE regexp_replace(COALESCE(mobile,''),'[^0-9]','','g')=regexp_replace(%s,'[^0-9]','','g') ORDER BY id DESC LIMIT 1", (mobile,), one=True)
         if st: return st
     if allow_name_match and name:
-        st = q("SELECT * FROM students WHERE LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (name,), one=True)
+        st = q("SELECT * FROM students WHERE LOWER(trim(name))=LOWER(trim(%s)) ORDER BY id DESC LIMIT 1", (name,), one=True)
+        if st: return st
+        normalized_name = ' '.join(str(name or '').split())
+        st = q("SELECT * FROM students WHERE regexp_replace(LOWER(COALESCE(name,'')),'\\s+',' ','g')=LOWER(%s) ORDER BY id DESC LIMIT 1", (normalized_name,), one=True)
         if st: return st
     return None
 
@@ -582,11 +588,17 @@ def get_student(sid):
     photo = q("SELECT * FROM student_photos WHERE student_id=%s ORDER BY id DESC LIMIT 1", (sid,), one=True)
     payments = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s ORDER BY fp.id DESC", (sid,))
     installments = q("SELECT * FROM fee_installments WHERE student_id=%s ORDER BY due_date", (sid,))
+    university_payments = q("SELECT * FROM university_payables WHERE student_id=%s OR LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (sid, row.get('name')))
+    associates = q("SELECT * FROM associates WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
+    references = q("SELECT * FROM references_ WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
     followups = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s ORDER BY f.created_at DESC", (sid,))
     docs = q("SELECT * FROM documents WHERE student_id=%s ORDER BY id DESC", (sid,))
     row['photo'] = serialize(photo) if photo else None
     row['payments'] = [serialize(r) for r in payments]
     row['installments'] = [serialize(r) for r in installments]
+    row['university_payments'] = [serialize(r) for r in university_payments]
+    row['associates'] = [serialize(r) for r in associates]
+    row['references'] = [serialize(r) for r in references]
     row['followups'] = [serialize(r) for r in followups]
     row['documents'] = [serialize(r) for r in docs]
     return jsonify(serialize(row))
@@ -1533,7 +1545,7 @@ def import_multi():
 
     ensure_student_import_columns()
     active_sess = get_active_session()
-    stats = {'students_created':0,'students_updated':0,'fee_structures':0,'student_payments':0,'university_payments':0,'associates':0,'references':0}
+    stats = {'students_created':0,'students_updated':0,'fee_structures':0,'student_payments':0,'university_payments':0,'associates':0,'references':0,'duplicates_skipped':0}
     errors = []
 
     def student_payload(row):
@@ -1559,6 +1571,49 @@ def import_multi():
             'total_fee': parse_amount(first_val(row,'Total Fee','Student Decided Fee','Decided Fee for Student','Fee Decided')),
             'univ_fee': parse_amount(first_val(row,'Univ Fee','University Fee','University Decided Fee','Decided for University')),
         }
+
+    def same_text_sql(col):
+        return f"LOWER(TRIM(COALESCE({col},'')))=LOWER(TRIM(%s))"
+
+    def is_duplicate_fee_structure(student_id, fee_type, amount):
+        return q(f"""SELECT id FROM fee_installments
+                    WHERE student_id=%s AND amount=%s AND {same_text_sql('fee_type')}
+                    LIMIT 1""", (student_id, amount, fee_type), one=True)
+
+    def is_duplicate_student_payment(student_id, amount, pay_date, pay_mode, fee_type, ref_no, remarks):
+        return q(f"""SELECT id FROM fee_payments
+                    WHERE student_id=%s AND amount=%s AND pay_date=%s
+                      AND {same_text_sql('pay_mode')}
+                      AND {same_text_sql('fee_type')}
+                      AND {same_text_sql('ref_no')}
+                      AND {same_text_sql('remarks')}
+                    LIMIT 1""", (student_id, amount, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
+
+    def is_duplicate_university_payment(student_id, payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks):
+        return q(f"""SELECT id FROM university_payables
+                    WHERE student_id=%s AND amount=%s AND paid_amount=%s
+                      AND COALESCE(paid_date::text,'')=COALESCE(%s,'')
+                      AND {same_text_sql('pay_mode')}
+                      AND {same_text_sql('fee_type')}
+                      AND {same_text_sql('ref_no')}
+                      AND {same_text_sql('remarks')}
+                    LIMIT 1""", (student_id, payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
+
+    def is_duplicate_associate(name, student_name, work_done, decided):
+        return q(f"""SELECT id FROM associates
+                    WHERE parent_id IS NULL AND amount=%s
+                      AND {same_text_sql('name')}
+                      AND {same_text_sql('student')}
+                      AND {same_text_sql('work_done')}
+                    LIMIT 1""", (decided, name, student_name, work_done), one=True)
+
+    def is_duplicate_reference(name, student_name, university, decided):
+        return q(f"""SELECT id FROM references_
+                    WHERE parent_id IS NULL AND amount=%s
+                      AND {same_text_sql('name')}
+                      AND {same_text_sql('student')}
+                      AND {same_text_sql('university')}
+                    LIMIT 1""", (decided, name, student_name, university), one=True)
 
     try:
         for idx, raw in enumerate(students, start=2):
@@ -1598,6 +1653,9 @@ def import_multi():
                 fee_type = first_val(raw,'Fee Type','Type') or 'Tuition Fee'
                 if not st or amount <= 0:
                     errors.append({'sheet':'Student Fee Structure','row':idx,'error':'Valid existing student and amount required'}); continue
+                if is_duplicate_fee_structure(st['id'], fee_type, amount):
+                    stats['duplicates_skipped'] += 1
+                    continue
                 try:
                     q("INSERT INTO fee_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (fee_type,), commit=True)
                 except Exception:
@@ -1616,8 +1674,16 @@ def import_multi():
                 amount = parse_amount(first_val(raw,'Amount','Received Amount','Payment Amount','Fee Received'))
                 if not st or amount <= 0:
                     errors.append({'sheet':'Student Payments','row':idx,'error':'Valid existing student and amount required'}); continue
+                fee_type = first_val(raw,'Fee Type','Type') or 'Tuition Fee'
+                pay_mode = first_val(raw,'Payment Mode','Mode','Pay Mode') or 'Cash'
+                ref_no = first_val(raw,'Ref No / UTR','UTR','Ref No')
+                pay_date = parse_date_value(first_val(raw,'Payment Date','Receiving Date','Reciving Date','Date')) or date.today().isoformat()
+                remarks = first_val(raw,'Remarks','Remark')
+                if is_duplicate_student_payment(st['id'], amount, pay_date, pay_mode, fee_type, ref_no, remarks):
+                    stats['duplicates_skipped'] += 1
+                    continue
                 q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (st['id'],uid,amount,first_val(raw,'Fee Type','Type') or 'Tuition Fee',first_val(raw,'Payment Mode','Mode','Pay Mode') or 'Cash',first_val(raw,'Ref No / UTR','UTR','Ref No'),parse_date_value(first_val(raw,'Payment Date','Receiving Date','Reciving Date','Date')) or date.today().isoformat(),first_val(raw,'Remarks','Remark'),'student_receivable'))
+                      (st['id'],uid,amount,fee_type,pay_mode,ref_no,pay_date,remarks,'student_receivable'))
                 q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
                 stats['student_payments'] += 1
             except Exception as ex:
@@ -1633,8 +1699,16 @@ def import_multi():
                     errors.append({'sheet':'University Payments','row':idx,'error':'Valid existing student and payable/paid amount required'}); continue
                 if payable < 0: payable = 0
                 status = 'Paid' if payable > 0 and paid >= payable else 'Pending'
+                fee_type = first_val(raw,'Fee Type','University Fee Type') or 'Tuition'
+                pay_date = parse_date_value(first_val(raw,'Payment Date','Paid Date'))
+                pay_mode = first_val(raw,'Payment Mode','Mode','Pay Mode')
+                ref_no = first_val(raw,'Ref No / UTR','UTR','Ref No')
+                remarks = first_val(raw,'Remarks','Remark')
+                if is_duplicate_university_payment(st['id'], payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks):
+                    stats['duplicates_skipped'] += 1
+                    continue
                 q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (st['id'],uid,st.get('university'),st.get('name'),payable,paid,first_val(raw,'Fee Type','University Fee Type') or 'Tuition',parse_date_value(first_val(raw,'Due Date')),parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode','Pay Mode'),first_val(raw,'Ref No / UTR','UTR','Ref No'),status,first_val(raw,'Remarks','Remark')))
+                      (st['id'],uid,st.get('university'),st.get('name'),payable,paid,fee_type,parse_date_value(first_val(raw,'Due Date')),pay_date,pay_mode,ref_no,status,remarks))
                 stats['university_payments'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -1648,11 +1722,15 @@ def import_multi():
                 student_name = first_val(raw,'Student Name','Student')
                 if not name or decided <= 0:
                     errors.append({'sheet':'Associates','row':idx,'error':'Associate name and decided amount required'}); continue
+                work_done = first_val(raw,'Work Done','Work') or 'Admission'
+                if is_duplicate_associate(name, student_name, work_done, decided):
+                    stats['duplicates_skipped'] += 1
+                    continue
                 parent = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
+                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,work_done,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
                 if paid > 0 and parent:
                     q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'Work Done','Work') or 'Admission',paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,work_done,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
                     q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
                 stats['associates'] += 1
             except Exception as ex:
@@ -1665,13 +1743,17 @@ def import_multi():
                 decided = parse_amount(first_val(raw,'Decided Amount','Amount','Reference Amount'))
                 paid = parse_amount(first_val(raw,'Paid Amount','Paid'))
                 student_name = first_val(raw,'Student Name','Student')
-                if not name or decided <= 0:
-                    errors.append({'sheet':'References','row':idx,'error':'Reference name and decided amount required'}); continue
+                if not name or not student_name:
+                    errors.append({'sheet':'References','row':idx,'error':'Reference name and student required'}); continue
+                university = first_val(raw,'University')
+                if is_duplicate_reference(name, student_name, university, decided):
+                    stats['duplicates_skipped'] += 1
+                    continue
                 parent = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
+                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,university,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
                 if paid > 0 and parent:
                     q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,first_val(raw,'University'),paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,university,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
                     q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
                 stats['references'] += 1
             except Exception as ex:
