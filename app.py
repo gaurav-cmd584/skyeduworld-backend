@@ -831,6 +831,19 @@ def delete_associate(aid):
         if not q("SELECT id FROM associates WHERE id=%s AND created_by=%s", (aid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
     q("DELETE FROM associates WHERE id=%s", (aid,), commit=True); return jsonify({'success':True})
 
+@app.route('/api/associates/bulk-delete', methods=['POST'])
+@login_required
+@require_perm('can_manage_associates')
+def bulk_delete_associates():
+    d = request.json or {}
+    ids = [int(x) for x in (d.get('ids') or []) if str(x).isdigit()]
+    if not ids or d.get('confirm') != 'DELETE': return jsonify({'error':'Confirm DELETE and select records'}), 400
+    if is_super_admin():
+        deleted = q("DELETE FROM associates WHERE id = ANY(%s)", (ids,), commit=True)
+    else:
+        deleted = q("DELETE FROM associates WHERE id = ANY(%s) AND created_by=%s", (ids,session['user_id']), commit=True)
+    return jsonify({'success':True,'deleted':deleted})
+
 # REFERENCES
 @app.route('/api/references', methods=['GET'])
 @login_required
@@ -857,6 +870,19 @@ def delete_reference(rid):
     if not is_super_admin():
         if not q("SELECT id FROM references_ WHERE id=%s AND created_by=%s", (rid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
     q("DELETE FROM references_ WHERE id=%s", (rid,), commit=True); return jsonify({'success':True})
+
+@app.route('/api/references/bulk-delete', methods=['POST'])
+@login_required
+@require_perm('can_manage_references')
+def bulk_delete_references():
+    d = request.json or {}
+    ids = [int(x) for x in (d.get('ids') or []) if str(x).isdigit()]
+    if not ids or d.get('confirm') != 'DELETE': return jsonify({'error':'Confirm DELETE and select records'}), 400
+    if is_super_admin():
+        deleted = q("DELETE FROM references_ WHERE id = ANY(%s)", (ids,), commit=True)
+    else:
+        deleted = q("DELETE FROM references_ WHERE id = ANY(%s) AND created_by=%s", (ids,session['user_id']), commit=True)
+    return jsonify({'success':True,'deleted':deleted})
 
 
 @app.route('/api/associates/<int:aid>/parts', methods=['GET','POST'])
