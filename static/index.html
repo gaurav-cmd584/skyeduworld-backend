@@ -384,10 +384,20 @@ async function api(method,path,body){
   if(body)opts.body=JSON.stringify(body);
   const r=await fetch('/api'+path,opts);
   if(r.status===401){showLogin();return null;}
-  if(!r.ok){const e=await r.json();toast(e.error||'Error','er');return null;}
   const ct=r.headers.get('Content-Type')||'';
   if(ct.includes('text/csv'))return r;
-  return r.json();
+  var text=await r.text();
+  var data=null;
+  if(text){
+    try{data=JSON.parse(text);}catch(ex){
+      var clean=text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,220);
+      var msg='Server returned '+r.status+' '+r.statusText+(clean?': '+clean:'');
+      if(!r.ok){toast(msg,'er');return {error:msg,errors:[{row:'-',error:msg}]};}
+      throw new Error(msg);
+    }
+  }
+  if(!r.ok){toast((data&&data.error)||('Server error '+r.status),'er');return data||null;}
+  return data;
 }
 async function apiUpload(path,formData){
   const r=await fetch('/api'+path,{method:'POST',body:formData,credentials:'same-origin'});
@@ -1328,6 +1338,7 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
+
 
 
 
