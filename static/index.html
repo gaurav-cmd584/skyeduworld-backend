@@ -1036,7 +1036,7 @@ function showImportSummary(r,total){
   var success=r.success||studentDone||0;
   var skipped=(r.errors||[]).length;
   var parts=['<b>Import Summary</b>', 'Total preview rows: '+total, 'Imported/processed: '+success];
-  if(r.stats)parts.push('Students created: '+(stats.students_created||0), 'Students updated: '+(stats.students_updated||0), 'Fee structure rows: '+(stats.fee_structures||0), 'Student payments: '+(stats.student_payments||0), 'University payments: '+(stats.university_payments||0), 'Associates: '+(stats.associates||0), 'References: '+(stats.references||0), 'Duplicates skipped: '+(stats.duplicates_skipped||0));
+  if(r.stats)parts.push('Students created: '+(stats.students_created||0), 'Students updated: '+(stats.students_updated||0), 'Fee structure rows: '+(stats.fee_structures||0), 'Student payments: '+(stats.student_payments||0), 'University payments: '+(stats.university_payments||0), 'Associates: '+(stats.associates||0), 'References: '+(stats.references||0), 'Duplicates skipped: '+(stats.duplicates_skipped||0), 'Cleaned old rows: '+(stats.cleaned_related_rows||0));
   parts.push('Skipped/errors: '+skipped);
   var errHtml='';
   if(skipped){errHtml='<div style="margin-top:8px;color:var(--rose);max-height:120px;overflow:auto">'+(r.errors||[]).slice(0,20).map(function(e){return '&#10060; '+(e.sheet?e.sheet+' ':'')+'Row '+(e.row||'-')+': '+(e.error||e.errors||'Error');}).join('<br>')+(skipped>20?'<br>...aur '+(skipped-20)+' errors':'')+'</div>';}
@@ -1308,7 +1308,7 @@ function parseAndPreview(raw){
 
 function mergeImportResult(totalResult,r){
   if(!r)return totalResult;
-  var keys=['students_created','students_updated','fee_structures','student_payments','university_payments','associates','references','duplicates_skipped'];
+  var keys=['students_created','students_updated','fee_structures','student_payments','university_payments','associates','references','duplicates_skipped','cleaned_students','cleaned_related_rows'];
   totalResult.stats=totalResult.stats||{};
   keys.forEach(function(k){totalResult.stats[k]=(totalResult.stats[k]||0)+(((r.stats||{})[k])||0);});
   totalResult.success=(totalResult.success||0)+(r.success||0);
@@ -1328,6 +1328,10 @@ async function confirmImport(){
     if(_importPayload){
       var students=(_importPayload.Students||_importPayload.students||[]);
       var batchSize=25, done=0;
+      if(students.length){
+        setImportProgress(5,'Cleaning old imported rows...');
+        mergeImportResult(result,await api('POST','/import/multi',{cleanup_only:true,replace_existing:true,Students:students}));
+      }
       for(var i=0;i<students.length;i+=batchSize){
         var batchPayload={Students:students.slice(i,i+batchSize)};
         setImportProgress(5+Math.round((done/Math.max(total,1))*80),'Importing students '+done+'/'+students.length+'...');
