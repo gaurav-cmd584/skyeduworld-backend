@@ -1605,7 +1605,7 @@ def import_multi():
 
     ensure_student_import_columns()
     active_sess = get_active_session()
-    stats = {'students_created':0,'students_updated':0,'fee_structures':0,'student_payments':0,'university_payments':0,'associates':0,'references':0,'duplicates_skipped':0}
+    stats = {'students_created':0,'students_updated':0,'fee_structures':0,'student_payments':0,'university_payments':0,'associates':0,'references':0,'duplicates_skipped':0,'cleaned_students':0,'cleaned_related_rows':0}
     errors = []
 
     def student_payload(row):
@@ -1675,7 +1675,53 @@ def import_multi():
                       AND {same_text_sql('university')}
                     LIMIT 1""", (decided, name, student_name, university), one=True)
 
+    def cleanup_existing_import_rows(student_rows):
+        student_ids, student_names = [], []
+        for raw in student_rows:
+            d = student_payload(raw)
+            if d.get('name'):
+                student_names.append(d['name'])
+            st = None
+            if d.get('external_id'):
+                sid_text = str(d['external_id']).strip()
+                sid_int = sid_text[:-2] if sid_text.endswith('.0') else sid_text
+                st = q("SELECT id,name FROM students WHERE external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (sid_text, sid_int), one=True)
+            if not st and d.get('name'):
+                imp_key = student_import_key(d)
+                st = q("SELECT id,name FROM students WHERE import_key=%s ORDER BY id DESC LIMIT 1", (imp_key,), one=True) if imp_key else None
+            if st:
+                student_ids.append(st['id'])
+                if st.get('name'):
+                    student_names.append(st['name'])
+
+        student_ids = list(dict.fromkeys(student_ids))
+        student_names = list(dict.fromkeys([n for n in student_names if n]))
+        deleted = 0
+        if student_ids:
+            deleted += q("DELETE FROM fee_payments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            deleted += q("DELETE FROM fee_installments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            deleted += q("DELETE FROM university_payables WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            q("UPDATE students SET paid=0,total_fee=0 WHERE id = ANY(%s)", (student_ids,), commit=True)
+        if student_names:
+            assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
+            ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
+            if assoc_parent_ids:
+                deleted += q("DELETE FROM associates WHERE parent_id = ANY(%s)", (assoc_parent_ids,), commit=True)
+                deleted += q("DELETE FROM associates WHERE id = ANY(%s)", (assoc_parent_ids,), commit=True)
+            if ref_parent_ids:
+                deleted += q("DELETE FROM references_ WHERE parent_id = ANY(%s)", (ref_parent_ids,), commit=True)
+                deleted += q("DELETE FROM references_ WHERE id = ANY(%s)", (ref_parent_ids,), commit=True)
+        stats['cleaned_students'] = len(student_ids)
+        stats['cleaned_related_rows'] = deleted
+        return deleted
+
     try:
+        if payload.get('replace_existing') or payload.get('cleanup_only'):
+            cleanup_existing_import_rows(students)
+            if payload.get('cleanup_only'):
+                get_db().commit()
+                return jsonify({'success':0, 'stats':stats, 'errors':errors})
+
         for idx, raw in enumerate(students, start=2):
             try:
                 d = student_payload(raw)
