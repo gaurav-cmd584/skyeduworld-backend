@@ -135,9 +135,6 @@ def find_student_for_import(row, allow_name_match=True):
         sid_int = sid_text[:-2] if sid_text.endswith('.0') else sid_text
         st = q("SELECT * FROM students WHERE external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (sid_text, sid_int), one=True)
         if st: return st
-        if sid_int.isdigit():
-            st = q("SELECT * FROM students WHERE id=%s", (sid_int,), one=True)
-            if st: return st
     student_code = first_val(row, 'student_code', 'Student Code', 'Auto ID', 'Code')
     if student_code:
         st = q("SELECT * FROM students WHERE UPPER(student_code)=UPPER(%s) ORDER BY id DESC LIMIT 1", (student_code,), one=True)
@@ -588,7 +585,7 @@ def get_student(sid):
     photo = q("SELECT * FROM student_photos WHERE student_id=%s ORDER BY id DESC LIMIT 1", (sid,), one=True)
     payments = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s ORDER BY fp.id DESC", (sid,))
     installments = q("SELECT * FROM fee_installments WHERE student_id=%s ORDER BY due_date", (sid,))
-    university_payments = q("SELECT * FROM university_payables WHERE student_id=%s OR LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (sid, row.get('name')))
+    university_payments = q("SELECT * FROM university_payables WHERE student_id=%s ORDER BY id DESC", (sid,))
     associates = q("SELECT * FROM associates WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
     references = q("SELECT * FROM references_ WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
     followups = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s ORDER BY f.created_at DESC", (sid,))
