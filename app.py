@@ -323,6 +323,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS student_statuses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_code TEXT UNIQUE, external_id TEXT, import_key TEXT, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -354,6 +355,8 @@ def init_db():
         cur.execute("INSERT INTO fee_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ft,))
     for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','PG Marksheet','PG Degree','Affidavit','All Documents']:
         cur.execute("INSERT INTO document_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (dt,))
+    for st in ['Active','In Process','Pending','Completed','Dropped','Cancelled','Refund','Draft']:
+        cur.execute("INSERT INTO student_statuses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (st,))
     for u in [('Sikkim Alpine University','Sikkim','#3B82F6'),('Sunrise University','Rajasthan','#10B981'),
               ('Glocal University','Uttar Pradesh','#F5A623'),('YBN University','Jharkhand','#8B5CF6'),
               ('Nirwan University','Rajasthan','#F43F5E'),('Manglaytan University','Uttar Pradesh','#06B6D4'),
@@ -1085,7 +1088,7 @@ def delete_session(sid):
     q("DELETE FROM academic_sessions WHERE id=%s", (sid,), commit=True); return jsonify({'success':True})
 
 # MASTER DATA
-MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types','fee-types':'fee_types'}
+MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types','fee-types':'fee_types','student-statuses':'student_statuses'}
 
 def master_table(kind):
     table = MASTER_TABLES.get(kind)
@@ -1103,6 +1106,8 @@ def list_master(kind):
         rows = q("SELECT id,name,category,is_active,created_at FROM fee_types ORDER BY name")
     elif table == 'document_types':
         rows = q("SELECT id,name,category,is_active,created_at FROM document_types ORDER BY name")
+    elif table == 'student_statuses':
+        rows = q("SELECT id,name,category,is_active,created_at FROM student_statuses ORDER BY name")
     else:
         rows = q("SELECT id,name,is_active,created_at FROM courses ORDER BY name")
     return jsonify([serialize(r) for r in rows])
@@ -1125,6 +1130,8 @@ def add_master(kind):
             row = q_ret("INSERT INTO fee_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True)))
         elif table == 'document_types':
             row = q_ret("INSERT INTO document_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
+        elif table == 'student_statuses':
+            row = q_ret("INSERT INTO student_statuses (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
         else:
             row = q_ret("INSERT INTO courses (name,is_active) VALUES (%s,%s) RETURNING *", (name,d.get('is_active',True)))
     except psycopg2.errors.UniqueViolation:
@@ -1148,6 +1155,8 @@ def update_master(kind, mid):
         row = q_ret("UPDATE fee_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True),mid))
     elif table == 'document_types':
         row = q_ret("UPDATE document_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
+    elif table == 'student_statuses':
+        row = q_ret("UPDATE student_statuses SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
     else:
         row = q_ret("UPDATE courses SET name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('is_active',True),mid))
     if not row: return jsonify({'error':'Not found'}), 404
