@@ -600,6 +600,37 @@ def get_student(sid):
     row['documents'] = [serialize(r) for r in docs]
     return jsonify(serialize(row))
 
+def cleanup_student_related_rows(student_ids=None, student_names=None):
+    student_ids = list(dict.fromkeys([int(x) for x in (student_ids or []) if x]))
+    student_names = list(dict.fromkeys([str(n).strip() for n in (student_names or []) if str(n or '').strip()]))
+    deleted = 0
+    if student_ids:
+        for sql in [
+            "DELETE FROM follow_ups WHERE student_id = ANY(%s)",
+            "DELETE FROM documents WHERE student_id = ANY(%s)",
+            "DELETE FROM student_photos WHERE student_id = ANY(%s)",
+            "DELETE FROM fee_payments WHERE student_id = ANY(%s)",
+            "DELETE FROM fee_installments WHERE student_id = ANY(%s)",
+            "DELETE FROM university_payables WHERE student_id = ANY(%s)",
+        ]:
+            try:
+                deleted += q(sql, (student_ids,), commit=True)
+            except Exception:
+                pass
+    if student_names:
+        normalized = [n.strip().lower() for n in student_names if n.strip()]
+        deleted += q("DELETE FROM expenses WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,), commit=True)
+        deleted += q("DELETE FROM documents WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,), commit=True)
+        assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,))]
+        ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,))]
+        if assoc_parent_ids:
+            deleted += q("DELETE FROM associates WHERE parent_id = ANY(%s)", (assoc_parent_ids,), commit=True)
+            deleted += q("DELETE FROM associates WHERE id = ANY(%s)", (assoc_parent_ids,), commit=True)
+        if ref_parent_ids:
+            deleted += q("DELETE FROM references_ WHERE parent_id = ANY(%s)", (ref_parent_ids,), commit=True)
+            deleted += q("DELETE FROM references_ WHERE id = ANY(%s)", (ref_parent_ids,), commit=True)
+    return deleted
+
 @app.route('/api/students/<int:sid>', methods=['PUT'])
 @login_required
 @require_perm('can_edit_student')
@@ -618,8 +649,10 @@ def update_student(sid):
 @require_perm('can_delete_student')
 def delete_student(sid):
     uid = session['user_id']; fs, fp = student_filter(uid)
-    if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
+    st = q(f"SELECT id,name FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
+    if not st:
         return jsonify({'error':'Not found or access denied'}), 404
+    cleanup_student_related_rows([sid], [st.get('name')])
     log_action('Delete','Student',sid)
     q("DELETE FROM students WHERE id=%s", (sid,), commit=True)
     return jsonify({'success':True})
@@ -632,15 +665,17 @@ def bulk_delete_students():
     d = request.json or {}
     uid = session['user_id']
     fs, fp = student_filter(uid, 's')
-    sql = f"SELECT s.id FROM students s WHERE TRUE {fs}"
+    sql = f"SELECT s.id,s.name FROM students s WHERE TRUE {fs}"
     params = list(fp)
     if d.get('university'):
         sql += " AND s.university=%s"; params.append(d.get('university'))
     if d.get('status'):
         sql += " AND s.status=%s"; params.append(d.get('status'))
-    ids = [r['id'] for r in q(sql, params)]
+    rows = q(sql, params)
+    ids = [r['id'] for r in rows]
     if not ids:
         return jsonify({'success': True, 'deleted': 0})
+    cleanup_student_related_rows(ids, [r.get('name') for r in rows])
     q("DELETE FROM students WHERE id = ANY(%s)", (ids,), commit=True)
     log_action('Bulk Delete', 'Student', None, f'{len(ids)} students')
     return jsonify({'success': True, 'deleted': len(ids)})
@@ -1447,13 +1482,13 @@ def report_leads():
 @require_perm('can_view_accounts')
 def accounts_overview():
     uid = session['user_id']; fs, fp = student_filter(uid, 's')
-    st = q(f"SELECT COALESCE(SUM(s.total_fee),0) AS student_total, COALESCE(SUM(s.paid),0) AS student_received, COALESCE(SUM(s.total_fee-s.paid),0) AS student_due, COALESCE(SUM(s.univ_fee),0) AS university_payable FROM students s WHERE TRUE {fs}", fp, one=True)
+    st = q(f"SELECT COALESCE(SUM(s.total_fee),0) AS student_total, COALESCE(SUM(s.paid),0) AS student_received, COALESCE(SUM(s.total_fee-s.paid),0) AS student_due FROM students s WHERE TRUE {fs}", fp, one=True)
     up = q(f"SELECT COALESCE(SUM(up.amount),0) AS payable, COALESCE(SUM(up.paid_amount),0) AS paid FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE TRUE {fs}", fp, one=True)
     ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE created_by=%s", (uid,), one=True)
-    assoc = q("SELECT COALESCE(SUM(amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM associates WHERE created_by=%s", (uid,), one=True)
-    refs = q("SELECT COALESCE(SUM(amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM references_ WHERE created_by=%s", (uid,), one=True)
+    assoc = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates WHERE created_by=%s", (uid,), one=True)
+    refs = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_ WHERE created_by=%s", (uid,), one=True)
     received=float(st['student_received']); total_exp=float(ex['total'])+float(assoc['total'])+float(refs['total'])+float(up['paid'])
-    return jsonify({'student_total':float(st['student_total']),'student_received':received,'student_due':float(st['student_due']),'university_payable':float(st['university_payable']),'university_paid':float(up['paid']),'university_balance':float(up['payable'])-float(up['paid']),'expenses_total':total_exp,'net_profit':received-total_exp})
+    return jsonify({'student_total':float(st['student_total']),'student_received':received,'student_due':float(st['student_due']),'university_payable':float(up['payable']),'university_paid':float(up['paid']),'university_balance':float(up['payable'])-float(up['paid']),'expenses_total':total_exp,'net_profit':received-total_exp})
 
 @app.route('/api/accounts/university-payables', methods=['GET','POST'])
 @login_required
@@ -1644,6 +1679,11 @@ def import_multi():
 
     def cleanup_all_student_data():
         deleted = 0
+        student_count = 0
+        try:
+            student_count = q("SELECT COUNT(*) AS c FROM students", one=True)['c']
+        except Exception:
+            student_count = 0
         for sql in [
             "DELETE FROM follow_ups",
             "DELETE FROM documents",
@@ -1660,7 +1700,7 @@ def import_multi():
                 deleted += q(sql, commit=True) or 0
             except Exception:
                 pass
-        stats['cleaned_students'] = 999999
+        stats['cleaned_students'] = int(student_count or 0)
         stats['cleaned_related_rows'] = deleted
         return deleted
 
@@ -1752,29 +1792,9 @@ def import_multi():
 
         student_ids = list(dict.fromkeys(student_ids))
         student_names = list(dict.fromkeys([n for n in student_names if n]))
-        deleted = 0
+        deleted = cleanup_student_related_rows(student_ids, student_names)
         if student_ids:
-            deleted += q("DELETE FROM follow_ups WHERE student_id = ANY(%s)", (student_ids,), commit=True)
-            deleted += q("DELETE FROM documents WHERE student_id = ANY(%s)", (student_ids,), commit=True)
-            try:
-                deleted += q("DELETE FROM student_photos WHERE student_id = ANY(%s)", (student_ids,), commit=True)
-            except Exception:
-                pass
-            deleted += q("DELETE FROM fee_payments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
-            deleted += q("DELETE FROM fee_installments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
-            deleted += q("DELETE FROM university_payables WHERE student_id = ANY(%s)", (student_ids,), commit=True)
             q("UPDATE students SET paid=0,total_fee=0 WHERE id = ANY(%s)", (student_ids,), commit=True)
-        if student_names:
-            deleted += q("DELETE FROM expenses WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],), commit=True)
-            deleted += q("DELETE FROM documents WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],), commit=True)
-            assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
-            ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
-            if assoc_parent_ids:
-                deleted += q("DELETE FROM associates WHERE parent_id = ANY(%s)", (assoc_parent_ids,), commit=True)
-                deleted += q("DELETE FROM associates WHERE id = ANY(%s)", (assoc_parent_ids,), commit=True)
-            if ref_parent_ids:
-                deleted += q("DELETE FROM references_ WHERE parent_id = ANY(%s)", (ref_parent_ids,), commit=True)
-                deleted += q("DELETE FROM references_ WHERE id = ANY(%s)", (ref_parent_ids,), commit=True)
         stats['cleaned_students'] = len(student_ids)
         stats['cleaned_related_rows'] = deleted
         return deleted
