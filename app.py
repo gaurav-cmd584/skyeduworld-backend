@@ -1531,6 +1531,8 @@ def report_profit():
     else:
         fs, fp = ' AND s.created_by = %s', [uid]
     params=list(fp); where=f" WHERE TRUE {fs}"
+    assoc_filter_vals=[v for v in request.args.get('associates','').split('|') if v]
+    ref_filter_vals=[v for v in request.args.get('references','').split('|') if v]
     def add_in(field, key):
         nonlocal where, params
         vals=[v for v in request.args.get(key,'').split('|') if v]
@@ -1538,9 +1540,44 @@ def report_profit():
             where += f" AND {field} IN (" + ','.join(['%s']*len(vals)) + ")"
             params.extend(vals)
     add_in('s.name','students'); add_in('s.university','universities'); add_in('s.course','courses'); add_in('s.subject','subjects')
-    add_in('a.name','associates'); add_in('r.name','references')
-    expr = {'student':'s.name','year':"TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY')",'associate':"COALESCE(a.name,'Unassigned')",'reference':"COALESCE(r.name,'Unassigned')"}.get(group, "TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY-MM')")
-    rows=q(f"""SELECT {expr} AS bucket, COALESCE(SUM(fp.amount),0) AS income, COALESCE(MAX(s.univ_fee),0) AS university_cost FROM fee_payments fp JOIN students s ON s.id=fp.student_id LEFT JOIN associates a ON a.student=s.name LEFT JOIN references_ r ON r.student=s.name {where} GROUP BY bucket ORDER BY bucket""", params)
+    if assoc_filter_vals:
+        where += " AND EXISTS (SELECT 1 FROM associates a2 WHERE LOWER(TRIM(COALESCE(a2.student,'')))=LOWER(TRIM(COALESCE(s.name,''))) AND a2.name IN (" + ','.join(['%s']*len(assoc_filter_vals)) + "))"
+        params.extend(assoc_filter_vals)
+    if ref_filter_vals:
+        where += " AND EXISTS (SELECT 1 FROM references_ r2 WHERE LOWER(TRIM(COALESCE(r2.student,'')))=LOWER(TRIM(COALESCE(s.name,''))) AND r2.name IN (" + ','.join(['%s']*len(ref_filter_vals)) + "))"
+        params.extend(ref_filter_vals)
+    expr = {'student':'s.name','year':"TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY')"}.get(group, "TO_CHAR(COALESCE(fp.pay_date,fp.created_at::date),'YYYY-MM')")
+    if group == 'associate':
+        where_assoc = ''
+        assoc_params = []
+        if assoc_filter_vals:
+            where_assoc = "WHERE a.name IN (" + ','.join(['%s']*len(assoc_filter_vals)) + ")"
+            assoc_params = assoc_filter_vals
+        rows=q(f"""SELECT COALESCE(a.name,'Unassigned') AS bucket, COALESCE(SUM(a.paid_amount),0) AS income, COALESCE(SUM(a.amount),0) AS university_cost FROM associates a {where_assoc} GROUP BY bucket ORDER BY bucket""", assoc_params)
+    elif group == 'reference':
+        where_ref = ''
+        ref_params = []
+        if ref_filter_vals:
+            where_ref = "WHERE r.name IN (" + ','.join(['%s']*len(ref_filter_vals)) + ")"
+            ref_params = ref_filter_vals
+        rows=q(f"""SELECT COALESCE(r.name,'Unassigned') AS bucket, COALESCE(SUM(r.paid_amount),0) AS income, COALESCE(SUM(r.amount),0) AS university_cost FROM references_ r {where_ref} GROUP BY bucket ORDER BY bucket""", ref_params)
+    else:
+        rows=q(f"""WITH pay AS (
+                   SELECT fp.student_id, {expr} AS bucket, SUM(fp.amount) AS income
+                   FROM fee_payments fp
+                   JOIN students s ON s.id=fp.student_id
+                   {where}
+                   GROUP BY fp.student_id, bucket
+                 ),
+                 up AS (
+                   SELECT student_id, SUM(amount) AS university_cost
+                   FROM university_payables
+                   GROUP BY student_id
+                 )
+                 SELECT pay.bucket, COALESCE(SUM(pay.income),0) AS income, COALESCE(SUM(up.university_cost),0) AS university_cost
+                 FROM pay
+                 LEFT JOIN up ON up.student_id=pay.student_id
+                 GROUP BY pay.bucket ORDER BY pay.bucket""", params)
     out=[]
     for r in rows:
         bucket=r['bucket'] or 'Unassigned'; income=float(r['income']); exp=float(r['university_cost'])
@@ -1604,6 +1641,28 @@ def import_multi():
     active_sess = get_active_session()
     stats = {'students_created':0,'students_updated':0,'fee_structures':0,'student_payments':0,'university_payments':0,'associates':0,'references':0,'duplicates_skipped':0,'cleaned_students':0,'cleaned_related_rows':0}
     errors = []
+
+    def cleanup_all_student_data():
+        deleted = 0
+        for sql in [
+            "DELETE FROM follow_ups",
+            "DELETE FROM documents",
+            "DELETE FROM student_photos",
+            "DELETE FROM fee_payments",
+            "DELETE FROM fee_installments",
+            "DELETE FROM university_payables",
+            "DELETE FROM expenses",
+            "DELETE FROM associates",
+            "DELETE FROM references_",
+            "DELETE FROM students",
+        ]:
+            try:
+                deleted += q(sql, commit=True) or 0
+            except Exception:
+                pass
+        stats['cleaned_students'] = 999999
+        stats['cleaned_related_rows'] = deleted
+        return deleted
 
     def student_payload(row):
         return {
@@ -1695,11 +1754,19 @@ def import_multi():
         student_names = list(dict.fromkeys([n for n in student_names if n]))
         deleted = 0
         if student_ids:
+            deleted += q("DELETE FROM follow_ups WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            deleted += q("DELETE FROM documents WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            try:
+                deleted += q("DELETE FROM student_photos WHERE student_id = ANY(%s)", (student_ids,), commit=True)
+            except Exception:
+                pass
             deleted += q("DELETE FROM fee_payments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
             deleted += q("DELETE FROM fee_installments WHERE student_id = ANY(%s)", (student_ids,), commit=True)
             deleted += q("DELETE FROM university_payables WHERE student_id = ANY(%s)", (student_ids,), commit=True)
             q("UPDATE students SET paid=0,total_fee=0 WHERE id = ANY(%s)", (student_ids,), commit=True)
         if student_names:
+            deleted += q("DELETE FROM expenses WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],), commit=True)
+            deleted += q("DELETE FROM documents WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],), commit=True)
             assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
             ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", ([n.strip().lower() for n in student_names],))]
             if assoc_parent_ids:
@@ -1713,6 +1780,12 @@ def import_multi():
         return deleted
 
     try:
+        if payload.get('cleanup_all'):
+            cleanup_all_student_data()
+            if payload.get('cleanup_only'):
+                get_db().commit()
+                return jsonify({'success':0, 'stats':stats, 'errors':errors})
+
         if payload.get('replace_existing') or payload.get('cleanup_only'):
             cleanup_existing_import_rows(students)
             if payload.get('cleanup_only'):
