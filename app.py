@@ -281,7 +281,22 @@ def student_filter(user_id, alias=''):
 
 def get_active_session():
     tf,tp = tenant_filter('', include_super=True)
-    return q("SELECT * FROM academic_sessions WHERE is_active=TRUE"+tf+" ORDER BY id DESC LIMIT 1", tp, one=True)
+    try:
+        return q("SELECT * FROM academic_sessions WHERE is_active=TRUE"+tf+" ORDER BY id DESC LIMIT 1", tp, one=True)
+    except Exception:
+        try: get_db().rollback()
+        except Exception: pass
+        try:
+            q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
+            q("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'), commit=True)
+            q("ALTER TABLE academic_sessions ADD COLUMN IF NOT EXISTS tenant_id INTEGER", commit=True)
+            q("UPDATE academic_sessions SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL", commit=True)
+            tf,tp = tenant_filter('', include_super=True)
+            return q("SELECT * FROM academic_sessions WHERE is_active=TRUE"+tf+" ORDER BY id DESC LIMIT 1", tp, one=True)
+        except Exception:
+            try: get_db().rollback()
+            except Exception: pass
+            return None
 
 def login_required(f):
     @wraps(f)
@@ -367,6 +382,36 @@ def init_db():
     cur.execute("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'))
     cur.execute("SELECT id FROM tenants WHERE name='Sky Eduworld'")
     default_tenant = cur.fetchone()['id']
+    for m in [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
+        "ALTER TABLE universities ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE academic_sessions ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE fee_types ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE document_types ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "ALTER TABLE student_statuses ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+        "UPDATE users SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE universities SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE academic_sessions SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE fee_types SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE courses SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE subjects SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE document_types SET tenant_id=%s WHERE tenant_id IS NULL",
+        "UPDATE student_statuses SET tenant_id=%s WHERE tenant_id IS NULL"
+    ]:
+        try:
+            if '%s' in m:
+                cur.execute(m, (default_tenant,))
+            else:
+                cur.execute(m)
+            conn.commit()
+        except Exception:
+            conn.rollback()
     cur.execute("SELECT id FROM users WHERE username='admin'")
     if not cur.fetchone():
         cur.execute("INSERT INTO users (tenant_id,username,password,full_name,role) VALUES (%s,%s,%s,%s,%s)",
