@@ -600,6 +600,20 @@ def login():
         'full_name':user['full_name'],'role':user['role'],'tenant_id':user.get('tenant_id'),'permissions':perms,
         'assigned_universities':univs,'active_session':serialize(active_sess) if active_sess else None}})
 
+_login_impl = login
+def login_with_diagnostics():
+    try:
+        return _login_impl()
+    except Exception as ex:
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        if os.environ.get('LOGIN_DEBUG', '0') == '1':
+            return jsonify({'error': f'Login server error: {type(ex).__name__}: {str(ex)[:500]}'}), 500
+        return jsonify({'error': 'Login server error. Render me LOGIN_DEBUG=1 set karke redeploy karein, phir exact error screen par dikhega.'}), 500
+app.view_functions['login'] = login_with_diagnostics
+
 @app.route('/api/logout', methods=['POST'])
 def logout():
     if 'user_id' in session:
