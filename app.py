@@ -580,6 +580,8 @@ def login():
               (user['id'] if user else None, username, 'Failed', ip), commit=True)
             if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
         except Exception: pass
+        if is_admin_login:
+            return jsonify({'error':'Admin recovery active hai, lekin server admin ko repair nahi kar pa raha. Render par latest app.py deploy hua hai; logs me "admin login recovery failed" check karein.'}), 401
         return jsonify({'error':'Invalid username or password'}), 401
     if not user.get('is_active',True):
         return jsonify({'error':'Account disabled. Contact admin.'}), 401
