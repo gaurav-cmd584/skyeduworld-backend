@@ -203,6 +203,25 @@ def notify_user(uid, title, msg, ntype='info', link=None):
 def is_super_admin(): return session.get('role') == 'Super Admin'
 def is_admin(): return session.get('role') in ('Admin','Super Admin')
 
+def current_tenant_id():
+    if session.get('tenant_id'): return session.get('tenant_id')
+    uid = session.get('user_id')
+    if not uid: return None
+    row = q("SELECT tenant_id FROM users WHERE id=%s", (uid,), one=True)
+    return row.get('tenant_id') if row else None
+
+def tenant_filter(alias='', include_super=False):
+    if is_super_admin() and not include_super:
+        return '', []
+    tid = current_tenant_id()
+    if not tid:
+        return '', []
+    p = f"{alias}." if alias else ""
+    return f" AND {p}tenant_id=%s", [tid]
+
+def ensure_tenant_access(tid):
+    return is_super_admin() or (tid and int(tid) == int(current_tenant_id() or 0))
+
 def get_user_perms(user_id):
     user_row = q("SELECT role FROM users WHERE id=%s", (user_id,), one=True)
     if user_row and user_row['role'] == 'Super Admin':
@@ -242,7 +261,7 @@ def get_user_perms(user_id):
 
 def get_user_univs(user_id):
     if is_super_admin(): return []
-    rows = q("SELECT u.name FROM user_universities uu JOIN universities u ON u.id=uu.university_id WHERE uu.user_id=%s", (user_id,))
+    rows = q("SELECT u.name FROM user_universities uu JOIN universities u ON u.id=uu.university_id WHERE uu.user_id=%s AND u.tenant_id=%s", (user_id,current_tenant_id()))
     return [r['name'] for r in rows]
 
 def student_filter(user_id, alias=''):
@@ -251,6 +270,9 @@ def student_filter(user_id, alias=''):
     clauses, params = [], []
     if not perms.get('can_view_all_students') and not is_super_admin():
         clauses.append(f"{p}created_by = %s"); params.append(user_id)
+    tf, tp = tenant_filter(alias)
+    if tf:
+        clauses.append(tf.replace(' AND ','',1)); params.extend(tp)
     univs = get_user_univs(user_id)
     if univs:
         ph = ','.join(['%s']*len(univs)); clauses.append(f"{p}university IN ({ph})"); params.extend(univs)
@@ -258,7 +280,8 @@ def student_filter(user_id, alias=''):
     return sql, params
 
 def get_active_session():
-    return q("SELECT * FROM academic_sessions WHERE is_active=TRUE ORDER BY id DESC LIMIT 1", one=True)
+    tf,tp = tenant_filter('', include_super=True)
+    return q("SELECT * FROM academic_sessions WHERE is_active=TRUE"+tf+" ORDER BY id DESC LIMIT 1", tp, one=True)
 
 def login_required(f):
     @wraps(f)
@@ -304,7 +327,8 @@ def init_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     cur = conn.cursor()
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         can_add_student BOOLEAN DEFAULT TRUE, can_edit_student BOOLEAN DEFAULT TRUE, can_delete_student BOOLEAN DEFAULT FALSE, can_save_partial_student BOOLEAN DEFAULT FALSE,
         can_view_payments BOOLEAN DEFAULT TRUE, can_add_payment BOOLEAN DEFAULT TRUE, can_view_fee_types BOOLEAN DEFAULT TRUE, can_manage_fee_types BOOLEAN DEFAULT FALSE,
@@ -316,15 +340,15 @@ def init_db():
         can_manage_universities BOOLEAN DEFAULT FALSE, can_view_all_students BOOLEAN DEFAULT FALSE,
         can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, can_manage_users BOOLEAN DEFAULT FALSE, can_download_backup BOOLEAN DEFAULT FALSE, can_view_accounts BOOLEAN DEFAULT FALSE, can_manage_accounts BOOLEAN DEFAULT FALSE, can_view_profit_report BOOLEAN DEFAULT FALSE,
         UNIQUE(user_id));
-    CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS guides (id SERIAL PRIMARY KEY, university_id INTEGER REFERENCES universities(id) ON DELETE CASCADE, name TEXT NOT NULL, designation TEXT NOT NULL, department TEXT, subject TEXT, mobile TEXT, email TEXT, assigned_students INTEGER DEFAULT 0, file_path TEXT, file_name TEXT, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
-    CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS fee_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student Fee', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS student_statuses (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS fee_types (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, category TEXT DEFAULT 'Student Fee', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS courses (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS subjects (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, course_name TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS document_types (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS student_statuses (id SERIAL PRIMARY KEY, tenant_id INTEGER, name TEXT NOT NULL, category TEXT DEFAULT 'Student', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_code TEXT UNIQUE, external_id TEXT, import_key TEXT, created_by INTEGER REFERENCES users(id), session_id INTEGER REFERENCES academic_sessions(id), name TEXT NOT NULL, father TEXT, mother TEXT, dob DATE, gender TEXT, mobile TEXT, email TEXT, aadhar TEXT, address TEXT, course TEXT, subject TEXT, university TEXT, batch TEXT, enroll_no TEXT, roll_no TEXT, adm_date DATE, remarks TEXT, total_fee NUMERIC(12,2) DEFAULT 0, paid NUMERIC(12,2) DEFAULT 0, univ_fee NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, utr TEXT, doc_notes TEXT, status TEXT DEFAULT 'Active', photo_path TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_installments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, due_date DATE, paid_date DATE, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, recorded_by INTEGER REFERENCES users(id), installment_id INTEGER REFERENCES fee_installments(id), amount NUMERIC(12,2) NOT NULL, fee_type TEXT, pay_mode TEXT, ref_no TEXT, pay_date DATE, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -340,24 +364,27 @@ def init_db():
     CREATE TABLE IF NOT EXISTS university_payables (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id), university TEXT, student TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, fee_type TEXT DEFAULT 'Tuition', due_date DATE, paid_date DATE, pay_mode TEXT, ref_no TEXT, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS expenses (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), expense_date DATE DEFAULT CURRENT_DATE, category TEXT DEFAULT 'Office', amount NUMERIC(12,2) NOT NULL, pay_mode TEXT, paid_to TEXT, student TEXT, university TEXT, associate TEXT, reference_name TEXT, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     """)
+    cur.execute("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'))
+    cur.execute("SELECT id FROM tenants WHERE name='Sky Eduworld'")
+    default_tenant = cur.fetchone()['id']
     cur.execute("SELECT id FROM users WHERE username='admin'")
     if not cur.fetchone():
-        cur.execute("INSERT INTO users (username,password,full_name,role) VALUES (%s,%s,%s,%s)",
-                    ('admin', hash_pw('sky@2024'), 'Admin', 'Super Admin'))
+        cur.execute("INSERT INTO users (tenant_id,username,password,full_name,role) VALUES (%s,%s,%s,%s,%s)",
+                    (default_tenant, 'admin', hash_pw('sky@2024'), 'Admin', 'Super Admin'))
     cur.execute("SELECT id FROM academic_sessions LIMIT 1")
     if not cur.fetchone():
-        cur.execute("INSERT INTO academic_sessions (name,start_date,end_date,is_active) VALUES (%s,%s,%s,%s)",
-                    ('2025-26','2025-07-01','2026-06-30',True))
+        cur.execute("INSERT INTO academic_sessions (tenant_id,name,start_date,end_date,is_active) VALUES (%s,%s,%s,%s,%s)",
+                    (default_tenant,'2025-26','2025-07-01','2026-06-30',True))
     for c in ['B.Ed','M.Ed','BPT','MBA','BBA','B.Com','M.Com','BA','MA','BCA','MCA','B.Sc','M.Sc','D.El.Ed','B.P.Ed']:
-        cur.execute("INSERT INTO courses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (c,))
+        cur.execute("INSERT INTO courses (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (default_tenant,c))
     for sub in ['Hindi','English','Education','Political Science','History','Sociology','Commerce','Computer Application','Management','Science','Mathematics']:
-        cur.execute("INSERT INTO subjects (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (sub,))
+        cur.execute("INSERT INTO subjects (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (default_tenant,sub))
     for ft in ['Tuition Fee','Examination Fee','Registration Fee','Degree','Migration','Notification','Other Fee']:
-        cur.execute("INSERT INTO fee_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (ft,))
+        cur.execute("INSERT INTO fee_types (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (default_tenant,ft))
     for dt in ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photos','Transfer Certificate','Admission Letter','Admission Confirmation Letter','Course Work Letter','Course Work Marksheet','Examination Hall Ticket','Degree Certificate','Migration Certificate','Migration / PG Document','Provisional Certificate','PG Document','PG Marksheet','PG Degree','Affidavit','All Documents']:
-        cur.execute("INSERT INTO document_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (dt,))
+        cur.execute("INSERT INTO document_types (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (default_tenant,dt))
     for st in ['Active','In Process','Pending','Completed','Dropped','Cancelled','Refund','Draft']:
-        cur.execute("INSERT INTO student_statuses (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (st,))
+        cur.execute("INSERT INTO student_statuses (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (default_tenant,st))
     for u in [('Sikkim Alpine University','Sikkim','#3B82F6'),('Sunrise University','Rajasthan','#10B981'),
               ('Glocal University','Uttar Pradesh','#F5A623'),('YBN University','Jharkhand','#8B5CF6'),
               ('Nirwan University','Rajasthan','#F43F5E'),('Manglaytan University','Uttar Pradesh','#06B6D4'),
@@ -368,9 +395,11 @@ def init_db():
               ('Mansarovar Global University','Madhya Pradesh','#7C3AED'),('Mats University','Chhattisgarh','#059669'),
               ('North Eastern Christian University','Nagaland','#64748B'),('Sabarmati University','Gujarat','#DC2626'),
               ('P K University','Rajasthan','#0891B2')]:
-        cur.execute("INSERT INTO universities (name,state,color) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", u)
+        cur.execute("INSERT INTO universities (tenant_id,name,state,color) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING", (default_tenant,)+u)
     for m in [
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+              "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "UPDATE users SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
@@ -386,6 +415,57 @@ def init_db():
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS subject TEXT",
+              "ALTER TABLE universities ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE academic_sessions ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE fee_types ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE courses ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE document_types ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE student_statuses ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE fee_installments ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE associates ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE documents ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE student_photos ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE leads ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE follow_ups ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE university_payables ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE guides ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "UPDATE universities SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE academic_sessions SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE fee_types SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE courses SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE subjects SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE document_types SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE student_statuses SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE students s SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE s.created_by=u.id AND s.tenant_id IS NULL",
+              "UPDATE students SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
+              "UPDATE fee_installments fi SET tenant_id=s.tenant_id FROM students s WHERE fi.student_id=s.id AND fi.tenant_id IS NULL",
+              "UPDATE fee_payments fp SET tenant_id=s.tenant_id FROM students s WHERE fp.student_id=s.id AND fp.tenant_id IS NULL",
+              "UPDATE university_payables up SET tenant_id=s.tenant_id FROM students s WHERE up.student_id=s.id AND up.tenant_id IS NULL",
+              "UPDATE documents d SET tenant_id=s.tenant_id FROM students s WHERE d.student_id=s.id AND d.tenant_id IS NULL",
+              "UPDATE student_photos sp SET tenant_id=s.tenant_id FROM students s WHERE sp.student_id=s.id AND sp.tenant_id IS NULL",
+              "UPDATE leads l SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE l.created_by=u.id AND l.tenant_id IS NULL",
+              "UPDATE follow_ups f SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE f.created_by=u.id AND f.tenant_id IS NULL",
+              "UPDATE associates a SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE a.created_by=u.id AND a.tenant_id IS NULL",
+              "UPDATE references_ r SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE r.created_by=u.id AND r.tenant_id IS NULL",
+              "UPDATE expenses e SET tenant_id=COALESCE(u.tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) FROM users u WHERE e.created_by=u.id AND e.tenant_id IS NULL",
+              "UPDATE guides g SET tenant_id=u.tenant_id FROM universities u WHERE g.university_id=u.id AND g.tenant_id IS NULL",
+              "ALTER TABLE universities DROP CONSTRAINT IF EXISTS universities_name_key",
+              "ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_name_key",
+              "ALTER TABLE subjects DROP CONSTRAINT IF EXISTS subjects_name_key",
+              "ALTER TABLE fee_types DROP CONSTRAINT IF EXISTS fee_types_name_key",
+              "ALTER TABLE document_types DROP CONSTRAINT IF EXISTS document_types_name_key",
+              "ALTER TABLE student_statuses DROP CONSTRAINT IF EXISTS student_statuses_name_key",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_universities_tenant_name ON universities(tenant_id, lower(name))",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_courses_tenant_name ON courses(tenant_id, lower(name))",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_subjects_tenant_name ON subjects(tenant_id, lower(name))",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_types_tenant_name ON fee_types(tenant_id, lower(name))",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_document_types_tenant_name ON document_types(tenant_id, lower(name))",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_student_statuses_tenant_name ON student_statuses(tenant_id, lower(name))",
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS assigned_students INTEGER DEFAULT 0",
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_path TEXT",
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_name TEXT",
@@ -465,12 +545,12 @@ def login():
           (user['id'], user['username'], 'Success', ip), commit=True)
     except Exception: pass
     session.permanent = True
-    session['user_id'] = user['id']; session['username'] = user['username']
+    session['user_id'] = user['id']; session['username'] = user['username']; session['tenant_id'] = user.get('tenant_id')
     session['role'] = user['role']; session['session_token'] = token
     perms = get_user_perms(user['id']); univs = get_user_univs(user['id'])
     active_sess = get_active_session()
     return jsonify({'success':True,'user':{'id':user['id'],'username':user['username'],
-        'full_name':user['full_name'],'role':user['role'],'permissions':perms,
+        'full_name':user['full_name'],'role':user['role'],'tenant_id':user.get('tenant_id'),'permissions':perms,
         'assigned_universities':univs,'active_session':serialize(active_sess) if active_sess else None}})
 
 @app.route('/api/logout', methods=['POST'])
@@ -483,7 +563,7 @@ def logout():
 @app.route('/api/me')
 @login_required
 def me():
-    user = q("SELECT id,username,full_name,role,last_login FROM users WHERE id=%s", (session['user_id'],), one=True)
+    user = q("SELECT id,tenant_id,username,full_name,role,last_login FROM users WHERE id=%s", (session['user_id'],), one=True)
     perms = get_user_perms(session['user_id']); univs = get_user_univs(session['user_id'])
     unread = q("SELECT COUNT(*) AS c FROM notifications WHERE user_id=%s AND is_read=FALSE", (session['user_id'],), one=True)
     active_sess = get_active_session()
@@ -564,8 +644,9 @@ def add_student():
     univs = get_user_univs(uid)
     if univs and d.get('university') not in univs: return jsonify({'error':'Not assigned to this university'}), 403
     active_sess = get_active_session()
-    row = q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-               (uid, active_sess['id'] if active_sess else None, d.get('name'), d.get('father'), d.get('mother'),
+    tid = current_tenant_id()
+    row = q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+               (tid, uid, active_sess['id'] if active_sess else None, d.get('name'), d.get('father'), d.get('mother'),
                 d.get('dob') or None, d.get('gender'), d.get('mobile'), d.get('email'), d.get('aadhar'), d.get('address'),
                 d.get('course'), d.get('subject'), d.get('university'), d.get('batch'), d.get('enroll_no'), d.get('roll_no'),
                 d.get('adm_date') or None, d.get('remarks'), d.get('total_fee',0), d.get('paid',0),
@@ -573,14 +654,14 @@ def add_student():
     paid = float(d.get('paid',0) or 0)
     if paid > 0 and row:
         conn = get_db(); cur = conn.cursor()
-        cur.execute("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                    (row['id'],uid,paid,'Initial Payment',d.get('pay_mode'),d.get('utr'),d.get('adm_date') or None))
+        cur.execute("INSERT INTO fee_payments (tenant_id,student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (tid,row['id'],uid,paid,'Initial Payment',d.get('pay_mode'),d.get('utr'),d.get('adm_date') or None))
         conn.commit()
     if row:
         assign_student_code(row['id'])
         row = q('SELECT * FROM students WHERE id=%s', (row['id'],), one=True)
     if row and float(d.get('univ_fee',0) or 0) > 0:
-        q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,fee_type,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (row['id'],uid,d.get('university'),d.get('name'),d.get('univ_fee',0),'Tuition','Pending','Auto from student admission'))
+        q_ret("INSERT INTO university_payables (tenant_id,student_id,created_by,university,student,amount,fee_type,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,row['id'],uid,d.get('university'),d.get('name'),d.get('univ_fee',0),'Tuition','Pending','Auto from student admission'))
     if row and d.get('guide_id'):
         try:
             assign_student_to_guide(row['id'], d.get('guide_id'))
@@ -1043,7 +1124,8 @@ def add_reference_part(rid):
 @login_required
 def get_universities():
     uid = session['user_id']; assigned = get_user_univs(uid)
-    rows = q("SELECT u.id, u.name, u.state, u.color, u.is_active, COUNT(s.id)::int AS student_count FROM universities u LEFT JOIN students s ON s.university=u.name GROUP BY u.id,u.name,u.state,u.color,u.is_active ORDER BY u.name")
+    tf,tp = tenant_filter('u')
+    rows = q("SELECT u.id, u.name, u.state, u.color, u.is_active, u.tenant_id, COUNT(s.id)::int AS student_count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id WHERE TRUE"+tf+" GROUP BY u.id,u.name,u.state,u.color,u.is_active,u.tenant_id ORDER BY u.name", tp)
     if assigned: rows = [r for r in rows if r['name'] in assigned]
     return jsonify(rows)
 
@@ -1127,19 +1209,21 @@ def assign_student_to_guide(student_id, guide_id):
 @login_required
 def get_guides():
     uid = session['user_id']; assigned = get_user_univs(uid)
-    rows = q("SELECT g.*, u.name AS university, u.state AS university_state FROM guides g JOIN universities u ON u.id=g.university_id ORDER BY u.name,g.name")
+    tf,tp = tenant_filter('g')
+    rows = q("SELECT g.*, u.name AS university, u.state AS university_state FROM guides g JOIN universities u ON u.id=g.university_id WHERE TRUE"+tf+" ORDER BY u.name,g.name", tp)
     if assigned: rows = [r for r in rows if r.get('university') in assigned]
     return jsonify([serialize_guide(r) for r in rows])
 
 @app.route('/api/universities/<int:uid_>/detail', methods=['GET'])
 @login_required
 def university_detail(uid_):
-    u = q("SELECT u.id, u.name, u.state, u.color, u.is_active, COUNT(s.id)::int AS student_count FROM universities u LEFT JOIN students s ON s.university=u.name WHERE u.id=%s GROUP BY u.id,u.name,u.state,u.color,u.is_active", (uid_,), one=True)
+    tf,tp = tenant_filter('u')
+    u = q("SELECT u.id, u.tenant_id, u.name, u.state, u.color, u.is_active, COUNT(s.id)::int AS student_count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id WHERE u.id=%s"+tf+" GROUP BY u.id,u.tenant_id,u.name,u.state,u.color,u.is_active", [uid_]+tp, one=True)
     if not u: return jsonify({'error':'University not found'}), 404
     assigned = get_user_univs(session['user_id'])
     if assigned and u['name'] not in assigned: return jsonify({'error':'Permission denied'}), 403
-    students = q("SELECT id,student_code,name,course,subject,batch,mobile,status FROM students WHERE university=%s ORDER BY id DESC LIMIT 50", (u['name'],))
-    guides = q("SELECT * FROM guides WHERE university_id=%s ORDER BY name", (uid_,))
+    students = q("SELECT id,student_code,name,course,subject,batch,mobile,status FROM students WHERE university=%s AND tenant_id=%s ORDER BY id DESC LIMIT 50", (u['name'],u['tenant_id']))
+    guides = q("SELECT * FROM guides WHERE university_id=%s AND tenant_id=%s ORDER BY name", (uid_,u['tenant_id']))
     data = serialize(u)
     data['students'] = [serialize(r) for r in students]
     data['guides'] = [serialize_guide(r) for r in guides]
@@ -1152,7 +1236,7 @@ def university_detail(uid_):
 @require_perm('can_manage_universities')
 def add_university():
     d = request.json or {}
-    try: q_ret("INSERT INTO universities (name,state,color) VALUES (%s,%s,%s) RETURNING id", (d.get('name'),d.get('state'),d.get('color','#1A6CF6')))
+    try: q_ret("INSERT INTO universities (tenant_id,name,state,color) VALUES (%s,%s,%s,%s) RETURNING id", (current_tenant_id(),d.get('name'),d.get('state'),d.get('color','#1A6CF6')))
     except psycopg2.errors.UniqueViolation: get_db().rollback(); return jsonify({'error':'Already exists'}), 409
     return jsonify({'success':True}), 201
 
@@ -1178,8 +1262,10 @@ def add_guide(uid_):
     d = request.form if request.form else (request.json or {})
     if not d.get('name'): return jsonify({'error':'Guide name required'}), 400
     if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
-    row = q_ret("INSERT INTO guides (university_id,name,designation,department,subject,mobile,email,assigned_students,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (uid_,d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),0,session['user_id']))
+    univ = q("SELECT tenant_id FROM universities WHERE id=%s", (uid_,), one=True)
+    if not univ or not ensure_tenant_access(univ.get('tenant_id')): return jsonify({'error':'University access denied'}), 403
+    row = q_ret("INSERT INTO guides (tenant_id,university_id,name,designation,department,subject,mobile,email,assigned_students,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (univ.get('tenant_id'),uid_,d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),0,session['user_id']))
     try:
         sync_guide_students(row['id'], d.get('student_ids') or [])
     except ValueError as e:
@@ -1234,23 +1320,25 @@ def delete_guide(gid):
 @app.route('/api/sessions', methods=['GET'])
 @login_required
 def get_sessions():
-    return jsonify([serialize(r) for r in q("SELECT * FROM academic_sessions ORDER BY id DESC")])
+    tf,tp = tenant_filter('', include_super=True)
+    return jsonify([serialize(r) for r in q("SELECT * FROM academic_sessions WHERE TRUE"+tf+" ORDER BY id DESC", tp)])
 
 @app.route('/api/sessions', methods=['POST'])
 @login_required
 @super_admin_required
 def add_session():
     d = request.json or {}
-    row = q_ret("INSERT INTO academic_sessions (name,start_date,end_date,is_active,created_by) VALUES (%s,%s,%s,%s,%s) RETURNING *",
-                (d.get('name'),d.get('start_date') or None,d.get('end_date') or None,False,session['user_id']))
+    row = q_ret("INSERT INTO academic_sessions (tenant_id,name,start_date,end_date,is_active,created_by) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(),d.get('name'),d.get('start_date') or None,d.get('end_date') or None,False,session['user_id']))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/sessions/<int:sid>/activate', methods=['POST'])
 @login_required
 @super_admin_required
 def activate_session(sid):
-    q("UPDATE academic_sessions SET is_active=FALSE", commit=True)
-    q("UPDATE academic_sessions SET is_active=TRUE WHERE id=%s", (sid,), commit=True)
+    tid=current_tenant_id()
+    q("UPDATE academic_sessions SET is_active=FALSE WHERE tenant_id=%s", (tid,), commit=True)
+    q("UPDATE academic_sessions SET is_active=TRUE WHERE id=%s AND tenant_id=%s", (sid,tid), commit=True)
     log_action('Activate','Session',sid)
     return jsonify({'success':True})
 
@@ -1275,16 +1363,17 @@ def master_table(kind):
 def list_master(kind):
     table = master_table(kind)
     if not table: return jsonify({'error':'Invalid master'}), 404
+    tf,tp = tenant_filter('', include_super=True)
     if table == 'subjects':
-        rows = q("SELECT id,name,course_name,is_active,created_at FROM subjects ORDER BY name")
+        rows = q("SELECT id,name,course_name,is_active,created_at FROM subjects WHERE TRUE"+tf+" ORDER BY name", tp)
     elif table == 'fee_types':
-        rows = q("SELECT id,name,category,is_active,created_at FROM fee_types ORDER BY name")
+        rows = q("SELECT id,name,category,is_active,created_at FROM fee_types WHERE TRUE"+tf+" ORDER BY name", tp)
     elif table == 'document_types':
-        rows = q("SELECT id,name,category,is_active,created_at FROM document_types ORDER BY name")
+        rows = q("SELECT id,name,category,is_active,created_at FROM document_types WHERE TRUE"+tf+" ORDER BY name", tp)
     elif table == 'student_statuses':
-        rows = q("SELECT id,name,category,is_active,created_at FROM student_statuses ORDER BY name")
+        rows = q("SELECT id,name,category,is_active,created_at FROM student_statuses WHERE TRUE"+tf+" ORDER BY name", tp)
     else:
-        rows = q("SELECT id,name,is_active,created_at FROM courses ORDER BY name")
+        rows = q("SELECT id,name,is_active,created_at FROM courses WHERE TRUE"+tf+" ORDER BY name", tp)
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/masters/<kind>', methods=['POST'])
@@ -1300,15 +1389,15 @@ def add_master(kind):
     if not name: return jsonify({'error':'Name required'}), 400
     try:
         if table == 'subjects':
-            row = q_ret("INSERT INTO subjects (name,course_name,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('course_name'),d.get('is_active',True)))
+            row = q_ret("INSERT INTO subjects (tenant_id,name,course_name,is_active) VALUES (%s,%s,%s,%s) RETURNING *", (current_tenant_id(),name,d.get('course_name'),d.get('is_active',True)))
         elif table == 'fee_types':
-            row = q_ret("INSERT INTO fee_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True)))
+            row = q_ret("INSERT INTO fee_types (tenant_id,name,category,is_active) VALUES (%s,%s,%s,%s) RETURNING *", (current_tenant_id(),name,d.get('category','Student Fee'),d.get('is_active',True)))
         elif table == 'document_types':
-            row = q_ret("INSERT INTO document_types (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
+            row = q_ret("INSERT INTO document_types (tenant_id,name,category,is_active) VALUES (%s,%s,%s,%s) RETURNING *", (current_tenant_id(),name,d.get('category','Student'),d.get('is_active',True)))
         elif table == 'student_statuses':
-            row = q_ret("INSERT INTO student_statuses (name,category,is_active) VALUES (%s,%s,%s) RETURNING *", (name,d.get('category','Student'),d.get('is_active',True)))
+            row = q_ret("INSERT INTO student_statuses (tenant_id,name,category,is_active) VALUES (%s,%s,%s,%s) RETURNING *", (current_tenant_id(),name,d.get('category','Student'),d.get('is_active',True)))
         else:
-            row = q_ret("INSERT INTO courses (name,is_active) VALUES (%s,%s) RETURNING *", (name,d.get('is_active',True)))
+            row = q_ret("INSERT INTO courses (tenant_id,name,is_active) VALUES (%s,%s,%s) RETURNING *", (current_tenant_id(),name,d.get('is_active',True)))
     except psycopg2.errors.UniqueViolation:
         get_db().rollback(); return jsonify({'error':'Already exists'}), 409
     log_action('Add','Master',row['id'] if row else None,f'{kind}: {name}')
@@ -1426,7 +1515,10 @@ def mark_read(nid):
 @login_required
 @require_perm('can_manage_users')
 def get_users():
-    rows = q("SELECT id,username,full_name,role,is_active,last_login,created_at FROM users ORDER BY id")
+    if is_super_admin():
+        rows = q("SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.full_name,u.role,u.is_active,u.last_login,u.created_at FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id ORDER BY u.id")
+    else:
+        rows = q("SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.full_name,u.role,u.is_active,u.last_login,u.created_at FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=%s ORDER BY u.id", (current_tenant_id(),))
     result = []
     for r in rows:
         sr = serialize(r); sr['permissions'] = get_user_perms(r['id'])
@@ -1442,9 +1534,23 @@ def get_users():
 def add_user():
     d = request.json or {}
     if d.get('role') == 'Super Admin' and not is_super_admin(): return jsonify({'error':'Only Super Admin can create Super Admin'}), 403
+    if is_super_admin() and d.get('tenant_name'):
+        tenant = q_ret("INSERT INTO tenants (name,status,subscription_start,subscription_end,notes) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (name) DO UPDATE SET status=EXCLUDED.status, subscription_end=EXCLUDED.subscription_end RETURNING id",
+                       (d.get('tenant_name').strip(), d.get('tenant_status','Active'), d.get('subscription_start') or date.today().isoformat(), d.get('subscription_end') or None, d.get('tenant_notes')))
+        tenant_id = tenant['id']
+        src = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
+        src_id = src['id'] if src else tenant_id
+        q("INSERT INTO academic_sessions (tenant_id,name,start_date,end_date,is_active,created_by) SELECT %s,name,start_date,end_date,is_active,%s FROM academic_sessions WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,session['user_id'],src_id), commit=True)
+        q("INSERT INTO courses (tenant_id,name,is_active) SELECT %s,name,is_active FROM courses WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
+        q("INSERT INTO subjects (tenant_id,name,course_name,is_active) SELECT %s,name,course_name,is_active FROM subjects WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
+        q("INSERT INTO fee_types (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM fee_types WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
+        q("INSERT INTO document_types (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM document_types WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
+        q("INSERT INTO student_statuses (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM student_statuses WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
+    else:
+        tenant_id = current_tenant_id()
     try:
-        new_user = q_ret("INSERT INTO users (username,password,full_name,role) VALUES (%s,%s,%s,%s) RETURNING id",
-                         (d.get('username'), hash_pw(d.get('password','')), d.get('full_name'), d.get('role','Staff')))
+        new_user = q_ret("INSERT INTO users (tenant_id,username,password,full_name,role) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                         (tenant_id,d.get('username'), hash_pw(d.get('password','')), d.get('full_name'), d.get('role','Staff')))
     except psycopg2.errors.UniqueViolation:
         get_db().rollback(); return jsonify({'error':'Username already exists'}), 409
     uid = new_user['id']; perms = d.get('permissions',{})
@@ -1483,6 +1589,8 @@ def add_user():
 def update_user(uid):
     d = request.json or {}
     if d.get('role') == 'Super Admin' and not is_super_admin(): return jsonify({'error':'Only Super Admin can assign Super Admin role'}), 403
+    target = q("SELECT tenant_id FROM users WHERE id=%s", (uid,), one=True)
+    if not target or not ensure_tenant_access(target.get('tenant_id')): return jsonify({'error':'User access denied'}), 403
     if d.get('full_name') or d.get('role'):
         q("UPDATE users SET full_name=%s,role=%s WHERE id=%s", (d.get('full_name'),d.get('role'),uid), commit=True)
     if d.get('new_password'):
@@ -1816,25 +1924,34 @@ def report_staff_business():
 def download_backup():
     uid=session['user_id']
     scope=request.args.get('scope','mine')
+    requested_tenant = request.args.get('tenant_id')
     system = scope == 'system' and is_admin()
-    data = {'generated_at': datetime.now().isoformat(timespec='seconds'), 'scope': 'system' if system else 'mine', 'user_id': uid, 'tables': {}}
+    tenant_id = int(requested_tenant) if (requested_tenant and is_super_admin()) else current_tenant_id()
+    all_tenants = system and is_super_admin() and not requested_tenant
+    data = {'generated_at': datetime.now().isoformat(timespec='seconds'), 'scope': 'system' if system else 'mine', 'user_id': uid, 'tenant_id': None if all_tenants else tenant_id, 'tables': {}}
     def rows(sql, params=()): return [serialize(r) for r in q(sql, params)]
     if system:
         table_names=['users','universities','academic_sessions','courses','subjects','fee_types','document_types','students','fee_payments','fee_installments','university_payables','expenses','associates','references_','documents','leads','follow_ups','activity_logs','login_history']
         for t in table_names:
-            try: data['tables'][t]=rows(f"SELECT * FROM {t} ORDER BY id")
+            try:
+                if all_tenants or t in ('activity_logs','login_history'):
+                    data['tables'][t]=rows(f"SELECT * FROM {t} ORDER BY id")
+                elif t == 'users':
+                    data['tables'][t]=rows("SELECT * FROM users WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+                else:
+                    data['tables'][t]=rows(f"SELECT * FROM {t} WHERE tenant_id=%s ORDER BY id", (tenant_id,))
             except Exception as ex: data['tables'][t]={'error':str(ex)[:120]}
     else:
-        data['tables']['students']=rows("SELECT * FROM students WHERE created_by=%s ORDER BY id", (uid,))
-        data['tables']['fee_payments']=rows("SELECT fp.* FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE s.created_by=%s OR fp.recorded_by=%s ORDER BY fp.id", (uid,uid))
-        data['tables']['fee_installments']=rows("SELECT fi.* FROM fee_installments fi JOIN students s ON s.id=fi.student_id WHERE s.created_by=%s OR fi.created_by=%s ORDER BY fi.id", (uid,uid))
-        data['tables']['university_payables']=rows("SELECT up.* FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE s.created_by=%s OR up.created_by=%s ORDER BY up.id", (uid,uid))
-        data['tables']['expenses']=rows("SELECT * FROM expenses WHERE created_by=%s ORDER BY id", (uid,))
-        data['tables']['associates']=rows("SELECT * FROM associates WHERE created_by=%s ORDER BY id", (uid,))
-        data['tables']['references_']=rows("SELECT * FROM references_ WHERE created_by=%s ORDER BY id", (uid,))
-        data['tables']['documents']=rows("SELECT d.* FROM documents d LEFT JOIN students s ON s.id=d.student_id WHERE s.created_by=%s OR d.uploaded_by=%s ORDER BY d.id", (uid,uid))
-        data['tables']['leads']=rows("SELECT * FROM leads WHERE created_by=%s ORDER BY id", (uid,))
-        data['tables']['follow_ups']=rows("SELECT * FROM follow_ups WHERE created_by=%s ORDER BY id", (uid,))
+        data['tables']['students']=rows("SELECT * FROM students WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['fee_payments']=rows("SELECT * FROM fee_payments WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['fee_installments']=rows("SELECT * FROM fee_installments WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['university_payables']=rows("SELECT * FROM university_payables WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['expenses']=rows("SELECT * FROM expenses WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['associates']=rows("SELECT * FROM associates WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['references_']=rows("SELECT * FROM references_ WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['documents']=rows("SELECT * FROM documents WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['leads']=rows("SELECT * FROM leads WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+        data['tables']['follow_ups']=rows("SELECT * FROM follow_ups WHERE tenant_id=%s ORDER BY id", (tenant_id,))
     payload=json.dumps(data, ensure_ascii=False, indent=2)
     fname=f"sky_backup_{data['scope']}_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
     return Response(payload, mimetype='application/json', headers={'Content-Disposition': f'attachment; filename={fname}'})
