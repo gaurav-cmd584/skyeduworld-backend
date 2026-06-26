@@ -1617,6 +1617,73 @@ def mark_read(nid):
     q("UPDATE notifications SET is_read=TRUE WHERE id=%s AND user_id=%s", (nid,session['user_id']), commit=True); return jsonify({'success':True})
 
 # USERS
+@app.route('/api/tenants', methods=['GET'])
+@login_required
+@require_perm('can_manage_users')
+def get_tenants():
+    if is_super_admin():
+        rows = q("""SELECT t.*,
+                    COUNT(DISTINCT u.id)::int AS user_count,
+                    COUNT(DISTINCT s.id)::int AS student_count
+                    FROM tenants t
+                    LEFT JOIN users u ON u.tenant_id=t.id
+                    LEFT JOIN students s ON s.tenant_id=t.id
+                    GROUP BY t.id
+                    ORDER BY t.id""")
+    else:
+        rows = q("""SELECT t.*,
+                    COUNT(DISTINCT u.id)::int AS user_count,
+                    COUNT(DISTINCT s.id)::int AS student_count
+                    FROM tenants t
+                    LEFT JOIN users u ON u.tenant_id=t.id
+                    LEFT JOIN students s ON s.tenant_id=t.id
+                    WHERE t.id=%s
+                    GROUP BY t.id""", (current_tenant_id(),))
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/tenants', methods=['POST'])
+@login_required
+@require_perm('can_manage_users')
+def add_tenant():
+    if not is_super_admin(): return jsonify({'error':'Only Super Admin can add clients'}), 403
+    d = request.json or {}
+    name = (d.get('name') or '').strip()
+    if not name: return jsonify({'error':'Client name required'}), 400
+    row = q_ret("""INSERT INTO tenants (name,status,subscription_start,subscription_end,notes)
+                   VALUES (%s,%s,%s,%s,%s)
+                   ON CONFLICT (name) DO UPDATE SET status=EXCLUDED.status, subscription_start=EXCLUDED.subscription_start,
+                   subscription_end=EXCLUDED.subscription_end, notes=EXCLUDED.notes
+                   RETURNING *""",
+                (name,d.get('status','Active'),d.get('subscription_start') or date.today().isoformat(),d.get('subscription_end') or None,d.get('notes')))
+    src = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
+    src_id = src['id'] if src else row['id']
+    tenant_id = row['id']
+    for sql in [
+        "INSERT INTO academic_sessions (tenant_id,name,start_date,end_date,is_active,created_by) SELECT %s,name,start_date,end_date,is_active,%s FROM academic_sessions WHERE tenant_id=%s ON CONFLICT DO NOTHING",
+        "INSERT INTO courses (tenant_id,name,is_active) SELECT %s,name,is_active FROM courses WHERE tenant_id=%s ON CONFLICT DO NOTHING",
+        "INSERT INTO subjects (tenant_id,name,course_name,is_active) SELECT %s,name,course_name,is_active FROM subjects WHERE tenant_id=%s ON CONFLICT DO NOTHING",
+        "INSERT INTO fee_types (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM fee_types WHERE tenant_id=%s ON CONFLICT DO NOTHING",
+        "INSERT INTO document_types (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM document_types WHERE tenant_id=%s ON CONFLICT DO NOTHING",
+        "INSERT INTO student_statuses (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM student_statuses WHERE tenant_id=%s ON CONFLICT DO NOTHING"
+    ]:
+        try: q(sql, (tenant_id,session['user_id'],src_id) if 'created_by' in sql else (tenant_id,src_id), commit=True)
+        except Exception: get_db().rollback()
+    log_action('Add','Tenant',tenant_id,name)
+    return jsonify(serialize(row)), 201
+
+@app.route('/api/tenants/<int:tid>', methods=['PUT'])
+@login_required
+@require_perm('can_manage_users')
+def update_tenant(tid):
+    if not is_super_admin() and tid != current_tenant_id(): return jsonify({'error':'Tenant access denied'}), 403
+    d = request.json or {}
+    row = q_ret("""UPDATE tenants SET name=%s,status=%s,subscription_start=%s,subscription_end=%s,notes=%s
+                   WHERE id=%s RETURNING *""",
+                ((d.get('name') or '').strip(),d.get('status','Active'),d.get('subscription_start') or None,d.get('subscription_end') or None,d.get('notes'),tid))
+    if not row: return jsonify({'error':'Client not found'}), 404
+    log_action('Edit','Tenant',tid,row.get('name'))
+    return jsonify(serialize(row))
+
 @app.route('/api/users', methods=['GET'])
 @login_required
 @require_perm('can_manage_users')
