@@ -317,6 +317,7 @@ def init_db():
         can_manage_leads BOOLEAN DEFAULT FALSE, can_view_audit_logs BOOLEAN DEFAULT FALSE, can_manage_users BOOLEAN DEFAULT FALSE, can_download_backup BOOLEAN DEFAULT FALSE, can_view_accounts BOOLEAN DEFAULT FALSE, can_manage_accounts BOOLEAN DEFAULT FALSE, can_view_profit_report BOOLEAN DEFAULT FALSE,
         UNIQUE(user_id));
     CREATE TABLE IF NOT EXISTS universities (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, state TEXT, color TEXT DEFAULT '#1A6CF6', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS guides (id SERIAL PRIMARY KEY, university_id INTEGER REFERENCES universities(id) ON DELETE CASCADE, name TEXT NOT NULL, designation TEXT NOT NULL, department TEXT, subject TEXT, mobile TEXT, email TEXT, assigned_students INTEGER DEFAULT 0, file_path TEXT, file_name TEXT, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_universities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, university_id INTEGER NOT NULL REFERENCES universities(id) ON DELETE CASCADE, UNIQUE(user_id,university_id));
     CREATE TABLE IF NOT EXISTS academic_sessions (id SERIAL PRIMARY KEY, name TEXT NOT NULL, start_date DATE, end_date DATE, is_active BOOLEAN DEFAULT FALSE, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS fee_types (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT DEFAULT 'Student Fee', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW());
@@ -385,6 +386,9 @@ def init_db():
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS subject TEXT",
+              "ALTER TABLE guides ADD COLUMN IF NOT EXISTS assigned_students INTEGER DEFAULT 0",
+              "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_path TEXT",
+              "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_name TEXT",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_save_partial_student BOOLEAN DEFAULT FALSE",
               "ALTER TABLE university_payables ADD COLUMN IF NOT EXISTS fee_type TEXT DEFAULT 'Tuition'",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
@@ -1031,6 +1035,37 @@ def get_universities():
     if assigned: rows = [r for r in rows if r['name'] in assigned]
     return jsonify(rows)
 
+GUIDE_LIMITS = {'Professor': 8, 'Associate Professor': 6, 'Assistant Professor': 4}
+
+def guide_capacity(designation):
+    return GUIDE_LIMITS.get((designation or '').strip(), 0)
+
+def serialize_guide(r):
+    g = serialize(r)
+    cap = guide_capacity(g.get('designation'))
+    used = int(g.get('assigned_students') or 0)
+    g['capacity'] = cap
+    g['available_seats'] = max(cap - used, 0)
+    if g.get('file_path') and is_admin():
+        g['file_url'] = f'/uploads/{g["file_path"]}'
+    return g
+
+@app.route('/api/universities/<int:uid_>/detail', methods=['GET'])
+@login_required
+def university_detail(uid_):
+    u = q("SELECT u.id, u.name, u.state, u.color, u.is_active, COUNT(s.id)::int AS student_count FROM universities u LEFT JOIN students s ON s.university=u.name WHERE u.id=%s GROUP BY u.id,u.name,u.state,u.color,u.is_active", (uid_,), one=True)
+    if not u: return jsonify({'error':'University not found'}), 404
+    assigned = get_user_univs(session['user_id'])
+    if assigned and u['name'] not in assigned: return jsonify({'error':'Permission denied'}), 403
+    students = q("SELECT id,student_code,name,course,subject,batch,mobile,status FROM students WHERE university=%s ORDER BY id DESC LIMIT 50", (u['name'],))
+    guides = q("SELECT * FROM guides WHERE university_id=%s ORDER BY name", (uid_,))
+    data = serialize(u)
+    data['students'] = [serialize(r) for r in students]
+    data['guides'] = [serialize_guide(r) for r in guides]
+    data['guide_capacity_total'] = sum(g['capacity'] for g in data['guides'])
+    data['guide_assigned_total'] = sum(int(g.get('assigned_students') or 0) for g in data['guides'])
+    return jsonify(data)
+
 @app.route('/api/universities', methods=['POST'])
 @login_required
 @require_perm('can_manage_universities')
@@ -1054,6 +1089,53 @@ def update_university(uid_):
 @require_perm('can_manage_universities')
 def delete_university(uid_):
     q("DELETE FROM universities WHERE id=%s", (uid_,), commit=True); return jsonify({'success':True})
+
+@app.route('/api/universities/<int:uid_>/guides', methods=['POST'])
+@login_required
+@require_perm('can_manage_universities')
+def add_guide(uid_):
+    d = request.form if request.form else (request.json or {})
+    if not d.get('name'): return jsonify({'error':'Guide name required'}), 400
+    if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
+    row = q_ret("INSERT INTO guides (university_id,name,designation,department,subject,mobile,email,assigned_students,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (uid_,d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),session['user_id']))
+    return jsonify(serialize_guide(row)), 201
+
+@app.route('/api/guides/<int:gid>', methods=['PUT'])
+@login_required
+@require_perm('can_manage_universities')
+def update_guide(gid):
+    d = request.form if request.form else (request.json or {})
+    if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
+    row = q_ret("UPDATE guides SET name=%s,designation=%s,department=%s,subject=%s,mobile=%s,email=%s,assigned_students=%s WHERE id=%s RETURNING *",
+                (d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),gid))
+    return jsonify(serialize_guide(row))
+
+@app.route('/api/guides/<int:gid>/upload', methods=['POST'])
+@login_required
+@require_perm('can_manage_universities')
+def upload_guide_file(gid):
+    if 'file' not in request.files: return jsonify({'error':'No file'}), 400
+    file = request.files['file']
+    file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
+    if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
+    if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
+    ext = file.filename.rsplit('.',1)[1].lower()
+    filename = f"guide_{gid}_{uuid.uuid4().hex[:8]}.{ext}"
+    file.save(os.path.join(UPLOAD_FOLDER, filename))
+    q("UPDATE guides SET file_path=%s,file_name=%s WHERE id=%s", (filename,file.filename,gid), commit=True)
+    return jsonify({'success':True,'url':f'/uploads/{filename}'})
+
+@app.route('/api/guides/<int:gid>', methods=['DELETE'])
+@login_required
+@require_perm('can_manage_universities')
+def delete_guide(gid):
+    row = q("SELECT file_path FROM guides WHERE id=%s", (gid,), one=True)
+    if row and row.get('file_path'):
+        try: os.remove(os.path.join(UPLOAD_FOLDER, row['file_path']))
+        except: pass
+    q("DELETE FROM guides WHERE id=%s", (gid,), commit=True)
+    return jsonify({'success':True})
 
 # ACADEMIC SESSIONS
 @app.route('/api/sessions', methods=['GET'])
