@@ -1052,6 +1052,12 @@ GUIDE_LIMITS = {'Professor': 8, 'Associate Professor': 6, 'Assistant Professor':
 def guide_capacity(designation):
     return GUIDE_LIMITS.get((designation or '').strip(), 0)
 
+def norm_text(v):
+    return ' '.join(str(v or '').strip().lower().split())
+
+def is_phd_course(v):
+    return 'phd' in norm_text(v).replace('.', '')
+
 def serialize_guide(r):
     g = serialize(r)
     cap = guide_capacity(g.get('designation'))
@@ -1079,6 +1085,14 @@ def sync_guide_students(gid, student_ids):
             pass
     if cap and len(ids) > cap:
         raise ValueError(f"{guide.get('designation')} ke under max {cap} students allowed hain")
+    if ids:
+        rows = q("SELECT id,name,course,subject FROM students WHERE id = ANY(%s)", (ids,))
+        found = {int(r['id']): r for r in rows}
+        guide_subject = norm_text(guide.get('subject'))
+        for sid in ids:
+            st = found.get(int(sid))
+            if not st or not is_phd_course(st.get('course')) or norm_text(st.get('subject')) != guide_subject:
+                raise ValueError('Sirf guide subject ke Ph.D students add ho sakte hain')
     affected = [gid] + [r['guide_id'] for r in q("SELECT DISTINCT guide_id FROM guide_students WHERE student_id = ANY(%s)", (ids,))] if ids else [gid]
     q("DELETE FROM guide_students WHERE guide_id=%s", (gid,), commit=True)
     for sid in ids:
@@ -1095,6 +1109,9 @@ def assign_student_to_guide(student_id, guide_id):
         gid = int(guide_id)
         guide = q("SELECT * FROM guides WHERE id=%s", (gid,), one=True)
         if not guide: return
+        st = q("SELECT id,course,subject FROM students WHERE id=%s", (student_id,), one=True)
+        if not st or not is_phd_course(st.get('course')) or norm_text(st.get('subject')) != norm_text(guide.get('subject')):
+            raise ValueError('Sirf guide subject ke Ph.D student assign ho sakte hain')
         current = q("SELECT COUNT(*) AS c FROM guide_students WHERE guide_id=%s AND student_id<>%s", (gid,student_id), one=True)['c']
         cap = guide_capacity(guide.get('designation'))
         if cap and int(current or 0) >= cap:
