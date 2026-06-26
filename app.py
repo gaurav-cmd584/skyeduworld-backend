@@ -530,27 +530,34 @@ def serve_upload(filename):
 def login():
     d = request.json or {}
     ip = request.remote_addr or 'unknown'
-    if d.get('username','') == 'admin' and d.get('password','') == 'sky@2024':
+    username = (d.get('username') or '').strip()
+    password = (d.get('password') or '').strip()
+    if username.lower() == 'admin' and password == 'sky@2024':
         try:
             q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
             q("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'), commit=True)
             q("ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER", commit=True)
+            q("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE", commit=True)
+            q("ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT", commit=True)
+            q("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0", commit=True)
+            q("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP", commit=True)
             tenant = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
-            admin = q("SELECT id FROM users WHERE username='admin'", one=True)
+            tenant_id = tenant['id'] if tenant else None
+            admin = q("SELECT id FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", ('admin',), one=True)
             if admin:
-                q("UPDATE users SET password=%s,role='Super Admin',is_active=TRUE,tenant_id=COALESCE(tenant_id,%s),failed_logins=0 WHERE id=%s", (hash_pw('sky@2024'),tenant['id'] if tenant else None,admin['id']), commit=True)
+                q("UPDATE users SET username=%s,password=%s,full_name=COALESCE(NULLIF(full_name,''),%s),role='Super Admin',is_active=TRUE,tenant_id=COALESCE(tenant_id,%s),failed_logins=0 WHERE id=%s", ('admin',hash_pw('sky@2024'),'Admin',tenant_id,admin['id']), commit=True)
             else:
-                q("INSERT INTO users (tenant_id,username,password,full_name,role,is_active) VALUES (%s,%s,%s,%s,%s,TRUE)", (tenant['id'] if tenant else None,'admin',hash_pw('sky@2024'),'Admin','Super Admin'), commit=True)
-        except Exception:
-            pass
-    user = q("SELECT * FROM users WHERE username=%s", (d.get('username',''),), one=True)
-    if user and user.get('username') == 'admin' and d.get('password','') == 'sky@2024' and user.get('password') != hash_pw('sky@2024'):
-        q("UPDATE users SET password=%s,is_active=TRUE,tenant_id=COALESCE(tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)) WHERE id=%s", (hash_pw('sky@2024'),user['id']), commit=True)
+                q("INSERT INTO users (tenant_id,username,password,full_name,role,is_active,failed_logins) VALUES (%s,%s,%s,%s,%s,TRUE,0)", (tenant_id,'admin',hash_pw('sky@2024'),'Admin','Super Admin'), commit=True)
+        except Exception as ex:
+            print('admin login recovery failed:', ex)
+    user = q("SELECT * FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", (username,), one=True)
+    if user and user.get('username','').lower() == 'admin' and password == 'sky@2024' and user.get('password') != hash_pw('sky@2024'):
+        q("UPDATE users SET password=%s,is_active=TRUE,tenant_id=COALESCE(tenant_id,(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1)),failed_logins=0 WHERE id=%s", (hash_pw('sky@2024'),user['id']), commit=True)
         user = q("SELECT * FROM users WHERE id=%s", (user['id'],), one=True)
-    if not user or user['password'] != hash_pw(d.get('password','')):
+    if not user or user['password'] != hash_pw(password):
         try:
             q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
-              (user['id'] if user else None, d.get('username',''), 'Failed', ip), commit=True)
+              (user['id'] if user else None, username, 'Failed', ip), commit=True)
             if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
         except Exception: pass
         return jsonify({'error':'Invalid username or password'}), 401
