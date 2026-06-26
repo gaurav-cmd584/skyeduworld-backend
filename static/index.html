@@ -486,7 +486,11 @@ async function doLogin(){
   const btn=document.getElementById('l-btn');btn.disabled=true;btn.textContent='Logging in\u2026';
   const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
   btn.disabled=false;btn.textContent='Login \u2192';
-  if(!r.ok){err.textContent='\u274c Incorrect username or password';err.style.display='block';return;}
+  if(!r.ok){
+    let msg='Incorrect username or password';
+    try{const e=await r.json(); msg=e.error||msg;}catch(_){}
+    err.textContent='\u274c '+msg;err.style.display='block';return;
+  }
   const data=await r.json();currentUser=data.user;
   // Clear stale localStorage permissions (backend is now source of truth)
   Object.keys(localStorage).filter(function(k){return k.startsWith('user_perms_');}).forEach(function(k){localStorage.removeItem(k);});
