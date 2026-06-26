@@ -389,6 +389,7 @@ def init_db():
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS assigned_students INTEGER DEFAULT 0",
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_path TEXT",
               "ALTER TABLE guides ADD COLUMN IF NOT EXISTS file_name TEXT",
+              "CREATE TABLE IF NOT EXISTS guide_students (id SERIAL PRIMARY KEY, guide_id INTEGER NOT NULL REFERENCES guides(id) ON DELETE CASCADE, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(guide_id,student_id))",
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_save_partial_student BOOLEAN DEFAULT FALSE",
               "ALTER TABLE university_payables ADD COLUMN IF NOT EXISTS fee_type TEXT DEFAULT 'Tuition'",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS recorded_by INTEGER",
@@ -580,6 +581,11 @@ def add_student():
         row = q('SELECT * FROM students WHERE id=%s', (row['id'],), one=True)
     if row and float(d.get('univ_fee',0) or 0) > 0:
         q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,fee_type,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (row['id'],uid,d.get('university'),d.get('name'),d.get('univ_fee',0),'Tuition','Pending','Auto from student admission'))
+    if row and d.get('guide_id'):
+        try:
+            assign_student_to_guide(row['id'], d.get('guide_id'))
+        except ValueError as e:
+            return jsonify({'error':str(e)}), 400
     log_action('Add','Student',row['id'] if row else None, d.get('name'))
     return jsonify(serialize(row)), 201
 
@@ -597,6 +603,7 @@ def get_student(sid):
     references = q("SELECT * FROM references_ WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
     followups = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s ORDER BY f.created_at DESC", (sid,))
     docs = q("SELECT * FROM documents WHERE student_id=%s ORDER BY id DESC", (sid,))
+    guide = q("SELECT g.*, u.name AS university FROM guide_students gs JOIN guides g ON g.id=gs.guide_id JOIN universities u ON u.id=g.university_id WHERE gs.student_id=%s ORDER BY gs.id DESC LIMIT 1", (sid,), one=True)
     row['photo'] = serialize(photo) if photo else None
     row['payments'] = [serialize(r) for r in payments]
     row['installments'] = [serialize(r) for r in installments]
@@ -605,6 +612,7 @@ def get_student(sid):
     row['references'] = [serialize(r) for r in references]
     row['followups'] = [serialize(r) for r in followups]
     row['documents'] = [serialize(r) for r in docs]
+    row['guide'] = serialize_guide(guide) if guide else None
     return jsonify(serialize(row))
 
 def cleanup_student_related_rows(student_ids=None, student_names=None):
@@ -648,6 +656,10 @@ def update_student(sid):
     d = request.json or {}
     row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s WHERE id=%s RETURNING *""",
                (d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),sid))
+    try:
+        assign_student_to_guide(sid, d.get('guide_id'))
+    except ValueError as e:
+        return jsonify({'error':str(e)}), 400
     log_action('Edit','Student',sid,d.get('name'))
     return jsonify(serialize(row))
 
@@ -1043,12 +1055,64 @@ def guide_capacity(designation):
 def serialize_guide(r):
     g = serialize(r)
     cap = guide_capacity(g.get('designation'))
-    used = int(g.get('assigned_students') or 0)
+    linked = q("SELECT s.id,s.student_code,s.name,s.course,s.subject,s.university FROM guide_students gs JOIN students s ON s.id=gs.student_id WHERE gs.guide_id=%s ORDER BY s.name", (g.get('id'),)) if g.get('id') else []
+    used = len(linked) if linked else int(g.get('assigned_students') or 0)
     g['capacity'] = cap
+    g['assigned_students'] = used
     g['available_seats'] = max(cap - used, 0)
+    g['students'] = [serialize(s) for s in linked]
     if g.get('file_path') and is_admin():
         g['file_url'] = f'/uploads/{g["file_path"]}'
     return g
+
+def sync_guide_students(gid, student_ids):
+    gid = int(gid)
+    guide = q("SELECT * FROM guides WHERE id=%s", (gid,), one=True)
+    if not guide: return
+    cap = guide_capacity(guide.get('designation'))
+    ids = []
+    for x in (student_ids or []):
+        try:
+            sid = int(x)
+            if sid not in ids: ids.append(sid)
+        except Exception:
+            pass
+    if cap and len(ids) > cap:
+        raise ValueError(f"{guide.get('designation')} ke under max {cap} students allowed hain")
+    affected = [gid] + [r['guide_id'] for r in q("SELECT DISTINCT guide_id FROM guide_students WHERE student_id = ANY(%s)", (ids,))] if ids else [gid]
+    q("DELETE FROM guide_students WHERE guide_id=%s", (gid,), commit=True)
+    for sid in ids:
+        q("DELETE FROM guide_students WHERE student_id=%s AND guide_id<>%s", (sid,gid), commit=True)
+        q("INSERT INTO guide_students (guide_id,student_id) VALUES (%s,%s) ON CONFLICT DO NOTHING", (gid,sid), commit=True)
+    for agid in list(dict.fromkeys(affected)):
+        total = q("SELECT COUNT(*) AS c FROM guide_students WHERE guide_id=%s", (agid,), one=True)['c']
+        q("UPDATE guides SET assigned_students=%s WHERE id=%s", (int(total or 0),agid), commit=True)
+
+def assign_student_to_guide(student_id, guide_id):
+    old_rows = q("SELECT guide_id FROM guide_students WHERE student_id=%s", (student_id,))
+    old_ids = [r['guide_id'] for r in old_rows]
+    if guide_id:
+        gid = int(guide_id)
+        guide = q("SELECT * FROM guides WHERE id=%s", (gid,), one=True)
+        if not guide: return
+        current = q("SELECT COUNT(*) AS c FROM guide_students WHERE guide_id=%s AND student_id<>%s", (gid,student_id), one=True)['c']
+        cap = guide_capacity(guide.get('designation'))
+        if cap and int(current or 0) >= cap:
+            raise ValueError(f"{guide.get('name')} guide ki capacity full hai")
+    q("DELETE FROM guide_students WHERE student_id=%s", (student_id,), commit=True)
+    if guide_id:
+        q("INSERT INTO guide_students (guide_id,student_id) VALUES (%s,%s) ON CONFLICT DO NOTHING", (int(guide_id),student_id), commit=True)
+    for gid in list(dict.fromkeys(old_ids + ([int(guide_id)] if guide_id else []))):
+        total = q("SELECT COUNT(*) AS c FROM guide_students WHERE guide_id=%s", (gid,), one=True)['c']
+        q("UPDATE guides SET assigned_students=%s WHERE id=%s", (int(total or 0),gid), commit=True)
+
+@app.route('/api/guides', methods=['GET'])
+@login_required
+def get_guides():
+    uid = session['user_id']; assigned = get_user_univs(uid)
+    rows = q("SELECT g.*, u.name AS university, u.state AS university_state FROM guides g JOIN universities u ON u.id=g.university_id ORDER BY u.name,g.name")
+    if assigned: rows = [r for r in rows if r.get('university') in assigned]
+    return jsonify([serialize_guide(r) for r in rows])
 
 @app.route('/api/universities/<int:uid_>/detail', methods=['GET'])
 @login_required
@@ -1098,7 +1162,13 @@ def add_guide(uid_):
     if not d.get('name'): return jsonify({'error':'Guide name required'}), 400
     if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
     row = q_ret("INSERT INTO guides (university_id,name,designation,department,subject,mobile,email,assigned_students,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (uid_,d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),session['user_id']))
+                (uid_,d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),0,session['user_id']))
+    try:
+        sync_guide_students(row['id'], d.get('student_ids') or [])
+    except ValueError as e:
+        q("DELETE FROM guides WHERE id=%s", (row['id'],), commit=True)
+        return jsonify({'error':str(e)}), 400
+    row = q("SELECT * FROM guides WHERE id=%s", (row['id'],), one=True)
     return jsonify(serialize_guide(row)), 201
 
 @app.route('/api/guides/<int:gid>', methods=['PUT'])
@@ -1109,6 +1179,12 @@ def update_guide(gid):
     if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
     row = q_ret("UPDATE guides SET name=%s,designation=%s,department=%s,subject=%s,mobile=%s,email=%s,assigned_students=%s WHERE id=%s RETURNING *",
                 (d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),gid))
+    if 'student_ids' in d:
+        try:
+            sync_guide_students(gid, d.get('student_ids') or [])
+        except ValueError as e:
+            return jsonify({'error':str(e)}), 400
+        row = q("SELECT * FROM guides WHERE id=%s", (gid,), one=True)
     return jsonify(serialize_guide(row))
 
 @app.route('/api/guides/<int:gid>/upload', methods=['POST'])
