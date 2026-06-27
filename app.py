@@ -197,8 +197,16 @@ def log_action(action, module, record_id=None, detail=None):
 
 def notify_user(uid, title, msg, ntype='info', link=None):
     try:
+        recent = q("SELECT id FROM notifications WHERE user_id=%s AND title=%s AND message=%s AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1", (uid,title,msg), one=True)
+        if recent: return
         q("INSERT INTO notifications (user_id,title,message,type,link) VALUES (%s,%s,%s,%s,%s)",
           (uid, title, msg, ntype, link), commit=True)
+    except Exception: pass
+
+def notify_tenant_admins(tid, title, msg, ntype='info', link=None):
+    try:
+        for u in q("SELECT id FROM users WHERE tenant_id=%s AND role IN ('Admin','Super Admin') AND is_active=TRUE", (tid,)):
+            notify_user(u['id'], title, msg, ntype, link)
     except Exception: pass
 
 def is_super_admin(): return session.get('role') == 'Super Admin'
@@ -301,7 +309,7 @@ def get_active_session():
         try: get_db().rollback()
         except Exception: pass
         try:
-            q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
+            q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, plan_name TEXT DEFAULT 'Custom', client_code TEXT UNIQUE, logo_url TEXT, letterhead_text TEXT, grace_days INTEGER DEFAULT 0, max_students INTEGER, max_users INTEGER, storage_limit_mb INTEGER, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
             q("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'), commit=True)
             q("ALTER TABLE academic_sessions ADD COLUMN IF NOT EXISTS tenant_id INTEGER", commit=True)
             q("UPDATE academic_sessions SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL", commit=True)
@@ -318,12 +326,15 @@ def login_required(f):
         if 'user_id' not in session:
             return jsonify({'error':'Not authenticated','redirect':'/'}), 401
         try:
-            stored = q("SELECT session_token,is_active FROM users WHERE id=%s", (session['user_id'],), one=True)
+            stored = q("SELECT id,tenant_id,role,session_token,is_active FROM users WHERE id=%s", (session['user_id'],), one=True)
             if stored:
                 if stored.get('session_token') != session.get('session_token'):
                     session.clear(); return jsonify({'error':'Session expired','redirect':'/'}), 401
                 if not stored.get('is_active'):
                     session.clear(); return jsonify({'error':'Account disabled','redirect':'/'}), 401
+                blocked = subscription_block(stored)
+                if blocked:
+                    session.clear(); return jsonify({'error':blocked,'redirect':'/'}), 403
         except Exception: pass
         return f(*args, **kwargs)
     return decorated
@@ -352,11 +363,128 @@ def require_perm(perm):
         return decorated
     return decorator
 
+@app.before_request
+def enforce_read_only_tenant():
+    if not request.path.startswith('/api/') or request.method in ('GET','HEAD','OPTIONS'):
+        return None
+    if request.endpoint in ('login','login_with_diagnostics','logout','stop_impersonation'):
+        return None
+    if is_super_admin() or not session.get('user_id'):
+        return None
+    tenant = q("SELECT status FROM tenants WHERE id=%s", (current_tenant_id(),), one=True) if current_tenant_id() else None
+    if tenant and (tenant.get('status') or '').lower() in ('read only','readonly','suspended'):
+        return jsonify({'error':'Tenant read-only/suspended mode me hai. Data dekh sakte hain, add/edit/delete nahi.'}), 403
+    return None
+
+def _date_value(v):
+    if not v: return None
+    if isinstance(v, str):
+        try: return date.fromisoformat(v[:10])
+        except Exception: return None
+    return v
+
+def tenant_payload(tid):
+    tenant = q("SELECT id,name,status,subscription_start,subscription_end,plan_name,client_code,custom_domain,subdomain,logo_url,letterhead_text,grace_days,crm_status,next_followup_date,crm_notes,notes,max_students,max_users,storage_limit_mb FROM tenants WHERE id=%s", (tid,), one=True) if tid else None
+    if not tenant: return {'tenant_name':'Sky Eduworld','subscription_days_left':None,'subscription_expired':False}
+    end_date = _date_value(tenant.get('subscription_end'))
+    days_left = (end_date - date.today()).days if end_date else None
+    if days_left is not None and days_left in (7, 3, 1, 0):
+        notify_tenant_admins(tid, 'Subscription renewal reminder', f"{tenant.get('name')} subscription {days_left} din me expire hoga.", 'warning')
+    return {
+        'tenant': serialize(tenant),
+        'tenant_name': tenant.get('name') or 'Sky Eduworld',
+        'tenant_status': tenant.get('status') or 'Active',
+        'plan_name': tenant.get('plan_name') or 'Custom',
+        'client_code': tenant.get('client_code'),
+        'custom_domain': tenant.get('custom_domain'),
+        'subdomain': tenant.get('subdomain'),
+        'logo_url': tenant.get('logo_url'),
+        'letterhead_text': tenant.get('letterhead_text'),
+        'grace_days': tenant.get('grace_days'),
+        'crm_status': tenant.get('crm_status'),
+        'next_followup_date': tenant.get('next_followup_date'),
+        'subscription_days_left': days_left,
+        'max_students': tenant.get('max_students'),
+        'max_users': tenant.get('max_users'),
+        'storage_limit_mb': tenant.get('storage_limit_mb'),
+        'subscription_expired': bool(days_left is not None and days_left < 0)
+    }
+
+def user_payload(user):
+    perms = get_user_perms(user['id']); univs = get_user_univs(user['id'])
+    active_sess = get_active_session()
+    return {**tenant_payload(user.get('tenant_id')),
+        'id':user['id'],'username':user['username'],'full_name':user['full_name'],'role':user['role'],
+        'tenant_id':user.get('tenant_id'),'permissions':perms,'assigned_universities':univs,
+        'active_session':serialize(active_sess) if active_sess else None,
+        'impersonating': bool(session.get('owner_user_id'))}
+
+def subscription_block(user):
+    if not user or user.get('role') == 'Super Admin': return None
+    tenant = q("SELECT id,status,subscription_end,grace_days FROM tenants WHERE id=%s", (user.get('tenant_id'),), one=True) if user.get('tenant_id') else None
+    if not tenant: return None
+    status = (tenant.get('status') or 'Active').lower()
+    if status in ('inactive','expired','blocked'):
+        return 'Subscription inactive/expired hai. Sky Eduworld se contact karein.'
+    end_date = _date_value(tenant.get('subscription_end'))
+    if end_date:
+        days = (date.today() - end_date).days
+        grace = int(tenant.get('grace_days') or 0)
+        if days > grace:
+            try: q("UPDATE tenants SET status='Expired' WHERE id=%s", (tenant.get('id'),), commit=True)
+            except Exception: pass
+            return 'Subscription grace period ke baad expire ho gaya hai. Sky Eduworld se contact karein.'
+    return None
+
+def tenant_limit(tid, field):
+    row = q(f"SELECT {field} FROM tenants WHERE id=%s", (tid,), one=True) if tid else None
+    val = row.get(field) if row else None
+    try: return int(val) if val is not None else None
+    except Exception: return None
+
+def check_tenant_limit(tid, kind):
+    if kind == 'students':
+        limit = tenant_limit(tid, 'max_students')
+        if limit:
+            used = q("SELECT COUNT(*) AS c FROM students WHERE tenant_id=%s", (tid,), one=True)['c']
+            if used >= limit: return f"Student limit complete ho chuki hai ({used}/{limit}). Plan upgrade karein."
+    if kind == 'users':
+        limit = tenant_limit(tid, 'max_users')
+        if limit:
+            used = q("SELECT COUNT(*) AS c FROM users WHERE tenant_id=%s", (tid,), one=True)['c']
+            if used >= limit: return f"User limit complete ho chuki hai ({used}/{limit}). Plan upgrade karein."
+    return None
+
+def tenant_storage_used_bytes(tid):
+    total = 0
+    paths = []
+    for sql in [
+        "SELECT file_path FROM documents WHERE tenant_id=%s AND file_path IS NOT NULL",
+        "SELECT file_path FROM student_photos WHERE tenant_id=%s AND file_path IS NOT NULL",
+        "SELECT file_path FROM guides WHERE tenant_id=%s AND file_path IS NOT NULL"
+    ]:
+        try: paths += [r['file_path'] for r in q(sql, (tid,)) if r.get('file_path')]
+        except Exception: pass
+    for name in paths:
+        try:
+            full = os.path.join(UPLOAD_FOLDER, os.path.basename(name))
+            if os.path.exists(full): total += os.path.getsize(full)
+        except Exception: pass
+    return total
+
+def check_storage_limit(tid, new_bytes=0):
+    limit_mb = tenant_limit(tid, 'storage_limit_mb')
+    if not limit_mb: return None
+    used = tenant_storage_used_bytes(tid)
+    if used + int(new_bytes or 0) > limit_mb * 1024 * 1024:
+        return f"Storage limit complete ho chuki hai ({round(used/1024/1024,2)}/{limit_mb} MB). Plan upgrade karein."
+    return None
+
 def init_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     cur = conn.cursor()
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, plan_name TEXT DEFAULT 'Custom', client_code TEXT UNIQUE, custom_domain TEXT, subdomain TEXT, logo_url TEXT, letterhead_text TEXT, grace_days INTEGER DEFAULT 0, crm_status TEXT DEFAULT 'Active Client', next_followup_date DATE, crm_notes TEXT, max_students INTEGER, max_users INTEGER, storage_limit_mb INTEGER, notes TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS user_permissions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         can_add_student BOOLEAN DEFAULT TRUE, can_edit_student BOOLEAN DEFAULT TRUE, can_delete_student BOOLEAN DEFAULT FALSE, can_save_partial_student BOOLEAN DEFAULT FALSE,
@@ -390,6 +518,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS activity_logs (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), action_type TEXT NOT NULL, module_name TEXT, record_id INTEGER, detail TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS login_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), username TEXT, status TEXT DEFAULT 'Success', ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), title TEXT NOT NULL, message TEXT, type TEXT DEFAULT 'info', is_read BOOLEAN DEFAULT FALSE, link TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS tenant_renewals (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE, renewed_by INTEGER REFERENCES users(id), plan_name TEXT, amount NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, start_date DATE, end_date DATE, notes TEXT, invoice_sent_at TIMESTAMP, invoice_send_channel TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS backup_history (id SERIAL PRIMARY KEY, tenant_id INTEGER, downloaded_by INTEGER REFERENCES users(id), scope TEXT, file_name TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS university_payables (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id), university TEXT, student TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, fee_type TEXT DEFAULT 'Tuition', due_date DATE, paid_date DATE, pay_mode TEXT, ref_no TEXT, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS expenses (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), expense_date DATE DEFAULT CURRENT_DATE, category TEXT DEFAULT 'Office', amount NUMERIC(12,2) NOT NULL, pay_mode TEXT, paid_to TEXT, student TEXT, university TEXT, associate TEXT, reference_name TEXT, remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
     """)
@@ -397,6 +527,21 @@ def init_db():
     cur.execute("SELECT id FROM tenants WHERE name='Sky Eduworld'")
     default_tenant = cur.fetchone()['id']
     for m in [
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_students INTEGER",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_users INTEGER",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_name TEXT DEFAULT 'Custom'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS client_code TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS custom_domain TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subdomain TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS letterhead_text TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS grace_days INTEGER DEFAULT 0",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS crm_status TEXT DEFAULT 'Active Client'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS next_followup_date DATE",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS crm_notes TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS grace_days INTEGER DEFAULT 0",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_client_code ON tenants(lower(client_code)) WHERE client_code IS NOT NULL AND client_code<>''",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
@@ -458,6 +603,22 @@ def init_db():
               ('P K University','Rajasthan','#0891B2')]:
         cur.execute("INSERT INTO universities (tenant_id,name,state,color) VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING", (default_tenant,)+u)
     for m in [
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_students INTEGER",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_users INTEGER",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_name TEXT DEFAULT 'Custom'",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS client_code TEXT",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS custom_domain TEXT",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subdomain TEXT",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url TEXT",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS letterhead_text TEXT",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS grace_days INTEGER DEFAULT 0",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS crm_status TEXT DEFAULT 'Active Client'",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS next_followup_date DATE",
+              "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS crm_notes TEXT",
+              "ALTER TABLE tenant_renewals ADD COLUMN IF NOT EXISTS invoice_sent_at TIMESTAMP",
+              "ALTER TABLE tenant_renewals ADD COLUMN IF NOT EXISTS invoice_send_channel TEXT",
+              "CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_client_code ON tenants(lower(client_code)) WHERE client_code IS NOT NULL AND client_code<>''",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "UPDATE users SET tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1) WHERE tenant_id IS NULL",
@@ -539,6 +700,11 @@ def init_db():
               "ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS can_download_backup BOOLEAN DEFAULT FALSE",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS installment_id INTEGER",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'student_receivable'",
+              "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+              "ALTER TABLE fee_installments ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+              "ALTER TABLE leads ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+              "ALTER TABLE follow_ups ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+              "ALTER TABLE university_payables ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'associate_expense'",
               "ALTER TABLE references_ ADD COLUMN IF NOT EXISTS account_bucket TEXT DEFAULT 'reference_expense'",
               "ALTER TABLE associates ADD COLUMN IF NOT EXISTS created_by INTEGER",
@@ -591,13 +757,25 @@ def login():
     ip = request.remote_addr or 'unknown'
     username = (d.get('username') or '').strip()
     password = (d.get('password') or '').strip()
+    client_code = (d.get('client_code') or '').strip()
+    if '/' in username or ':' in username:
+        sep = '/' if '/' in username else ':'
+        client_code, username = [x.strip() for x in username.split(sep, 1)]
 
     def repair_default_admin():
         try:
-            q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
+            q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, plan_name TEXT DEFAULT 'Custom', client_code TEXT UNIQUE, custom_domain TEXT, subdomain TEXT, logo_url TEXT, letterhead_text TEXT, grace_days INTEGER DEFAULT 0, crm_status TEXT DEFAULT 'Active Client', next_followup_date DATE, crm_notes TEXT, max_students INTEGER, max_users INTEGER, storage_limit_mb INTEGER, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
             q("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, tenant_id INTEGER, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT 'Admin', role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())", commit=True)
             q("INSERT INTO tenants (name,status,notes) VALUES (%s,%s,%s) ON CONFLICT (name) DO NOTHING", ('Sky Eduworld','Active','Default tenant for existing data'), commit=True)
             for sql in [
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_students INTEGER",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_users INTEGER",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS storage_limit_mb INTEGER",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_name TEXT DEFAULT 'Custom'",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS client_code TEXT",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url TEXT",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS letterhead_text TEXT",
+                "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS grace_days INTEGER DEFAULT 0",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT 'Admin'",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Staff'",
@@ -626,7 +804,11 @@ def login():
     is_default_admin_login = is_admin_login and password and (password == 'sky@2024' or admin_recovery_mode)
     if is_default_admin_login:
         repair_default_admin()
-    user = q("SELECT * FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", (username,), one=True)
+    if client_code:
+        user = q("""SELECT u.* FROM users u JOIN tenants t ON t.id=u.tenant_id
+                    WHERE LOWER(t.client_code)=LOWER(%s) AND LOWER(u.username)=LOWER(%s) LIMIT 1""", (client_code,username), one=True)
+    else:
+        user = q("SELECT * FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", (username,), one=True)
     if user and user.get('username','').lower() == 'admin' and password == 'sky@2024' and user.get('password') != hash_pw('sky@2024'):
         q("UPDATE users SET password=%s,is_active=TRUE,tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1),failed_logins=0 WHERE id=%s", (hash_pw('sky@2024'),user['id']), commit=True)
         user = q("SELECT * FROM users WHERE id=%s", (user['id'],), one=True)
@@ -644,6 +826,9 @@ def login():
         return jsonify({'error':'Invalid username or password'}), 401
     if not user.get('is_active',True):
         return jsonify({'error':'Account disabled. Contact admin.'}), 401
+    blocked = subscription_block(user)
+    if blocked:
+        return jsonify({'error': blocked}), 403
     token = str(uuid.uuid4())
     q("UPDATE users SET session_token=%s, failed_logins=0, last_login=NOW() WHERE id=%s", (token, user['id']), commit=True)
     try:
@@ -653,11 +838,7 @@ def login():
     session.permanent = True
     session['user_id'] = user['id']; session['username'] = user['username']; session['tenant_id'] = user.get('tenant_id')
     session['role'] = user['role']; session['session_token'] = token
-    perms = get_user_perms(user['id']); univs = get_user_univs(user['id'])
-    active_sess = get_active_session()
-    return jsonify({'success':True,'user':{'id':user['id'],'username':user['username'],
-        'full_name':user['full_name'],'role':user['role'],'tenant_id':user.get('tenant_id'),'permissions':perms,
-        'assigned_universities':univs,'active_session':serialize(active_sess) if active_sess else None}})
+    return jsonify({'success':True,'user':user_payload(user)})
 
 _login_impl = login
 def login_with_diagnostics():
@@ -684,19 +865,22 @@ def logout():
 @login_required
 def me():
     user = q("SELECT id,tenant_id,username,full_name,role,last_login FROM users WHERE id=%s", (session['user_id'],), one=True)
-    perms = get_user_perms(session['user_id']); univs = get_user_univs(session['user_id'])
+    blocked = subscription_block(user)
+    if blocked:
+        session.clear()
+        return jsonify({'error':blocked,'redirect':'/'}), 403
     unread = q("SELECT COUNT(*) AS c FROM notifications WHERE user_id=%s AND is_read=FALSE", (session['user_id'],), one=True)
-    active_sess = get_active_session()
-    return jsonify({**serialize(user),'permissions':perms,'assigned_universities':univs,
-                    'unread_notifications':unread['c'] if unread else 0,
-                    'active_session':serialize(active_sess) if active_sess else None})
+    payload = user_payload(user)
+    payload['last_login'] = serialize(user).get('last_login')
+    payload['unread_notifications'] = unread['c'] if unread else 0
+    return jsonify(payload)
 
 # DASHBOARD
 @app.route('/api/dashboard')
 @login_required
 def dashboard():
     uid = session['user_id']; fs, fp = student_filter(uid, 's')
-    stats = q(f"SELECT COUNT(*) AS student_count, COALESCE(SUM(paid),0) AS total_collected, COALESCE(SUM(total_fee-paid),0) AS outstanding, COALESCE(SUM(univ_fee),0) AS univ_fee_total FROM students WHERE TRUE {fs}", fp, one=True)
+    stats = q(f"SELECT COUNT(*) AS student_count, COALESCE(SUM(s.paid),0) AS total_collected, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding, COALESCE(SUM(s.univ_fee),0) AS univ_fee_total FROM students s WHERE TRUE {fs}", fp, one=True)
     perms = get_user_perms(uid)
     assoc_total = ref_total = 0
     if perms.get('can_view_associates') or is_super_admin():
@@ -713,25 +897,42 @@ def dashboard():
         stats['overdue_count'] = pending_inst['c']; stats['overdue_amount'] = float(pending_inst['total'])
     except Exception: stats['overdue_count'] = 0; stats['overdue_amount'] = 0
     try:
-        leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted'" + ("" if is_super_admin() else " AND created_by=%s"), () if is_super_admin() else (uid,), one=True)
+        leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted'" + ("" if is_super_admin() else " AND tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
         stats['active_leads'] = leads_count['c']
     except Exception: stats['active_leads'] = 0
     recent = q(f"SELECT s.*, u.full_name AS created_by_name FROM students s LEFT JOIN users u ON u.id=s.created_by WHERE TRUE {fs} ORDER BY s.id DESC LIMIT 6", fp)
-    fee_tracker = q(f"SELECT * FROM students WHERE TRUE {fs} AND total_fee > paid ORDER BY (total_fee-paid) DESC LIMIT 5", fp)
+    fee_tracker = q(f"SELECT s.* FROM students s WHERE TRUE {fs} AND s.total_fee > s.paid ORDER BY (s.total_fee-s.paid) DESC LIMIT 5", fp)
     if is_super_admin():
-        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10")
+        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10")
     else:
-        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.created_by=%s GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10", (uid,))
+        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id WHERE u.tenant_id=%s GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10", (current_tenant_id(),))
     user_summary = []
     if is_super_admin():
         user_summary = [serialize(r) for r in q("SELECT u.id, u.full_name, u.role, u.last_login, COUNT(s.id) AS student_count, COALESCE(SUM(s.paid),0) AS total_collected, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding FROM users u LEFT JOIN students s ON s.created_by=u.id GROUP BY u.id,u.full_name,u.role,u.last_login ORDER BY student_count DESC")]
     try:
         followups = q("SELECT f.*, s.name AS student_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id WHERE f.next_date >= CURRENT_DATE AND f.next_date <= CURRENT_DATE+7 AND f.created_by=%s ORDER BY f.next_date LIMIT 5", (uid,))
     except Exception: followups = []
+    expiring_tenants = []
+    if is_super_admin():
+        try:
+            expiring_tenants = [serialize(r) for r in q("""SELECT id,name,plan_name,status,subscription_end,
+                (subscription_end - CURRENT_DATE)::int AS days_left
+                FROM tenants
+                WHERE subscription_end IS NOT NULL AND subscription_end >= CURRENT_DATE AND subscription_end <= CURRENT_DATE + 15
+                ORDER BY subscription_end LIMIT 8""")]
+        except Exception: expiring_tenants = []
+        try:
+            rev = q("SELECT COALESCE(SUM(amount),0) AS month_revenue FROM tenant_renewals WHERE created_at >= date_trunc('month', CURRENT_DATE)", one=True)
+            due = q("SELECT COUNT(*) AS c FROM tenants WHERE subscription_end IS NOT NULL AND subscription_end <= CURRENT_DATE + 15", one=True)
+            stats['subscription_revenue'] = float(rev['month_revenue'] or 0)
+            stats['renewals_due'] = due['c'] or 0
+        except Exception:
+            stats['subscription_revenue'] = 0; stats['renewals_due'] = 0
     return jsonify({'stats':{k:float(v) if isinstance(v,(int,float)) else v for k,v in stats.items()},
                     'recent':[serialize(r) for r in recent],'fee_tracker':[serialize(r) for r in fee_tracker],
                     'universities':univs,'user_summary':user_summary,'permissions':perms,
-                    'upcoming_followups':[serialize(r) for r in followups]})
+                    'upcoming_followups':[serialize(r) for r in followups],
+                    'expiring_tenants':expiring_tenants})
 
 # STUDENTS
 @app.route('/api/students', methods=['GET'])
@@ -765,6 +966,8 @@ def add_student():
     if univs and d.get('university') not in univs: return jsonify({'error':'Not assigned to this university'}), 403
     active_sess = get_active_session()
     tid = current_tenant_id()
+    limit_error = check_tenant_limit(tid, 'students')
+    if limit_error: return jsonify({'error':limit_error}), 403
     row = q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
                (tid, uid, active_sess['id'] if active_sess else None, d.get('name'), d.get('father'), d.get('mother'),
                 d.get('dob') or None, d.get('gender'), d.get('mobile'), d.get('email'), d.get('aadhar'), d.get('address'),
@@ -910,6 +1113,9 @@ def upload_photo(sid):
     if 'photo' not in request.files: return jsonify({'error':'No photo'}), 400
     file = request.files['photo']
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
+    file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
+    storage_error = check_storage_limit(st.get('tenant_id'), size)
+    if storage_error: return jsonify({'error':storage_error}), 403
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"student_{sid}_photo_{uuid.uuid4().hex[:8]}.{ext}"
     file.save(os.path.join(UPLOAD_FOLDER, filename))
@@ -927,7 +1133,20 @@ def get_payments(sid):
     st = q(f"SELECT id,tenant_id FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
     if not st: return jsonify({'error':'Not found or access denied'}), 404
     rows = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s AND fp.tenant_id=%s ORDER BY fp.id DESC", (sid,st.get('tenant_id')))
-    return jsonify([serialize(r) for r in rows])
+    out = []
+    for r in rows:
+        sr = serialize(r)
+        score = 30
+        try:
+            if r.get('subscription_end') and _date_value(r.get('subscription_end')) and _date_value(r.get('subscription_end')) >= date.today(): score += 25
+            if (r.get('status') or 'Active') == 'Active': score += 20
+            if int(r.get('student_count') or 0) > 0: score += 15
+            last_login = q("SELECT MAX(last_login) AS last_login FROM users WHERE tenant_id=%s", (r['id'],), one=True)
+            if last_login and last_login.get('last_login') and (datetime.now() - last_login['last_login']).days <= 15: score += 10
+        except Exception: pass
+        sr['health_score'] = min(score, 100)
+        out.append(sr)
+    return jsonify(out)
 
 @app.route('/api/students/<int:sid>/payments', methods=['POST'])
 @login_required
@@ -1442,11 +1661,14 @@ def update_guide(gid):
 @require_perm('can_manage_universities')
 def upload_guide_file(gid):
     tf,tp = tenant_filter('', include_super=True)
-    if not q("SELECT id FROM guides WHERE id=%s"+tf, (gid,*tp), one=True): return jsonify({'error':'Guide not found or access denied'}), 404
+    guide = q("SELECT id,tenant_id FROM guides WHERE id=%s"+tf, (gid,*tp), one=True)
+    if not guide: return jsonify({'error':'Guide not found or access denied'}), 404
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
     if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
+    storage_error = check_storage_limit(guide.get('tenant_id'), size)
+    if storage_error: return jsonify({'error':storage_error}), 403
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"guide_{gid}_{uuid.uuid4().hex[:8]}.{ext}"
@@ -1629,11 +1851,14 @@ def add_document():
 @require_perm('can_upload_document')
 def upload_doc_file(did):
     tf,tp = tenant_filter('', include_super=True)
-    if not q("SELECT id FROM documents WHERE id=%s"+tf, (did,*tp), one=True): return jsonify({'error':'Document not found or access denied'}), 404
+    doc = q("SELECT id,tenant_id FROM documents WHERE id=%s"+tf, (did,*tp), one=True)
+    if not doc: return jsonify({'error':'Document not found or access denied'}), 404
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
     if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
+    storage_error = check_storage_limit(doc.get('tenant_id'), size)
+    if storage_error: return jsonify({'error':storage_error}), 403
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"doc_{did}_{uuid.uuid4().hex[:8]}.{ext}"
@@ -1674,7 +1899,7 @@ def mark_read(nid):
 # USERS
 @app.route('/api/tenants', methods=['GET'])
 @login_required
-@require_perm('can_manage_users')
+@super_admin_required
 def get_tenants():
     if is_super_admin():
         rows = q("""SELECT t.*,
@@ -1698,18 +1923,23 @@ def get_tenants():
 
 @app.route('/api/tenants', methods=['POST'])
 @login_required
-@require_perm('can_manage_users')
+@super_admin_required
 def add_tenant():
     if not is_super_admin(): return jsonify({'error':'Only Super Admin can add clients'}), 403
     d = request.json or {}
     name = (d.get('name') or '').strip()
     if not name: return jsonify({'error':'Client name required'}), 400
-    row = q_ret("""INSERT INTO tenants (name,status,subscription_start,subscription_end,notes)
-                   VALUES (%s,%s,%s,%s,%s)
+    row = q_ret("""INSERT INTO tenants (name,status,subscription_start,subscription_end,plan_name,client_code,custom_domain,subdomain,logo_url,letterhead_text,grace_days,crm_status,next_followup_date,crm_notes,max_students,max_users,storage_limit_mb,notes)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                    ON CONFLICT (name) DO UPDATE SET status=EXCLUDED.status, subscription_start=EXCLUDED.subscription_start,
-                   subscription_end=EXCLUDED.subscription_end, notes=EXCLUDED.notes
+                   subscription_end=EXCLUDED.subscription_end, plan_name=EXCLUDED.plan_name, client_code=EXCLUDED.client_code,
+                   custom_domain=EXCLUDED.custom_domain, subdomain=EXCLUDED.subdomain,
+                   logo_url=EXCLUDED.logo_url, letterhead_text=EXCLUDED.letterhead_text, grace_days=EXCLUDED.grace_days,
+                   crm_status=EXCLUDED.crm_status, next_followup_date=EXCLUDED.next_followup_date, crm_notes=EXCLUDED.crm_notes,
+                   max_students=EXCLUDED.max_students, max_users=EXCLUDED.max_users,
+                   storage_limit_mb=EXCLUDED.storage_limit_mb, notes=EXCLUDED.notes
                    RETURNING *""",
-                (name,d.get('status','Active'),d.get('subscription_start') or date.today().isoformat(),d.get('subscription_end') or None,d.get('notes')))
+                (name,d.get('status','Active'),d.get('subscription_start') or date.today().isoformat(),d.get('subscription_end') or None,d.get('plan_name') or 'Custom',d.get('client_code') or None,d.get('custom_domain') or None,d.get('subdomain') or None,d.get('logo_url') or None,d.get('letterhead_text') or None,d.get('grace_days') or 0,d.get('crm_status') or 'Active Client',d.get('next_followup_date') or None,d.get('crm_notes') or None,d.get('max_students') or None,d.get('max_users') or None,d.get('storage_limit_mb') or None,d.get('notes')))
     src = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
     src_id = src['id'] if src else row['id']
     tenant_id = row['id']
@@ -1724,20 +1954,101 @@ def add_tenant():
         try: q(sql, (tenant_id,session['user_id'],src_id) if 'created_by' in sql else (tenant_id,src_id), commit=True)
         except Exception: get_db().rollback()
     log_action('Add','Tenant',tenant_id,name)
+    if d.get('renewal_amount') or d.get('subscription_end'):
+        q("INSERT INTO tenant_renewals (tenant_id,renewed_by,plan_name,amount,pay_mode,start_date,end_date,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+          (tenant_id,session['user_id'],d.get('plan_name') or 'Custom',d.get('renewal_amount') or 0,d.get('renewal_mode') or '',d.get('subscription_start') or date.today().isoformat(),d.get('subscription_end') or None,d.get('notes')), commit=True)
     return jsonify(serialize(row)), 201
 
 @app.route('/api/tenants/<int:tid>', methods=['PUT'])
 @login_required
-@require_perm('can_manage_users')
+@super_admin_required
 def update_tenant(tid):
     if not is_super_admin() and tid != current_tenant_id(): return jsonify({'error':'Tenant access denied'}), 403
     d = request.json or {}
-    row = q_ret("""UPDATE tenants SET name=%s,status=%s,subscription_start=%s,subscription_end=%s,notes=%s
+    row = q_ret("""UPDATE tenants SET name=%s,status=%s,subscription_start=%s,subscription_end=%s,plan_name=%s,client_code=%s,custom_domain=%s,subdomain=%s,logo_url=%s,letterhead_text=%s,grace_days=%s,crm_status=%s,next_followup_date=%s,crm_notes=%s,max_students=%s,max_users=%s,storage_limit_mb=%s,notes=%s
                    WHERE id=%s RETURNING *""",
-                ((d.get('name') or '').strip(),d.get('status','Active'),d.get('subscription_start') or None,d.get('subscription_end') or None,d.get('notes'),tid))
+                ((d.get('name') or '').strip(),d.get('status','Active'),d.get('subscription_start') or None,d.get('subscription_end') or None,d.get('plan_name') or 'Custom',d.get('client_code') or None,d.get('custom_domain') or None,d.get('subdomain') or None,d.get('logo_url') or None,d.get('letterhead_text') or None,d.get('grace_days') or 0,d.get('crm_status') or 'Active Client',d.get('next_followup_date') or None,d.get('crm_notes') or None,d.get('max_students') or None,d.get('max_users') or None,d.get('storage_limit_mb') or None,d.get('notes'),tid))
     if not row: return jsonify({'error':'Client not found'}), 404
+    if d.get('renewal_amount'):
+        q("INSERT INTO tenant_renewals (tenant_id,renewed_by,plan_name,amount,pay_mode,start_date,end_date,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+          (tid,session['user_id'],d.get('plan_name') or row.get('plan_name') or 'Custom',d.get('renewal_amount') or 0,d.get('renewal_mode') or '',d.get('subscription_start') or None,d.get('subscription_end') or None,d.get('renewal_notes') or d.get('notes')), commit=True)
     log_action('Edit','Tenant',tid,row.get('name'))
     return jsonify(serialize(row))
+
+@app.route('/api/tenants/<int:tid>/renewals', methods=['GET'])
+@login_required
+@super_admin_required
+def tenant_renewal_history(tid):
+    rows = q("""SELECT tr.*, u.full_name AS renewed_by_name FROM tenant_renewals tr
+                LEFT JOIN users u ON u.id=tr.renewed_by
+                WHERE tr.tenant_id=%s ORDER BY tr.id DESC""", (tid,))
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/tenant-renewals/<int:rid>/invoice')
+@login_required
+@super_admin_required
+def tenant_invoice(rid):
+    row = q("""SELECT tr.*, t.name AS tenant_name, t.client_code, t.logo_url, t.letterhead_text, u.full_name AS renewed_by_name
+               FROM tenant_renewals tr
+               JOIN tenants t ON t.id=tr.tenant_id
+               LEFT JOIN users u ON u.id=tr.renewed_by
+               WHERE tr.id=%s""", (rid,), one=True)
+    if not row: return jsonify({'error':'Invoice not found'}), 404
+    logo = f"<img src='{row.get('logo_url')}' style='height:54px;object-fit:contain'>" if row.get('logo_url') else "<div style='font-size:34px'>🎓</div>"
+    html = f"""<!doctype html><html><head><meta charset='utf-8'><title>Invoice #{rid}</title>
+    <style>body{{font-family:Arial,sans-serif;color:#0f172a;padding:32px}}.box{{max-width:760px;margin:auto;border:1px solid #dbe3ef;border-radius:10px;padding:28px}}.top{{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}}.muted{{color:#64748b;font-size:13px}}table{{width:100%;border-collapse:collapse;margin-top:24px}}td,th{{border-bottom:1px solid #e2e8f0;padding:11px;text-align:left}}.total{{font-size:24px;font-weight:800;text-align:right;margin-top:20px}}@media print{{button{{display:none}}body{{padding:0}}.box{{border:0}}}}</style></head>
+    <body><div class='box'><div class='top'><div>{logo}<h2>{row.get('tenant_name')}</h2><div class='muted'>{row.get('letterhead_text') or 'Sky Eduworld Subscription Invoice'}</div><div class='muted'>Client Code: {row.get('client_code') or '-'}</div></div><div><h1>Invoice</h1><div class='muted'>Invoice #: SKY-SUB-{rid}</div><div class='muted'>Date: {str(row.get('created_at'))[:10]}</div></div></div>
+    <table><tr><th>Plan</th><td>{row.get('plan_name') or 'Custom'}</td></tr><tr><th>Period</th><td>{row.get('start_date') or '-'} to {row.get('end_date') or '-'}</td></tr><tr><th>Payment Mode</th><td>{row.get('pay_mode') or '-'}</td></tr><tr><th>Received By</th><td>{row.get('renewed_by_name') or '-'}</td></tr><tr><th>Notes</th><td>{row.get('notes') or '-'}</td></tr></table>
+    <div class='total'>Amount: ₹{float(row.get('amount') or 0):,.2f}</div><p class='muted'>This is a computer generated invoice.</p><button onclick='window.print()'>Print / Save PDF</button></div></body></html>"""
+    return Response(html, mimetype='text/html')
+
+@app.route('/api/tenant-renewals/<int:rid>/send-invoice', methods=['POST'])
+@login_required
+@super_admin_required
+def send_tenant_invoice(rid):
+    d = request.json or {}
+    channel = d.get('channel') or 'Manual'
+    row = q_ret("UPDATE tenant_renewals SET invoice_sent_at=NOW(), invoice_send_channel=%s WHERE id=%s RETURNING *", (channel,rid))
+    if not row: return jsonify({'error':'Renewal not found'}), 404
+    log_action('Send Invoice','Tenant Renewal',rid,channel)
+    return jsonify({'success':True,'message':'Invoice send log saved. Email/WhatsApp gateway connect hone par ye actual send karega.'})
+
+@app.route('/api/tenants/<int:tid>/impersonate', methods=['POST'])
+@login_required
+@super_admin_required
+def impersonate_tenant(tid):
+    tenant = q("SELECT * FROM tenants WHERE id=%s", (tid,), one=True)
+    if not tenant: return jsonify({'error':'Client not found'}), 404
+    user = q("SELECT * FROM users WHERE tenant_id=%s AND role='Admin' AND is_active=TRUE ORDER BY id LIMIT 1", (tid,), one=True)
+    if not user:
+        user = q("SELECT * FROM users WHERE tenant_id=%s AND is_active=TRUE ORDER BY id LIMIT 1", (tid,), one=True)
+    if not user: return jsonify({'error':'Is client me active admin/user nahi hai'}), 404
+    blocked = subscription_block(user)
+    if blocked: return jsonify({'error':blocked}), 403
+    session['owner_user_id'] = session.get('owner_user_id') or session['user_id']
+    token = str(uuid.uuid4())
+    q("UPDATE users SET session_token=%s, failed_logins=0, last_login=NOW() WHERE id=%s", (token,user['id']), commit=True)
+    session['user_id'] = user['id']; session['username'] = user['username']; session['tenant_id'] = user.get('tenant_id')
+    session['role'] = user['role']; session['session_token'] = token
+    log_action('Support Login','Tenant',tid,tenant.get('name'))
+    return jsonify({'success':True,'user':user_payload(user)})
+
+@app.route('/api/impersonation/stop', methods=['POST'])
+@login_required
+def stop_impersonation():
+    owner_id = session.get('owner_user_id')
+    if not owner_id: return jsonify({'error':'Support login active nahi hai'}), 400
+    owner = q("SELECT * FROM users WHERE id=%s AND is_active=TRUE", (owner_id,), one=True)
+    if not owner:
+        session.clear()
+        return jsonify({'error':'Owner session restore nahi ho paya'}), 401
+    token = str(uuid.uuid4())
+    q("UPDATE users SET session_token=%s WHERE id=%s", (token,owner['id']), commit=True)
+    session.pop('owner_user_id', None)
+    session['user_id'] = owner['id']; session['username'] = owner['username']; session['tenant_id'] = owner.get('tenant_id')
+    session['role'] = owner['role']; session['session_token'] = token
+    log_action('Stop Support Login','Tenant',owner.get('tenant_id'))
+    return jsonify({'success':True,'user':user_payload(owner)})
 
 @app.route('/api/users', methods=['GET'])
 @login_required
@@ -1770,8 +2081,8 @@ def add_user():
     d = request.json or {}
     if d.get('role') == 'Super Admin' and not is_super_admin(): return jsonify({'error':'Only Super Admin can create Super Admin'}), 403
     if is_super_admin() and d.get('tenant_name'):
-        tenant = q_ret("INSERT INTO tenants (name,status,subscription_start,subscription_end,notes) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (name) DO UPDATE SET status=EXCLUDED.status, subscription_end=EXCLUDED.subscription_end RETURNING id",
-                       (d.get('tenant_name').strip(), d.get('tenant_status','Active'), d.get('subscription_start') or date.today().isoformat(), d.get('subscription_end') or None, d.get('tenant_notes')))
+        tenant = q_ret("INSERT INTO tenants (name,status,subscription_start,subscription_end,plan_name,max_students,max_users,storage_limit_mb,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (name) DO UPDATE SET status=EXCLUDED.status, subscription_end=EXCLUDED.subscription_end, plan_name=EXCLUDED.plan_name, max_students=EXCLUDED.max_students, max_users=EXCLUDED.max_users, storage_limit_mb=EXCLUDED.storage_limit_mb RETURNING id",
+                       (d.get('tenant_name').strip(), d.get('tenant_status','Active'), d.get('subscription_start') or date.today().isoformat(), d.get('subscription_end') or None, d.get('plan_name') or 'Custom', d.get('max_students') or None, d.get('max_users') or None, d.get('storage_limit_mb') or None, d.get('tenant_notes')))
         tenant_id = tenant['id']
         src = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
         src_id = src['id'] if src else tenant_id
@@ -1783,6 +2094,8 @@ def add_user():
         q("INSERT INTO student_statuses (tenant_id,name,category,is_active) SELECT %s,name,category,is_active FROM student_statuses WHERE tenant_id=%s ON CONFLICT DO NOTHING", (tenant_id,src_id), commit=True)
     else:
         tenant_id = current_tenant_id()
+    limit_error = check_tenant_limit(tenant_id, 'users')
+    if limit_error: return jsonify({'error':limit_error}), 403
     try:
         new_user = q_ret("INSERT INTO users (tenant_id,username,password,full_name,role) VALUES (%s,%s,%s,%s,%s) RETURNING id",
                          (tenant_id,d.get('username'), hash_pw(d.get('password','')), d.get('full_name'), d.get('role','Staff')))
@@ -2194,7 +2507,23 @@ def download_backup():
         data['tables']['follow_ups']=rows("SELECT * FROM follow_ups WHERE tenant_id=%s ORDER BY id", (tenant_id,))
     payload=json.dumps(data, ensure_ascii=False, indent=2)
     fname=f"sky_backup_{data['scope']}_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+    try:
+        q("INSERT INTO backup_history (tenant_id,downloaded_by,scope,file_name) VALUES (%s,%s,%s,%s)",
+          (None if all_tenants else tenant_id,uid,data['scope'],fname), commit=True)
+        log_action('Download','Backup',tenant_id if tenant_id else None,fname)
+    except Exception: pass
     return Response(payload, mimetype='application/json', headers={'Content-Disposition': f'attachment; filename={fname}'})
+
+@app.route('/api/backup-history', methods=['GET'])
+@login_required
+@super_admin_required
+def backup_history():
+    rows = q("""SELECT bh.*, t.name AS tenant_name, u.full_name AS downloaded_by_name
+                FROM backup_history bh
+                LEFT JOIN tenants t ON t.id=bh.tenant_id
+                LEFT JOIN users u ON u.id=bh.downloaded_by
+                ORDER BY bh.id DESC LIMIT 100""")
+    return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/import/multi', methods=['POST'])
 @login_required
