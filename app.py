@@ -129,26 +129,27 @@ def ensure_student_import_columns():
         get_db().rollback()
 
 def find_student_for_import(row, allow_name_match=True):
+    tf, tp = tenant_filter('', include_super=True)
     sid = first_val(row, 'student_id', 'Student ID', 'ID', 'Access ID', 'Old Student ID', 'Import Student ID')
     if sid:
         sid_text = str(sid).strip()
         sid_int = sid_text[:-2] if sid_text.endswith('.0') else sid_text
-        st = q("SELECT * FROM students WHERE external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (sid_text, sid_int), one=True)
+        st = q("SELECT * FROM students WHERE external_id IN (%s,%s)"+tf+" ORDER BY id DESC LIMIT 1", (sid_text, sid_int, *tp), one=True)
         if st: return st
     student_code = first_val(row, 'student_code', 'Student Code', 'Auto ID', 'Code')
     if student_code:
-        st = q("SELECT * FROM students WHERE UPPER(student_code)=UPPER(%s) ORDER BY id DESC LIMIT 1", (student_code,), one=True)
+        st = q("SELECT * FROM students WHERE UPPER(student_code)=UPPER(%s)"+tf+" ORDER BY id DESC LIMIT 1", (student_code, *tp), one=True)
         if st: return st
     mobile = first_val(row, 'mobile', 'Contact No', 'Contact', 'Phone')
     name = first_val(row, 'name', 'student_name', 'Student Name', 'Student')
     if mobile:
-        st = q("SELECT * FROM students WHERE regexp_replace(COALESCE(mobile,''),'[^0-9]','','g')=regexp_replace(%s,'[^0-9]','','g') ORDER BY id DESC LIMIT 1", (mobile,), one=True)
+        st = q("SELECT * FROM students WHERE regexp_replace(COALESCE(mobile,''),'[^0-9]','','g')=regexp_replace(%s,'[^0-9]','','g')"+tf+" ORDER BY id DESC LIMIT 1", (mobile, *tp), one=True)
         if st: return st
     if allow_name_match and name:
-        st = q("SELECT * FROM students WHERE LOWER(trim(name))=LOWER(trim(%s)) ORDER BY id DESC LIMIT 1", (name,), one=True)
+        st = q("SELECT * FROM students WHERE LOWER(trim(name))=LOWER(trim(%s))"+tf+" ORDER BY id DESC LIMIT 1", (name, *tp), one=True)
         if st: return st
         normalized_name = ' '.join(str(name or '').split())
-        st = q("SELECT * FROM students WHERE regexp_replace(LOWER(COALESCE(name,'')),'\\s+',' ','g')=LOWER(%s) ORDER BY id DESC LIMIT 1", (normalized_name,), one=True)
+        st = q("SELECT * FROM students WHERE regexp_replace(LOWER(COALESCE(name,'')),'\\s+',' ','g')=LOWER(%s)"+tf+" ORDER BY id DESC LIMIT 1", (normalized_name, *tp), one=True)
         if st: return st
     return None
 
@@ -223,8 +224,21 @@ def ensure_tenant_access(tid):
     return is_super_admin() or (tid and int(tid) == int(current_tenant_id() or 0))
 
 def get_user_perms(user_id):
-    user_row = q("SELECT role FROM users WHERE id=%s", (user_id,), one=True)
+    user_row = q("SELECT id,tenant_id,role FROM users WHERE id=%s", (user_id,), one=True)
     if user_row and user_row['role'] == 'Super Admin':
+        return {p:True for p in [
+            'can_add_student','can_edit_student','can_delete_student','can_save_partial_student',
+            'can_view_payments','can_add_payment','can_view_fee_types','can_manage_fee_types',
+            'can_view_associates','can_manage_associates',
+            'can_view_references','can_manage_references',
+            'can_view_documents','can_upload_document','can_issue_document','can_delete_document','can_manage_masters',
+            'can_view_student_report','can_view_fee_report',
+            'can_view_outstanding_report','can_view_assocref_report','can_view_leads_report',
+            'can_manage_universities','can_view_all_students','can_view_accounts','can_manage_accounts','can_view_profit_report',
+            'can_manage_leads','can_view_audit_logs','can_manage_users','can_download_backup','can_view_reports']}
+    default_tenant = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
+    default_tenant_id = default_tenant['id'] if default_tenant else None
+    if user_row and user_row['role'] == 'Admin' and user_row.get('tenant_id') and user_row.get('tenant_id') != default_tenant_id:
         return {p:True for p in [
             'can_add_student','can_edit_student','can_delete_student','can_save_partial_student',
             'can_view_payments','can_add_payment','can_view_fee_types','can_manage_fee_types',
@@ -686,10 +700,10 @@ def dashboard():
     perms = get_user_perms(uid)
     assoc_total = ref_total = 0
     if perms.get('can_view_associates') or is_super_admin():
-        a = q("SELECT COALESCE(SUM(amount),0) AS t FROM associates" + ("" if is_super_admin() else " WHERE created_by=%s"), () if is_super_admin() else (uid,), one=True)
+        a = q("SELECT COALESCE(SUM(amount),0) AS t FROM associates" + ("" if is_super_admin() else " WHERE tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
         assoc_total = float(a['t'])
     if perms.get('can_view_references') or is_super_admin():
-        r = q("SELECT COALESCE(SUM(amount),0) AS t FROM references_" + ("" if is_super_admin() else " WHERE created_by=%s"), () if is_super_admin() else (uid,), one=True)
+        r = q("SELECT COALESCE(SUM(amount),0) AS t FROM references_" + ("" if is_super_admin() else " WHERE tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
         ref_total = float(r['t'])
     stats['assoc_ref_paid'] = assoc_total + ref_total
     today_col = q(f"SELECT COALESCE(SUM(fp.amount),0) AS t FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE DATE(fp.created_at)=CURRENT_DATE {fs}", fp, one=True)
@@ -782,15 +796,16 @@ def get_student(sid):
     uid = session['user_id']; fs, fp = student_filter(uid,'s')
     row = q(f"SELECT s.* FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
     if not row: return jsonify({'error':'Not found or access denied'}), 404
-    photo = q("SELECT * FROM student_photos WHERE student_id=%s ORDER BY id DESC LIMIT 1", (sid,), one=True)
-    payments = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s ORDER BY fp.id DESC", (sid,))
-    installments = q("SELECT * FROM fee_installments WHERE student_id=%s ORDER BY due_date", (sid,))
-    university_payments = q("SELECT * FROM university_payables WHERE student_id=%s ORDER BY id DESC", (sid,))
-    associates = q("SELECT * FROM associates WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
-    references = q("SELECT * FROM references_ WHERE LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (row.get('name'),))
-    followups = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s ORDER BY f.created_at DESC", (sid,))
-    docs = q("SELECT * FROM documents WHERE student_id=%s ORDER BY id DESC", (sid,))
-    guide = q("SELECT g.*, u.name AS university FROM guide_students gs JOIN guides g ON g.id=gs.guide_id JOIN universities u ON u.id=g.university_id WHERE gs.student_id=%s ORDER BY gs.id DESC LIMIT 1", (sid,), one=True)
+    tid = row.get('tenant_id')
+    photo = q("SELECT * FROM student_photos WHERE student_id=%s AND tenant_id=%s ORDER BY id DESC LIMIT 1", (sid,tid), one=True)
+    payments = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s AND fp.tenant_id=%s ORDER BY fp.id DESC", (sid,tid))
+    installments = q("SELECT * FROM fee_installments WHERE student_id=%s AND tenant_id=%s ORDER BY due_date", (sid,tid))
+    university_payments = q("SELECT * FROM university_payables WHERE student_id=%s AND tenant_id=%s ORDER BY id DESC", (sid,tid))
+    associates = q("SELECT * FROM associates WHERE tenant_id=%s AND LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (tid,row.get('name')))
+    references = q("SELECT * FROM references_ WHERE tenant_id=%s AND LOWER(TRIM(COALESCE(student,'')))=LOWER(TRIM(%s)) ORDER BY id DESC", (tid,row.get('name')))
+    followups = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s AND f.tenant_id=%s ORDER BY f.created_at DESC", (sid,tid))
+    docs = q("SELECT * FROM documents WHERE student_id=%s AND tenant_id=%s ORDER BY id DESC", (sid,tid))
+    guide = q("SELECT g.*, u.name AS university FROM guide_students gs JOIN guides g ON g.id=gs.guide_id JOIN universities u ON u.id=g.university_id WHERE gs.student_id=%s AND g.tenant_id=%s ORDER BY gs.id DESC LIMIT 1", (sid,tid), one=True)
     row['photo'] = serialize(photo) if photo else None
     row['payments'] = [serialize(r) for r in payments]
     row['installments'] = [serialize(r) for r in installments]
@@ -802,35 +817,35 @@ def get_student(sid):
     row['guide'] = serialize_guide(guide) if guide else None
     return jsonify(serialize(row))
 
-def cleanup_student_related_rows(student_ids=None, student_names=None):
+def cleanup_student_related_rows(student_ids=None, student_names=None, tenant_id=None):
     student_ids = list(dict.fromkeys([int(x) for x in (student_ids or []) if x]))
     student_names = list(dict.fromkeys([str(n).strip() for n in (student_names or []) if str(n or '').strip()]))
     deleted = 0
     if student_ids:
         for sql in [
-            "DELETE FROM follow_ups WHERE student_id = ANY(%s)",
-            "DELETE FROM documents WHERE student_id = ANY(%s)",
-            "DELETE FROM student_photos WHERE student_id = ANY(%s)",
-            "DELETE FROM fee_payments WHERE student_id = ANY(%s)",
-            "DELETE FROM fee_installments WHERE student_id = ANY(%s)",
-            "DELETE FROM university_payables WHERE student_id = ANY(%s)",
+            "DELETE FROM follow_ups WHERE student_id = ANY(%s) AND tenant_id=%s",
+            "DELETE FROM documents WHERE student_id = ANY(%s) AND tenant_id=%s",
+            "DELETE FROM student_photos WHERE student_id = ANY(%s) AND tenant_id=%s",
+            "DELETE FROM fee_payments WHERE student_id = ANY(%s) AND tenant_id=%s",
+            "DELETE FROM fee_installments WHERE student_id = ANY(%s) AND tenant_id=%s",
+            "DELETE FROM university_payables WHERE student_id = ANY(%s) AND tenant_id=%s",
         ]:
             try:
-                deleted += q(sql, (student_ids,), commit=True)
+                deleted += q(sql, (student_ids,tenant_id), commit=True)
             except Exception:
                 pass
     if student_names:
         normalized = [n.strip().lower() for n in student_names if n.strip()]
-        deleted += q("DELETE FROM expenses WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,), commit=True)
-        deleted += q("DELETE FROM documents WHERE LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,), commit=True)
-        assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,))]
-        ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (normalized,))]
+        deleted += q("DELETE FROM expenses WHERE tenant_id=%s AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (tenant_id,normalized), commit=True)
+        deleted += q("DELETE FROM documents WHERE tenant_id=%s AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (tenant_id,normalized), commit=True)
+        assoc_parent_ids = [r['id'] for r in q("SELECT id FROM associates WHERE tenant_id=%s AND parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (tenant_id,normalized))]
+        ref_parent_ids = [r['id'] for r in q("SELECT id FROM references_ WHERE tenant_id=%s AND parent_id IS NULL AND LOWER(TRIM(COALESCE(student,''))) = ANY(%s)", (tenant_id,normalized))]
         if assoc_parent_ids:
-            deleted += q("DELETE FROM associates WHERE parent_id = ANY(%s)", (assoc_parent_ids,), commit=True)
-            deleted += q("DELETE FROM associates WHERE id = ANY(%s)", (assoc_parent_ids,), commit=True)
+            deleted += q("DELETE FROM associates WHERE tenant_id=%s AND parent_id = ANY(%s)", (tenant_id,assoc_parent_ids), commit=True)
+            deleted += q("DELETE FROM associates WHERE tenant_id=%s AND id = ANY(%s)", (tenant_id,assoc_parent_ids), commit=True)
         if ref_parent_ids:
-            deleted += q("DELETE FROM references_ WHERE parent_id = ANY(%s)", (ref_parent_ids,), commit=True)
-            deleted += q("DELETE FROM references_ WHERE id = ANY(%s)", (ref_parent_ids,), commit=True)
+            deleted += q("DELETE FROM references_ WHERE tenant_id=%s AND parent_id = ANY(%s)", (tenant_id,ref_parent_ids), commit=True)
+            deleted += q("DELETE FROM references_ WHERE tenant_id=%s AND id = ANY(%s)", (tenant_id,ref_parent_ids), commit=True)
     return deleted
 
 @app.route('/api/students/<int:sid>', methods=['PUT'])
@@ -855,12 +870,12 @@ def update_student(sid):
 @require_perm('can_delete_student')
 def delete_student(sid):
     uid = session['user_id']; fs, fp = student_filter(uid)
-    st = q(f"SELECT id,name FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
+    st = q(f"SELECT id,name,tenant_id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
     if not st:
         return jsonify({'error':'Not found or access denied'}), 404
-    cleanup_student_related_rows([sid], [st.get('name')])
+    cleanup_student_related_rows([sid], [st.get('name')], current_tenant_id() if not is_super_admin() else q("SELECT tenant_id FROM students WHERE id=%s", (sid,), one=True).get('tenant_id'))
     log_action('Delete','Student',sid)
-    q("DELETE FROM students WHERE id=%s", (sid,), commit=True)
+    q("DELETE FROM students WHERE id=%s AND tenant_id=%s", (sid,st.get('tenant_id') if st.get('tenant_id') else current_tenant_id()), commit=True)
     return jsonify({'success':True})
 
 
@@ -869,7 +884,7 @@ def delete_student(sid):
 @require_perm('can_delete_student')
 def bulk_delete_students():
     d = request.json or {}
-    uid = session['user_id']
+    uid = session['user_id']; tid = current_tenant_id()
     fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.id,s.name FROM students s WHERE TRUE {fs}"
     params = list(fp)
@@ -881,23 +896,26 @@ def bulk_delete_students():
     ids = [r['id'] for r in rows]
     if not ids:
         return jsonify({'success': True, 'deleted': 0})
-    cleanup_student_related_rows(ids, [r.get('name') for r in rows])
-    q("DELETE FROM students WHERE id = ANY(%s)", (ids,), commit=True)
+    cleanup_student_related_rows(ids, [r.get('name') for r in rows], current_tenant_id())
+    q("DELETE FROM students WHERE id = ANY(%s) AND tenant_id=%s", (ids,current_tenant_id()), commit=True)
     log_action('Bulk Delete', 'Student', None, f'{len(ids)} students')
     return jsonify({'success': True, 'deleted': len(ids)})
 
 @app.route('/api/students/<int:sid>/photo', methods=['POST'])
 @login_required
 def upload_photo(sid):
+    uid = session['user_id']; fs, fp = student_filter(uid)
+    st = q(f"SELECT tenant_id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
+    if not st: return jsonify({'error':'Not found or access denied'}), 404
     if 'photo' not in request.files: return jsonify({'error':'No photo'}), 400
     file = request.files['photo']
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"student_{sid}_photo_{uuid.uuid4().hex[:8]}.{ext}"
     file.save(os.path.join(UPLOAD_FOLDER, filename))
-    q("UPDATE students SET photo_path=%s WHERE id=%s", (filename,sid), commit=True)
-    q_ret("INSERT INTO student_photos (student_id,file_path,file_name,uploaded_by) VALUES (%s,%s,%s,%s) RETURNING id",
-          (sid, filename, file.filename, session['user_id']))
+    q("UPDATE students SET photo_path=%s WHERE id=%s AND tenant_id=%s", (filename,sid,st.get('tenant_id')), commit=True)
+    q_ret("INSERT INTO student_photos (tenant_id,student_id,file_path,file_name,uploaded_by) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+          (st.get('tenant_id'), sid, filename, file.filename, session['user_id']))
     return jsonify({'success':True,'filename':filename,'url':f'/uploads/{filename}'})
 
 # FEE PAYMENTS
@@ -905,7 +923,10 @@ def upload_photo(sid):
 @login_required
 @require_perm('can_view_payments')
 def get_payments(sid):
-    rows = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s ORDER BY fp.id DESC", (sid,))
+    uid = session['user_id']; fs, fp = student_filter(uid,'s')
+    st = q(f"SELECT id,tenant_id FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
+    if not st: return jsonify({'error':'Not found or access denied'}), 404
+    rows = q("SELECT fp.*, u.full_name AS by_name FROM fee_payments fp LEFT JOIN users u ON u.id=fp.recorded_by WHERE fp.student_id=%s AND fp.tenant_id=%s ORDER BY fp.id DESC", (sid,st.get('tenant_id')))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/students/<int:sid>/payments', methods=['POST'])
@@ -922,8 +943,8 @@ def add_payment(sid):
     installment_id = d.get('installment_id') or None
     if installment_id and not q("SELECT id FROM fee_installments WHERE id=%s AND student_id=%s", (installment_id, sid), one=True):
         return jsonify({'error':'Selected fee breakup not found'}), 404
-    cur.execute("INSERT INTO fee_payments (student_id,recorded_by,installment_id,amount,fee_type,pay_mode,ref_no,pay_date,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                (sid,uid,installment_id,amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks','')))
+    cur.execute("INSERT INTO fee_payments (tenant_id,student_id,recorded_by,installment_id,amount,fee_type,pay_mode,ref_no,pay_date,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (student.get('tenant_id'),sid,uid,installment_id,amount,d.get('fee_type','Tuition Fee'),d.get('pay_mode','Cash'),d.get('ref_no',''),d.get('pay_date') or date.today().isoformat(),d.get('remarks','')))
     if d.get('installment_id'):
         cur.execute("""UPDATE fee_installments
                        SET status=CASE WHEN COALESCE((SELECT SUM(amount) FROM fee_payments WHERE installment_id=%s),0) >= amount THEN 'Paid' ELSE 'Pending' END,
@@ -945,7 +966,7 @@ def payment_item(sid, pid):
     old=q("SELECT * FROM fee_payments WHERE id=%s AND student_id=%s", (pid,sid), one=True)
     if not old: return jsonify({'error':'Payment not found'}), 404
     if request.method == 'DELETE':
-        q("DELETE FROM fee_payments WHERE id=%s", (pid,), commit=True)
+        q("DELETE FROM fee_payments WHERE id=%s AND tenant_id=%s", (pid,student.get('tenant_id')), commit=True)
     else:
         d=request.json or {}; amount=float(d.get('amount',0) or 0)
         if amount<=0: return jsonify({'error':'Valid amount required'}), 400
@@ -970,7 +991,10 @@ def refresh_student_fee_total(sid):
 @app.route('/api/students/<int:sid>/installments', methods=['GET'])
 @login_required
 def get_installments(sid):
-    return jsonify([serialize(r) for r in q("SELECT * FROM fee_installments WHERE student_id=%s ORDER BY due_date", (sid,))])
+    uid = session['user_id']; fs, fp = student_filter(uid,'s')
+    st = q(f"SELECT id,tenant_id FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
+    if not st: return jsonify({'error':'Not found or access denied'}), 404
+    return jsonify([serialize(r) for r in q("SELECT * FROM fee_installments WHERE student_id=%s AND tenant_id=%s ORDER BY due_date", (sid,st.get('tenant_id')))])
 
 @app.route('/api/students/<int:sid>/installments', methods=['POST'])
 @login_required
@@ -982,8 +1006,8 @@ def add_installment(sid):
     amount = float(d.get('amount',0) or 0)
     if amount <= 0:
         return jsonify({'error':'Valid amount required'}), 400
-    row = q_ret("INSERT INTO fee_installments (student_id,created_by,amount,fee_type,due_date,remarks) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
-                (sid, uid, amount, d.get('fee_type') or 'Tuition Fee', d.get('due_date') or None, d.get('remarks')))
+    row = q_ret("INSERT INTO fee_installments (tenant_id,student_id,created_by,amount,fee_type,due_date,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(), sid, uid, amount, d.get('fee_type') or 'Tuition Fee', d.get('due_date') or None, d.get('remarks')))
     total = refresh_student_fee_total(sid)
     out = serialize(row); out['student_total_fee'] = total
     log_action('Add','Fee Breakup',sid,d.get('fee_type') or 'Tuition Fee')
@@ -999,7 +1023,7 @@ def installment_item(sid, iid):
     if not old:
         return jsonify({'error':'Fee breakup not found'}), 404
     if request.method == 'DELETE':
-        q("DELETE FROM fee_installments WHERE id=%s", (iid,), commit=True)
+        q("DELETE FROM fee_installments WHERE id=%s AND tenant_id=%s", (iid,current_tenant_id()), commit=True)
         total = refresh_student_fee_total(sid)
         log_action('Delete','Fee Breakup',sid,old.get('fee_type'))
         return jsonify({'success':True,'student_total_fee':total})
@@ -1025,15 +1049,20 @@ def overdue_installments():
 @app.route('/api/students/<int:sid>/followups', methods=['GET'])
 @login_required
 def get_followups(sid):
-    rows = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s ORDER BY f.created_at DESC", (sid,))
+    uid = session['user_id']; fs, fp = student_filter(uid,'s')
+    st = q(f"SELECT id,tenant_id FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
+    if not st: return jsonify({'error':'Not found or access denied'}), 404
+    rows = q("SELECT f.*, u.full_name AS by_name FROM follow_ups f LEFT JOIN users u ON u.id=f.created_by WHERE f.student_id=%s AND f.tenant_id=%s ORDER BY f.created_at DESC", (sid,st.get('tenant_id')))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/students/<int:sid>/followups', methods=['POST'])
 @login_required
 def add_followup(sid):
     d = request.json or {}
-    row = q_ret("INSERT INTO follow_ups (created_by,student_id,note,follow_type,next_date) VALUES (%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],sid,d.get('note'),d.get('follow_type','Call'),d.get('next_date') or None))
+    uid = session['user_id']; fs, fp = student_filter(uid,'s')
+    if not q(f"SELECT id FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True): return jsonify({'error':'Not found or access denied'}), 404
+    row = q_ret("INSERT INTO follow_ups (tenant_id,created_by,student_id,note,follow_type,next_date) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(),session['user_id'],sid,d.get('note'),d.get('follow_type','Call'),d.get('next_date') or None))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/followups/upcoming')
@@ -1054,7 +1083,7 @@ def get_leads():
     if is_super_admin():
         sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE TRUE"; params = []
     else:
-        sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE l.created_by=%s"; params = [uid]
+        sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE l.tenant_id=%s"; params = [current_tenant_id()]
     if status: sql += " AND l.status=%s"; params.append(status)
     return jsonify([serialize(r) for r in q(sql+' ORDER BY l.id DESC', params)])
 
@@ -1062,8 +1091,8 @@ def get_leads():
 @login_required
 def add_lead():
     d = request.json or {}
-    row = q_ret("INSERT INTO leads (created_by,name,mobile,email,course,university,source,status,remarks,follow_up_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],d.get('name'),d.get('mobile'),d.get('email'),d.get('course'),d.get('university'),d.get('source','Walk-in'),d.get('status','New'),d.get('remarks'),d.get('follow_up_date') or None))
+    row = q_ret("INSERT INTO leads (tenant_id,created_by,name,mobile,email,course,university,source,status,remarks,follow_up_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(),session['user_id'],d.get('name'),d.get('mobile'),d.get('email'),d.get('course'),d.get('university'),d.get('source','Walk-in'),d.get('status','New'),d.get('remarks'),d.get('follow_up_date') or None))
     log_action('Add','Lead',row['id'] if row else None, d.get('name'))
     return jsonify(serialize(row)), 201
 
@@ -1071,18 +1100,20 @@ def add_lead():
 @login_required
 def update_lead(lid):
     d = request.json or {}
-    row = q_ret("UPDATE leads SET name=%s,mobile=%s,email=%s,course=%s,university=%s,source=%s,status=%s,remarks=%s,follow_up_date=%s WHERE id=%s RETURNING *",
-                (d.get('name'),d.get('mobile'),d.get('email'),d.get('course'),d.get('university'),d.get('source','Walk-in'),d.get('status','New'),d.get('remarks'),d.get('follow_up_date') or None, lid))
+    tf,tp = tenant_filter('', include_super=True)
+    row = q_ret("UPDATE leads SET name=%s,mobile=%s,email=%s,course=%s,university=%s,source=%s,status=%s,remarks=%s,follow_up_date=%s WHERE id=%s"+tf+" RETURNING *",
+                (d.get('name'),d.get('mobile'),d.get('email'),d.get('course'),d.get('university'),d.get('source','Walk-in'),d.get('status','New'),d.get('remarks'),d.get('follow_up_date') or None, lid, *tp))
     return jsonify(serialize(row))
 
 @app.route('/api/leads/<int:lid>/convert', methods=['POST'])
 @login_required
 def convert_lead(lid):
-    lead = q("SELECT * FROM leads WHERE id=%s", (lid,), one=True)
+    tf,tp = tenant_filter('', include_super=True)
+    lead = q("SELECT * FROM leads WHERE id=%s"+tf, (lid, *tp), one=True)
     if not lead: return jsonify({'error':'Lead not found'}), 404
     active_sess = get_active_session()
-    row = q_ret("INSERT INTO students (created_by,session_id,name,mobile,email,course,university,status,adm_date) VALUES (%s,%s,%s,%s,%s,%s,%s,'Active',CURRENT_DATE) RETURNING *",
-                (session['user_id'], active_sess['id'] if active_sess else None, lead['name'],lead['mobile'],lead['email'],lead['course'],lead['university']))
+    row = q_ret("INSERT INTO students (tenant_id,created_by,session_id,name,mobile,email,course,university,status,adm_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'Active',CURRENT_DATE) RETURNING *",
+                (lead.get('tenant_id') or current_tenant_id(), session['user_id'], active_sess['id'] if active_sess else None, lead['name'],lead['mobile'],lead['email'],lead['course'],lead['university']))
     if row:
         assign_student_code(row['id'])
         row = q('SELECT * FROM students WHERE id=%s', (row['id'],), one=True)
@@ -1094,15 +1125,19 @@ def convert_lead(lid):
 @login_required
 def add_lead_followup(lid):
     d = request.json or {}
-    row = q_ret("INSERT INTO follow_ups (created_by,lead_id,note,follow_type,next_date) VALUES (%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],lid,d.get('note'),d.get('follow_type','Call'),d.get('next_date') or None))
-    if d.get('next_date'): q("UPDATE leads SET follow_up_date=%s WHERE id=%s", (d['next_date'],lid), commit=True)
+    tf,tp = tenant_filter('', include_super=True)
+    lead = q("SELECT tenant_id FROM leads WHERE id=%s"+tf, (lid,*tp), one=True)
+    if not lead: return jsonify({'error':'Lead not found'}), 404
+    row = q_ret("INSERT INTO follow_ups (tenant_id,created_by,lead_id,note,follow_type,next_date) VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                (lead.get('tenant_id'),session['user_id'],lid,d.get('note'),d.get('follow_type','Call'),d.get('next_date') or None))
+    if d.get('next_date'): q("UPDATE leads SET follow_up_date=%s WHERE id=%s AND tenant_id=%s", (d['next_date'],lid,lead.get('tenant_id')), commit=True)
     return jsonify(serialize(row)), 201
 
 @app.route('/api/leads/<int:lid>', methods=['DELETE'])
 @login_required
 def delete_lead(lid):
-    q("DELETE FROM leads WHERE id=%s", (lid,), commit=True); return jsonify({'success':True})
+    tf,tp = tenant_filter('', include_super=True)
+    q("DELETE FROM leads WHERE id=%s"+tf, (lid,*tp), commit=True); return jsonify({'success':True})
 
 # ASSOCIATES
 @app.route('/api/associates', methods=['GET'])
@@ -1111,7 +1146,7 @@ def delete_lead(lid):
 def get_associates():
     uid = session['user_id']
     if is_super_admin(): rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL ORDER BY a.id DESC")
-    else: rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL AND a.created_by=%s ORDER BY a.id DESC", (uid,))
+    else: rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL AND a.tenant_id=%s ORDER BY a.id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/associates', methods=['POST'])
@@ -1119,8 +1154,8 @@ def get_associates():
 @require_perm('can_manage_associates')
 def add_associate():
     d = request.json or {}
-    row = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    row = q_ret("INSERT INTO associates (tenant_id,created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(),session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/associates/<int:aid>', methods=['PUT','DELETE'])
@@ -1128,13 +1163,15 @@ def add_associate():
 @require_perm('can_manage_associates')
 def delete_associate(aid):
     if not is_super_admin():
-        if not q("SELECT id FROM associates WHERE id=%s AND created_by=%s", (aid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
+        if not q("SELECT id FROM associates WHERE id=%s AND tenant_id=%s", (aid,current_tenant_id()), one=True): return jsonify({'error':'Access denied'}), 403
     if request.method == 'PUT':
         d = request.json or {}
-        row = q_ret("UPDATE associates SET name=%s,phone=%s,student=%s,work_done=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s RETURNING *",
-                    (d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),aid))
+        tf,tp = tenant_filter('', include_super=True)
+        row = q_ret("UPDATE associates SET name=%s,phone=%s,student=%s,work_done=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s"+tf+" RETURNING *",
+                    (d.get('name'),d.get('phone'),d.get('student'),d.get('work_done'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),aid,*tp))
         return jsonify(serialize(row))
-    q("DELETE FROM associates WHERE id=%s", (aid,), commit=True); return jsonify({'success':True})
+    tf,tp = tenant_filter('', include_super=True)
+    q("DELETE FROM associates WHERE id=%s"+tf, (aid,*tp), commit=True); return jsonify({'success':True})
 
 @app.route('/api/associates/bulk-delete', methods=['POST'])
 @login_required
@@ -1146,7 +1183,7 @@ def bulk_delete_associates():
     if is_super_admin():
         deleted = q("DELETE FROM associates WHERE id = ANY(%s)", (ids,), commit=True)
     else:
-        deleted = q("DELETE FROM associates WHERE id = ANY(%s) AND created_by=%s", (ids,session['user_id']), commit=True)
+        deleted = q("DELETE FROM associates WHERE id = ANY(%s) AND tenant_id=%s", (ids,current_tenant_id()), commit=True)
     return jsonify({'success':True,'deleted':deleted})
 
 # REFERENCES
@@ -1156,7 +1193,7 @@ def bulk_delete_associates():
 def get_references():
     uid = session['user_id']
     if is_super_admin(): rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL ORDER BY r.id DESC")
-    else: rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL AND r.created_by=%s ORDER BY r.id DESC", (uid,))
+    else: rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL AND r.tenant_id=%s ORDER BY r.id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
 @app.route('/api/references', methods=['POST'])
@@ -1164,8 +1201,8 @@ def get_references():
 @require_perm('can_manage_references')
 def add_reference():
     d = request.json or {}
-    row = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-                (session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    row = q_ret("INSERT INTO references_ (tenant_id,created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+                (current_tenant_id(),session['user_id'],d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',d.get('amount',0)),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
     return jsonify(serialize(row)), 201
 
 @app.route('/api/references/<int:rid>', methods=['PUT','DELETE'])
@@ -1173,13 +1210,15 @@ def add_reference():
 @require_perm('can_manage_references')
 def delete_reference(rid):
     if not is_super_admin():
-        if not q("SELECT id FROM references_ WHERE id=%s AND created_by=%s", (rid,session['user_id']), one=True): return jsonify({'error':'Access denied'}), 403
+        if not q("SELECT id FROM references_ WHERE id=%s AND tenant_id=%s", (rid,current_tenant_id()), one=True): return jsonify({'error':'Access denied'}), 403
     if request.method == 'PUT':
         d = request.json or {}
-        row = q_ret("UPDATE references_ SET name=%s,phone=%s,student=%s,university=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s RETURNING *",
-                    (d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),rid))
+        tf,tp = tenant_filter('', include_super=True)
+        row = q_ret("UPDATE references_ SET name=%s,phone=%s,student=%s,university=%s,amount=%s,paid_amount=%s,pay_date=%s,pay_mode=%s,utr=%s,status=%s,notes=%s WHERE id=%s"+tf+" RETURNING *",
+                    (d.get('name'),d.get('phone'),d.get('student'),d.get('university'),d.get('amount',0),d.get('paid_amount',0),d.get('pay_date') or None,d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Pending'),d.get('notes'),rid,*tp))
         return jsonify(serialize(row))
-    q("DELETE FROM references_ WHERE id=%s", (rid,), commit=True); return jsonify({'success':True})
+    tf,tp = tenant_filter('', include_super=True)
+    q("DELETE FROM references_ WHERE id=%s"+tf, (rid,*tp), commit=True); return jsonify({'success':True})
 
 @app.route('/api/references/bulk-delete', methods=['POST'])
 @login_required
@@ -1191,7 +1230,7 @@ def bulk_delete_references():
     if is_super_admin():
         deleted = q("DELETE FROM references_ WHERE id = ANY(%s)", (ids,), commit=True)
     else:
-        deleted = q("DELETE FROM references_ WHERE id = ANY(%s) AND created_by=%s", (ids,session['user_id']), commit=True)
+        deleted = q("DELETE FROM references_ WHERE id = ANY(%s) AND tenant_id=%s", (ids,current_tenant_id()), commit=True)
     return jsonify({'success':True,'deleted':deleted})
 
 
@@ -1199,30 +1238,28 @@ def bulk_delete_references():
 @login_required
 @require_perm('can_manage_associates')
 def add_associate_part(aid):
-    uid=session['user_id']; parent=q("SELECT * FROM associates WHERE id=%s AND parent_id IS NULL", (aid,), one=True)
+    uid=session['user_id']; tf,tp = tenant_filter('', include_super=True); parent=q("SELECT * FROM associates WHERE id=%s AND parent_id IS NULL"+tf, (aid,*tp), one=True)
     if not parent: return jsonify({'error':'Associate record not found'}), 404
-    if not is_super_admin() and parent.get('created_by') != uid: return jsonify({'error':'Access denied'}), 403
-    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM associates WHERE parent_id=%s ORDER BY pay_date,id", (aid,))])
+    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM associates WHERE parent_id=%s AND tenant_id=%s ORDER BY pay_date,id", (aid,parent.get('tenant_id')))])
     d=request.json or {}; amt=float(d.get('amount',0) or 0)
     if amt<=0: return jsonify({'error':'Valid amount required'}), 400
-    row=q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,aid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('work_done'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
-    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM associates WHERE parent_id=%s", (aid,), one=True)['t']
-    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',aid), commit=True)
+    row=q_ret("INSERT INTO associates (tenant_id,created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (parent.get('tenant_id'),uid,aid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('work_done'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM associates WHERE parent_id=%s AND tenant_id=%s", (aid,parent.get('tenant_id')), one=True)['t']
+    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s AND tenant_id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',aid,parent.get('tenant_id')), commit=True)
     return jsonify(serialize(row)),201
 
 @app.route('/api/references/<int:rid>/parts', methods=['GET','POST'])
 @login_required
 @require_perm('can_manage_references')
 def add_reference_part(rid):
-    uid=session['user_id']; parent=q("SELECT * FROM references_ WHERE id=%s AND parent_id IS NULL", (rid,), one=True)
+    uid=session['user_id']; tf,tp = tenant_filter('', include_super=True); parent=q("SELECT * FROM references_ WHERE id=%s AND parent_id IS NULL"+tf, (rid,*tp), one=True)
     if not parent: return jsonify({'error':'Reference record not found'}), 404
-    if not is_super_admin() and parent.get('created_by') != uid: return jsonify({'error':'Access denied'}), 403
-    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM references_ WHERE parent_id=%s ORDER BY pay_date,id", (rid,))])
+    if request.method == 'GET': return jsonify([serialize(r) for r in q("SELECT * FROM references_ WHERE parent_id=%s AND tenant_id=%s ORDER BY pay_date,id", (rid,parent.get('tenant_id')))])
     d=request.json or {}; amt=float(d.get('amount',0) or 0)
     if amt<=0: return jsonify({'error':'Valid amount required'}), 400
-    row=q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,rid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('university'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
-    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM references_ WHERE parent_id=%s", (rid,), one=True)['t']
-    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',rid), commit=True)
+    row=q_ret("INSERT INTO references_ (tenant_id,created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING *", (parent.get('tenant_id'),uid,rid,parent['name'],parent.get('phone'),parent.get('student'),parent.get('university'),amt,d.get('pay_date') or date.today().isoformat(),d.get('pay_mode','Cash'),d.get('utr'),d.get('status','Paid'),d.get('notes')))
+    total=q("SELECT COALESCE(SUM(paid_amount),0) AS t FROM references_ WHERE parent_id=%s AND tenant_id=%s", (rid,parent.get('tenant_id')), one=True)['t']
+    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s AND tenant_id=%s", (total,'Paid' if float(total)>=float(parent.get('amount') or 0) else 'Partial',rid,parent.get('tenant_id')), commit=True)
     return jsonify(serialize(row)),201
 
 # UNIVERSITIES
@@ -1351,15 +1388,17 @@ def add_university():
 @require_perm('can_manage_universities')
 def update_university(uid_):
     d = request.json or {}
-    q("UPDATE universities SET name=%s,state=%s,color=%s,is_active=%s WHERE id=%s",
-      (d.get('name'),d.get('state'),d.get('color','#1A6CF6'),d.get('is_active',True),uid_), commit=True)
+    tf,tp = tenant_filter('', include_super=True)
+    q("UPDATE universities SET name=%s,state=%s,color=%s,is_active=%s WHERE id=%s"+tf,
+      (d.get('name'),d.get('state'),d.get('color','#1A6CF6'),d.get('is_active',True),uid_,*tp), commit=True)
     return jsonify({'success':True})
 
 @app.route('/api/universities/<int:uid_>', methods=['DELETE'])
 @login_required
 @require_perm('can_manage_universities')
 def delete_university(uid_):
-    q("DELETE FROM universities WHERE id=%s", (uid_,), commit=True); return jsonify({'success':True})
+    tf,tp = tenant_filter('', include_super=True)
+    q("DELETE FROM universities WHERE id=%s"+tf, (uid_,*tp), commit=True); return jsonify({'success':True})
 
 @app.route('/api/universities/<int:uid_>/guides', methods=['POST'])
 @login_required
@@ -1386,8 +1425,10 @@ def add_guide(uid_):
 def update_guide(gid):
     d = request.form if request.form else (request.json or {})
     if guide_capacity(d.get('designation')) <= 0: return jsonify({'error':'Select valid designation'}), 400
-    row = q_ret("UPDATE guides SET name=%s,designation=%s,department=%s,subject=%s,mobile=%s,email=%s,assigned_students=%s WHERE id=%s RETURNING *",
-                (d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),gid))
+    tf,tp = tenant_filter('', include_super=True)
+    row = q_ret("UPDATE guides SET name=%s,designation=%s,department=%s,subject=%s,mobile=%s,email=%s,assigned_students=%s WHERE id=%s"+tf+" RETURNING *",
+                (d.get('name'),d.get('designation'),d.get('department'),d.get('subject'),d.get('mobile'),d.get('email'),int(d.get('assigned_students') or 0),gid,*tp))
+    if not row: return jsonify({'error':'Guide not found or access denied'}), 404
     if 'student_ids' in d:
         try:
             sync_guide_students(gid, d.get('student_ids') or [])
@@ -1400,6 +1441,8 @@ def update_guide(gid):
 @login_required
 @require_perm('can_manage_universities')
 def upload_guide_file(gid):
+    tf,tp = tenant_filter('', include_super=True)
+    if not q("SELECT id FROM guides WHERE id=%s"+tf, (gid,*tp), one=True): return jsonify({'error':'Guide not found or access denied'}), 404
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
@@ -1408,18 +1451,20 @@ def upload_guide_file(gid):
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"guide_{gid}_{uuid.uuid4().hex[:8]}.{ext}"
     file.save(os.path.join(UPLOAD_FOLDER, filename))
-    q("UPDATE guides SET file_path=%s,file_name=%s WHERE id=%s", (filename,file.filename,gid), commit=True)
+    q("UPDATE guides SET file_path=%s,file_name=%s WHERE id=%s"+tf, (filename,file.filename,gid,*tp), commit=True)
     return jsonify({'success':True,'url':f'/uploads/{filename}'})
 
 @app.route('/api/guides/<int:gid>', methods=['DELETE'])
 @login_required
 @require_perm('can_manage_universities')
 def delete_guide(gid):
-    row = q("SELECT file_path FROM guides WHERE id=%s", (gid,), one=True)
+    tf,tp = tenant_filter('', include_super=True)
+    row = q("SELECT file_path FROM guides WHERE id=%s"+tf, (gid,*tp), one=True)
+    if not row: return jsonify({'error':'Guide not found or access denied'}), 404
     if row and row.get('file_path'):
         try: os.remove(os.path.join(UPLOAD_FOLDER, row['file_path']))
         except: pass
-    q("DELETE FROM guides WHERE id=%s", (gid,), commit=True)
+    q("DELETE FROM guides WHERE id=%s"+tf, (gid,*tp), commit=True)
     return jsonify({'success':True})
 
 # ACADEMIC SESSIONS
@@ -1452,9 +1497,9 @@ def activate_session(sid):
 @login_required
 @super_admin_required
 def delete_session(sid):
-    active = q("SELECT is_active FROM academic_sessions WHERE id=%s", (sid,), one=True)
+    active = q("SELECT is_active FROM academic_sessions WHERE id=%s AND tenant_id=%s", (sid,current_tenant_id()), one=True)
     if active and active['is_active']: return jsonify({'error':'Cannot delete active session'}), 400
-    q("DELETE FROM academic_sessions WHERE id=%s", (sid,), commit=True); return jsonify({'success':True})
+    q("DELETE FROM academic_sessions WHERE id=%s AND tenant_id=%s", (sid,current_tenant_id()), commit=True); return jsonify({'success':True})
 
 # MASTER DATA
 MASTER_TABLES = {'courses':'courses','subjects':'subjects','document-types':'document_types','fee-types':'fee_types','student-statuses':'student_statuses'}
@@ -1520,15 +1565,15 @@ def update_master(kind, mid):
     d = request.json or {}; name = (d.get('name') or '').strip()
     if not name: return jsonify({'error':'Name required'}), 400
     if table == 'subjects':
-        row = q_ret("UPDATE subjects SET name=%s,course_name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('course_name'),d.get('is_active',True),mid))
+        row = q_ret("UPDATE subjects SET name=%s,course_name=%s,is_active=%s WHERE id=%s AND tenant_id=%s RETURNING *", (name,d.get('course_name'),d.get('is_active',True),mid,current_tenant_id()))
     elif table == 'fee_types':
-        row = q_ret("UPDATE fee_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True),mid))
+        row = q_ret("UPDATE fee_types SET name=%s,category=%s,is_active=%s WHERE id=%s AND tenant_id=%s RETURNING *", (name,d.get('category','Student Fee'),d.get('is_active',True),mid,current_tenant_id()))
     elif table == 'document_types':
-        row = q_ret("UPDATE document_types SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
+        row = q_ret("UPDATE document_types SET name=%s,category=%s,is_active=%s WHERE id=%s AND tenant_id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid,current_tenant_id()))
     elif table == 'student_statuses':
-        row = q_ret("UPDATE student_statuses SET name=%s,category=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid))
+        row = q_ret("UPDATE student_statuses SET name=%s,category=%s,is_active=%s WHERE id=%s AND tenant_id=%s RETURNING *", (name,d.get('category','Student'),d.get('is_active',True),mid,current_tenant_id()))
     else:
-        row = q_ret("UPDATE courses SET name=%s,is_active=%s WHERE id=%s RETURNING *", (name,d.get('is_active',True),mid))
+        row = q_ret("UPDATE courses SET name=%s,is_active=%s WHERE id=%s AND tenant_id=%s RETURNING *", (name,d.get('is_active',True),mid,current_tenant_id()))
     if not row: return jsonify({'error':'Not found'}), 404
     log_action('Edit','Master',mid,f'{kind}: {name}')
     return jsonify(serialize(row))
@@ -1541,7 +1586,7 @@ def delete_master(kind, mid):
     elif not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_masters')): return jsonify({'error':'Permission denied: can_manage_masters'}), 403
     table = master_table(kind)
     if not table: return jsonify({'error':'Invalid master'}), 404
-    q(f"DELETE FROM {table} WHERE id=%s", (mid,), commit=True)
+    q(f"DELETE FROM {table} WHERE id=%s AND tenant_id=%s", (mid,current_tenant_id()), commit=True)
     log_action('Delete','Master',mid,kind)
     return jsonify({'success':True})
 # DOCUMENTS
@@ -1568,8 +1613,14 @@ def get_documents():
 @require_perm('can_issue_document')
 def add_document():
     d = request.json or {}
-    row = q_ret("INSERT INTO documents (student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-          (d.get('student_id'),d.get('student'),d.get('doc_type'),d.get('university'),d.get('issue_date') or None,d.get('status','Delivered'),d.get('delivered_to'),session['user_id']))
+    tid = current_tenant_id()
+    if d.get('student_id'):
+        fs, fp = student_filter(session['user_id'],'s')
+        st = q(f"SELECT tenant_id FROM students s WHERE s.id=%s {fs}", [d.get('student_id')]+list(fp), one=True)
+        if not st: return jsonify({'error':'Student access denied'}), 403
+        tid = st.get('tenant_id')
+    row = q_ret("INSERT INTO documents (tenant_id,student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+          (tid,d.get('student_id'),d.get('student'),d.get('doc_type'),d.get('university'),d.get('issue_date') or None,d.get('status','Delivered'),d.get('delivered_to'),session['user_id']))
     log_action('Issue','Document',row['id'] if row else None,d.get('doc_type'))
     return jsonify(serialize(row)), 201
 
@@ -1577,6 +1628,8 @@ def add_document():
 @login_required
 @require_perm('can_upload_document')
 def upload_doc_file(did):
+    tf,tp = tenant_filter('', include_super=True)
+    if not q("SELECT id FROM documents WHERE id=%s"+tf, (did,*tp), one=True): return jsonify({'error':'Document not found or access denied'}), 404
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
@@ -1585,19 +1638,21 @@ def upload_doc_file(did):
     ext = file.filename.rsplit('.',1)[1].lower()
     filename = f"doc_{did}_{uuid.uuid4().hex[:8]}.{ext}"
     file.save(os.path.join(UPLOAD_FOLDER, filename))
-    q("UPDATE documents SET file_path=%s,file_name=%s,uploaded_by=%s WHERE id=%s",
-      (filename,file.filename,session['user_id'],did), commit=True)
+    q("UPDATE documents SET file_path=%s,file_name=%s,uploaded_by=%s WHERE id=%s"+tf,
+      (filename,file.filename,session['user_id'],did,*tp), commit=True)
     return jsonify({'success':True,'url':f'/uploads/{filename}'})
 
 @app.route('/api/documents/<int:did>', methods=['DELETE'])
 @login_required
 @require_perm('can_delete_document')
 def delete_document(did):
-    doc = q("SELECT file_path FROM documents WHERE id=%s", (did,), one=True)
+    tf,tp = tenant_filter('', include_super=True)
+    doc = q("SELECT file_path FROM documents WHERE id=%s"+tf, (did,*tp), one=True)
+    if not doc: return jsonify({'error':'Document not found or access denied'}), 404
     if doc and doc.get('file_path'):
         try: os.remove(os.path.join(UPLOAD_FOLDER, doc['file_path']))
         except: pass
-    q("DELETE FROM documents WHERE id=%s", (did,), commit=True); log_action('Delete','Document',did); return jsonify({'success':True})
+    q("DELETE FROM documents WHERE id=%s"+tf, (did,*tp), commit=True); log_action('Delete','Document',did); return jsonify({'success':True})
 
 # NOTIFICATIONS
 @app.route('/api/notifications', methods=['GET'])
@@ -1688,10 +1743,17 @@ def update_tenant(tid):
 @login_required
 @require_perm('can_manage_users')
 def get_users():
-    if is_super_admin():
-        rows = q("SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.full_name,u.role,u.is_active,u.last_login,u.created_at FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id ORDER BY u.id")
+    requested_tenant = request.args.get('tenant_id')
+    if is_super_admin() and requested_tenant:
+        try:
+            tenant_id = int(requested_tenant)
+        except (TypeError, ValueError):
+            return jsonify({'error':'Invalid tenant'}), 400
     else:
-        rows = q("SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.full_name,u.role,u.is_active,u.last_login,u.created_at FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=%s ORDER BY u.id", (current_tenant_id(),))
+        tenant_id = current_tenant_id()
+    if not is_super_admin() and tenant_id != current_tenant_id():
+        return jsonify({'error':'Tenant access denied'}), 403
+    rows = q("SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.full_name,u.role,u.is_active,u.last_login,u.created_at FROM users u LEFT JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=%s ORDER BY u.id", (tenant_id,))
     result = []
     for r in rows:
         sr = serialize(r); sr['permissions'] = get_user_perms(r['id'])
@@ -1926,8 +1988,8 @@ def report_outstanding():
 @require_perm('can_view_assocref_report')
 def report_assoc_ref():
     uid = session['user_id']
-    assocs = q("SELECT * FROM associates ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM associates WHERE created_by=%s ORDER BY pay_date DESC", (uid,))
-    refs = q("SELECT * FROM references_ ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM references_ WHERE created_by=%s ORDER BY pay_date DESC", (uid,))
+    assocs = q("SELECT * FROM associates ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM associates WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
+    refs = q("SELECT * FROM references_ ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM references_ WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
     rows = [['Associate',a['name'],a['phone'],a['student'],a['work_done'],float(a['amount']),a['pay_date'],a['pay_mode'],a['utr'],a['notes']] for a in assocs]
     rows += [['Reference',r['name'],r['phone'],r['student'],'Referral',float(r['amount']),r['pay_date'],r['pay_mode'],r['utr'],r['notes']] for r in refs]
     return csv_response(rows,['Type','Name','Phone','Student','Work','Amount','Date','Mode','UTR','Notes'],f'AssocRef_{datetime.now().strftime("%Y%m%d")}.csv')
@@ -1937,7 +1999,7 @@ def report_assoc_ref():
 @require_perm('can_view_leads_report')
 def report_leads():
     uid = session['user_id']
-    data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE created_by=%s ORDER BY created_at DESC", (uid,))
+    data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE tenant_id=%s ORDER BY created_at DESC", (current_tenant_id(),))
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 
@@ -1949,9 +2011,9 @@ def accounts_overview():
     uid = session['user_id']; fs, fp = student_filter(uid, 's')
     st = q(f"SELECT COALESCE(SUM(s.total_fee),0) AS student_total, COALESCE(SUM(s.paid),0) AS student_received, COALESCE(SUM(s.total_fee-s.paid),0) AS student_due FROM students s WHERE TRUE {fs}", fp, one=True)
     up = q(f"SELECT COALESCE(SUM(up.amount),0) AS payable, COALESCE(SUM(up.paid_amount),0) AS paid FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE TRUE {fs}", fp, one=True)
-    ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE created_by=%s", (uid,), one=True)
-    assoc = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates WHERE created_by=%s", (uid,), one=True)
-    refs = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_ WHERE created_by=%s", (uid,), one=True)
+    ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE tenant_id=%s", (current_tenant_id(),), one=True)
+    assoc = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates WHERE tenant_id=%s", (current_tenant_id(),), one=True)
+    refs = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_ WHERE tenant_id=%s", (current_tenant_id(),), one=True)
     received=float(st['student_received']); total_exp=float(ex['total'])+float(assoc['total'])+float(refs['total'])+float(up['paid'])
     return jsonify({'student_total':float(st['student_total']),'student_received':received,'student_due':float(st['student_due']),'university_payable':float(up['payable']),'university_paid':float(up['paid']),'university_balance':float(up['payable'])-float(up['paid']),'expenses_total':total_exp,'net_profit':received-total_exp})
 
@@ -1962,13 +2024,14 @@ def university_payables():
         if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
         d=request.json or {}; uid=session['user_id']
         sid = d.get('student_id')
-        student = q("SELECT id,name,university,univ_fee FROM students WHERE id=%s", (sid,), one=True) if sid else None
+        fs, fp = student_filter(uid,'s')
+        student = q(f"SELECT id,tenant_id,name,university,univ_fee FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True) if sid else None
         if not student: return jsonify({'error':'Valid existing student select karo'}), 400
-        if not q("SELECT id FROM universities WHERE name=%s AND is_active=TRUE", (student['university'],), one=True): return jsonify({'error':'Student ki university master mein active nahi hai'}), 400
+        if not q("SELECT id FROM universities WHERE name=%s AND tenant_id=%s AND is_active=TRUE", (student['university'],student.get('tenant_id')), one=True): return jsonify({'error':'Student ki university master mein active nahi hai'}), 400
         amount = d.get('amount') if d.get('amount') not in (None,'') else student.get('univ_fee',0)
         paid_amount = float(d.get('paid_amount',0) or 0)
         status = 'Paid' if paid_amount >= float(amount or 0) and float(amount or 0)>0 else d.get('status','Pending')
-        row=q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (student['id'],uid,student['university'],student['name'],amount,paid_amount,d.get('fee_type','Tuition'),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),status,d.get('remarks')))
+        row=q_ret("INSERT INTO university_payables (tenant_id,student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (student.get('tenant_id'),student['id'],uid,student['university'],student['name'],amount,paid_amount,d.get('fee_type','Tuition'),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),status,d.get('remarks')))
         log_action('Add','University Payable',row['id'] if row else None,d.get('student'))
         return jsonify(serialize(row)),201
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
@@ -1986,12 +2049,12 @@ def expenses_api():
         try: amount_val=float(d.get('amount',0) or 0)
         except (TypeError, ValueError): amount_val=0
         if not d.get('category') or not d.get('paid_to') or amount_val <= 0: return jsonify({'error':'Category, Paid To aur valid amount zaroori hai'}), 400
-        row=q_ret("INSERT INTO expenses (created_by,expense_date,category,amount,pay_mode,paid_to,student,university,associate,reference_name,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (uid,d.get('expense_date') or None,d.get('category','Office'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks')))
+        row=q_ret("INSERT INTO expenses (tenant_id,created_by,expense_date,category,amount,pay_mode,paid_to,student,university,associate,reference_name,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *", (current_tenant_id(),uid,d.get('expense_date') or None,d.get('category','Office'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks')))
         log_action('Add','Expense',row['id'] if row else None,d.get('category'))
         return jsonify(serialize(row)),201
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
     uid=session['user_id']
-    rows=q("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC") if is_super_admin() else q("SELECT * FROM expenses WHERE created_by=%s ORDER BY expense_date DESC, id DESC", (uid,))
+    rows=q("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC") if is_super_admin() else q("SELECT * FROM expenses WHERE tenant_id=%s ORDER BY expense_date DESC, id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
 
@@ -2000,12 +2063,14 @@ def expenses_api():
 def expense_item(eid):
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
     if request.method == 'DELETE':
-        q("DELETE FROM expenses WHERE id=%s", (eid,), commit=True); return jsonify({'success':True})
+        tf,tp = tenant_filter('', include_super=True)
+        q("DELETE FROM expenses WHERE id=%s"+tf, (eid,*tp), commit=True); return jsonify({'success':True})
     d=request.json or {}
     try: amount_val=float(d.get('amount',0) or 0)
     except (TypeError, ValueError): amount_val=0
     if not d.get('category') or not d.get('paid_to') or amount_val <= 0: return jsonify({'error':'Category, Paid To aur valid amount zaroori hai'}), 400
-    row=q_ret("UPDATE expenses SET expense_date=%s,category=%s,amount=%s,pay_mode=%s,paid_to=%s,student=%s,university=%s,associate=%s,reference_name=%s,remarks=%s WHERE id=%s RETURNING *", (d.get('expense_date') or None,d.get('category'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks'),eid))
+    tf,tp = tenant_filter('', include_super=True)
+    row=q_ret("UPDATE expenses SET expense_date=%s,category=%s,amount=%s,pay_mode=%s,paid_to=%s,student=%s,university=%s,associate=%s,reference_name=%s,remarks=%s WHERE id=%s"+tf+" RETURNING *", (d.get('expense_date') or None,d.get('category'),amount_val,d.get('pay_mode'),d.get('paid_to'),d.get('student'),d.get('university'),d.get('associate'),d.get('reference_name'),d.get('remarks'),eid,*tp))
     return jsonify(serialize(row))
 
 @app.route('/api/accounts/university-payables/<int:pid>', methods=['PUT','DELETE'])
@@ -2013,12 +2078,14 @@ def expense_item(eid):
 def university_payable_item(pid):
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
     if request.method == 'DELETE':
-        q("DELETE FROM university_payables WHERE id=%s", (pid,), commit=True); return jsonify({'success':True})
+        tf,tp = tenant_filter('', include_super=True)
+        q("DELETE FROM university_payables WHERE id=%s"+tf, (pid,*tp), commit=True); return jsonify({'success':True})
     d=request.json or {}
     try: paid=float(d.get('paid_amount',0) or 0); amount=float(d.get('amount',0) or 0)
     except (TypeError, ValueError): return jsonify({'error':'Valid amount zaroori hai'}), 400
     status='Paid' if amount>0 and paid>=amount else d.get('status','Pending')
-    row=q_ret("UPDATE university_payables SET amount=%s,paid_amount=%s,fee_type=%s,due_date=%s,paid_date=%s,pay_mode=%s,ref_no=%s,status=%s,remarks=%s WHERE id=%s RETURNING *", (amount,paid,d.get('fee_type','Tuition'),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),status,d.get('remarks'),pid))
+    tf,tp = tenant_filter('', include_super=True)
+    row=q_ret("UPDATE university_payables SET amount=%s,paid_amount=%s,fee_type=%s,due_date=%s,paid_date=%s,pay_mode=%s,ref_no=%s,status=%s,remarks=%s WHERE id=%s"+tf+" RETURNING *", (amount,paid,d.get('fee_type','Tuition'),d.get('due_date') or None,d.get('paid_date') or None,d.get('pay_mode'),d.get('ref_no'),status,d.get('remarks'),pid,*tp))
     return jsonify(serialize(row))
 
 @app.route('/api/reports/profit')
@@ -2155,23 +2222,23 @@ def import_multi():
         deleted = 0
         student_count = 0
         try:
-            student_count = q("SELECT COUNT(*) AS c FROM students", one=True)['c']
+            student_count = q("SELECT COUNT(*) AS c FROM students WHERE tenant_id=%s", (tid,), one=True)['c']
         except Exception:
             student_count = 0
         for sql in [
-            "DELETE FROM follow_ups",
-            "DELETE FROM documents",
-            "DELETE FROM student_photos",
-            "DELETE FROM fee_payments",
-            "DELETE FROM fee_installments",
-            "DELETE FROM university_payables",
-            "DELETE FROM expenses",
-            "DELETE FROM associates",
-            "DELETE FROM references_",
-            "DELETE FROM students",
+            "DELETE FROM follow_ups WHERE tenant_id=%s",
+            "DELETE FROM documents WHERE tenant_id=%s",
+            "DELETE FROM student_photos WHERE tenant_id=%s",
+            "DELETE FROM fee_payments WHERE tenant_id=%s",
+            "DELETE FROM fee_installments WHERE tenant_id=%s",
+            "DELETE FROM university_payables WHERE tenant_id=%s",
+            "DELETE FROM expenses WHERE tenant_id=%s",
+            "DELETE FROM associates WHERE tenant_id=%s",
+            "DELETE FROM references_ WHERE tenant_id=%s",
+            "DELETE FROM students WHERE tenant_id=%s",
         ]:
             try:
-                deleted += q(sql, commit=True) or 0
+                deleted += q(sql, (tid,), commit=True) or 0
             except Exception:
                 pass
         stats['cleaned_students'] = int(student_count or 0)
@@ -2207,43 +2274,43 @@ def import_multi():
 
     def is_duplicate_fee_structure(student_id, fee_type, amount):
         return q(f"""SELECT id FROM fee_installments
-                    WHERE student_id=%s AND amount=%s AND {same_text_sql('fee_type')}
-                    LIMIT 1""", (student_id, amount, fee_type), one=True)
+                    WHERE tenant_id=%s AND student_id=%s AND amount=%s AND {same_text_sql('fee_type')}
+                    LIMIT 1""", (tid, student_id, amount, fee_type), one=True)
 
     def is_duplicate_student_payment(student_id, amount, pay_date, pay_mode, fee_type, ref_no, remarks):
         return q(f"""SELECT id FROM fee_payments
-                    WHERE student_id=%s AND amount=%s AND pay_date=%s
+                    WHERE tenant_id=%s AND student_id=%s AND amount=%s AND pay_date=%s
                       AND {same_text_sql('pay_mode')}
                       AND {same_text_sql('fee_type')}
                       AND {same_text_sql('ref_no')}
                       AND {same_text_sql('remarks')}
-                    LIMIT 1""", (student_id, amount, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
+                    LIMIT 1""", (tid, student_id, amount, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
 
     def is_duplicate_university_payment(student_id, payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks):
         return q(f"""SELECT id FROM university_payables
-                    WHERE student_id=%s AND amount=%s AND paid_amount=%s
+                    WHERE tenant_id=%s AND student_id=%s AND amount=%s AND paid_amount=%s
                       AND COALESCE(paid_date::text,'')=COALESCE(%s,'')
                       AND {same_text_sql('pay_mode')}
                       AND {same_text_sql('fee_type')}
                       AND {same_text_sql('ref_no')}
                       AND {same_text_sql('remarks')}
-                    LIMIT 1""", (student_id, payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
+                    LIMIT 1""", (tid, student_id, payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks), one=True)
 
     def is_duplicate_associate(name, student_name, work_done, decided):
         return q(f"""SELECT id FROM associates
-                    WHERE parent_id IS NULL AND amount=%s
+                    WHERE tenant_id=%s AND parent_id IS NULL AND amount=%s
                       AND {same_text_sql('name')}
                       AND {same_text_sql('student')}
                       AND {same_text_sql('work_done')}
-                    LIMIT 1""", (decided, name, student_name, work_done), one=True)
+                    LIMIT 1""", (tid, decided, name, student_name, work_done), one=True)
 
     def is_duplicate_reference(name, student_name, university, decided):
         return q(f"""SELECT id FROM references_
-                    WHERE parent_id IS NULL AND amount=%s
+                    WHERE tenant_id=%s AND parent_id IS NULL AND amount=%s
                       AND {same_text_sql('name')}
                       AND {same_text_sql('student')}
                       AND {same_text_sql('university')}
-                    LIMIT 1""", (decided, name, student_name, university), one=True)
+                    LIMIT 1""", (tid, decided, name, student_name, university), one=True)
 
     def cleanup_existing_import_rows(student_rows):
         student_ids, student_names = [], []
@@ -2255,10 +2322,10 @@ def import_multi():
             if d.get('external_id'):
                 sid_text = str(d['external_id']).strip()
                 sid_int = sid_text[:-2] if sid_text.endswith('.0') else sid_text
-                st = q("SELECT id,name FROM students WHERE external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (sid_text, sid_int), one=True)
+                st = q("SELECT id,name FROM students WHERE tenant_id=%s AND external_id IN (%s,%s) ORDER BY id DESC LIMIT 1", (tid,sid_text,sid_int), one=True)
             if not st and d.get('name'):
                 imp_key = student_import_key(d)
-                st = q("SELECT id,name FROM students WHERE import_key=%s ORDER BY id DESC LIMIT 1", (imp_key,), one=True) if imp_key else None
+                st = q("SELECT id,name FROM students WHERE tenant_id=%s AND import_key=%s ORDER BY id DESC LIMIT 1", (tid,imp_key), one=True) if imp_key else None
             if st:
                 student_ids.append(st['id'])
                 if st.get('name'):
@@ -2266,9 +2333,9 @@ def import_multi():
 
         student_ids = list(dict.fromkeys(student_ids))
         student_names = list(dict.fromkeys([n for n in student_names if n]))
-        deleted = cleanup_student_related_rows(student_ids, student_names)
+        deleted = cleanup_student_related_rows(student_ids, student_names, tid)
         if student_ids:
-            q("UPDATE students SET paid=0,total_fee=0 WHERE id = ANY(%s)", (student_ids,), commit=True)
+            q("UPDATE students SET paid=0,total_fee=0 WHERE id = ANY(%s) AND tenant_id=%s", (student_ids,tid), commit=True)
         stats['cleaned_students'] = len(student_ids)
         stats['cleaned_related_rows'] = deleted
         return deleted
@@ -2292,23 +2359,24 @@ def import_multi():
                 if not d['name']:
                     errors.append({'sheet':'Students','row':idx,'error':'Student Name required'}); continue
                 imp_key = student_import_key(d)
-                st = q("SELECT * FROM students WHERE import_key=%s ORDER BY id DESC LIMIT 1", (imp_key,), one=True) if imp_key else None
+                st = q("SELECT * FROM students WHERE tenant_id=%s AND import_key=%s ORDER BY id DESC LIMIT 1", (tid,imp_key), one=True) if imp_key else None
                 if not st and imp_key:
                     st = q("""SELECT * FROM students
-                            WHERE LOWER(TRIM(COALESCE(name,'')))=LOWER(TRIM(%s))
+                            WHERE tenant_id=%s
+                              AND LOWER(TRIM(COALESCE(name,'')))=LOWER(TRIM(%s))
                               AND LOWER(TRIM(COALESCE(father,'')))=LOWER(TRIM(%s))
                               AND LOWER(TRIM(COALESCE(course,'')))=LOWER(TRIM(%s))
                               AND LOWER(TRIM(COALESCE(subject,'')))=LOWER(TRIM(%s))
                               AND LOWER(TRIM(COALESCE(university,'')))=LOWER(TRIM(%s))
                             ORDER BY id DESC LIMIT 1""",
-                           (d['name'], d['father'], d['course'], d['subject'], d['university']), one=True)
+                           (tid, d['name'], d['father'], d['course'], d['subject'], d['university']), one=True)
                 if st:
-                    q("""UPDATE students SET external_id=COALESCE(NULLIF(%s,''),external_id),name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,import_key=%s,status=COALESCE(status,'Active') WHERE id=%s""",
-                      (d['external_id'],d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key,st['id']), commit=True)
+                    q("""UPDATE students SET external_id=COALESCE(NULLIF(%s,''),external_id),name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,import_key=%s,status=COALESCE(status,'Active') WHERE id=%s AND tenant_id=%s""",
+                      (d['external_id'],d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key,st['id'],tid), commit=True)
                     stats['students_updated'] += 1
                 else:
-                    new_student = q_ret("""INSERT INTO students (created_by,session_id,external_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,import_key,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,'Active') RETURNING id""",
-                      (uid,active_sess['id'] if active_sess else None,d['external_id'],d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key))
+                    new_student = q_ret("""INSERT INTO students (tenant_id,created_by,session_id,external_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,import_key,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,'Active') RETURNING id""",
+                      (tid,uid,active_sess['id'] if active_sess else None,d['external_id'],d['name'],d['father'],d['mother'],d['dob'],d['gender'],d['mobile'],d['email'],d['aadhar'],d['address'],d['course'],d['subject'],d['university'],d['batch'],d['enroll_no'],d['roll_no'],d['adm_date'],d['remarks'],d['total_fee'],d['univ_fee'],imp_key))
                     if new_student: assign_student_code(new_student['id'])
                     stats['students_created'] += 1
             except Exception as row_ex:
@@ -2327,12 +2395,12 @@ def import_multi():
                     stats['duplicates_skipped'] += 1
                     continue
                 try:
-                    q("INSERT INTO fee_types (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (fee_type,), commit=True)
+                    q("INSERT INTO fee_types (tenant_id,name) VALUES (%s,%s) ON CONFLICT DO NOTHING", (tid,fee_type), commit=True)
                 except Exception:
                     pass
-                q_ret("INSERT INTO fee_installments (student_id,created_by,amount,fee_type,due_date,remarks,status) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (st['id'],uid,amount,fee_type,parse_date_value(first_val(raw,'Due Date','Date')),first_val(raw,'Remarks','Remark'),'Pending'))
-                q("UPDATE students SET total_fee=COALESCE((SELECT SUM(amount) FROM fee_installments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
+                q_ret("INSERT INTO fee_installments (tenant_id,student_id,created_by,amount,fee_type,due_date,remarks,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,st['id'],uid,amount,fee_type,parse_date_value(first_val(raw,'Due Date','Date')),first_val(raw,'Remarks','Remark'),'Pending'))
+                q("UPDATE students SET total_fee=COALESCE((SELECT SUM(amount) FROM fee_installments WHERE student_id=%s AND tenant_id=%s),0) WHERE id=%s AND tenant_id=%s", (st['id'],tid,st['id'],tid), commit=True)
                 stats['fee_structures'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -2352,9 +2420,9 @@ def import_multi():
                 if is_duplicate_student_payment(st['id'], amount, pay_date, pay_mode, fee_type, ref_no, remarks):
                     stats['duplicates_skipped'] += 1
                     continue
-                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (st['id'],uid,amount,fee_type,pay_mode,ref_no,pay_date,remarks,'student_receivable'))
-                q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s),0) WHERE id=%s", (st['id'],st['id']), commit=True)
+                q_ret("INSERT INTO fee_payments (tenant_id,student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,st['id'],uid,amount,fee_type,pay_mode,ref_no,pay_date,remarks,'student_receivable'))
+                q("UPDATE students SET paid=COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id=%s AND tenant_id=%s),0) WHERE id=%s AND tenant_id=%s", (st['id'],tid,st['id'],tid), commit=True)
                 stats['student_payments'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -2377,8 +2445,8 @@ def import_multi():
                 if is_duplicate_university_payment(st['id'], payable, paid, pay_date, pay_mode, fee_type, ref_no, remarks):
                     stats['duplicates_skipped'] += 1
                     continue
-                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (st['id'],uid,st.get('university'),st.get('name'),payable,paid,fee_type,parse_date_value(first_val(raw,'Due Date')),pay_date,pay_mode,ref_no,status,remarks))
+                q_ret("INSERT INTO university_payables (tenant_id,student_id,created_by,university,student,amount,paid_amount,fee_type,due_date,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,st['id'],uid,st.get('university'),st.get('name'),payable,paid,fee_type,parse_date_value(first_val(raw,'Due Date')),pay_date,pay_mode,ref_no,status,remarks))
                 stats['university_payments'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -2396,12 +2464,12 @@ def import_multi():
                 if is_duplicate_associate(name, student_name, work_done, decided):
                     stats['duplicates_skipped'] += 1
                     continue
-                parent = q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,work_done,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
+                parent = q_ret("INSERT INTO associates (tenant_id,created_by,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,uid,name,first_val(raw,'Phone','Mobile'),student_name,work_done,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'), 'Pending', first_val(raw,'Remarks','Notes')))
                 if paid > 0 and parent:
-                    q_ret("INSERT INTO associates (created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,work_done,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
-                    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+                    q_ret("INSERT INTO associates (tenant_id,created_by,parent_id,name,phone,student,work_done,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,work_done,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                    q("UPDATE associates SET paid_amount=%s,status=%s WHERE id=%s AND tenant_id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id'],tid), commit=True)
                 stats['associates'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -2419,12 +2487,12 @@ def import_multi():
                 if is_duplicate_reference(name, student_name, university, decided):
                     stats['duplicates_skipped'] += 1
                     continue
-                parent = q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,name,first_val(raw,'Phone','Mobile'),student_name,university,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
+                parent = q_ret("INSERT INTO references_ (tenant_id,created_by,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,uid,name,first_val(raw,'Phone','Mobile'),student_name,university,decided,parse_date_value(first_val(raw,'Decided Date','Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Pending',first_val(raw,'Remarks','Notes')))
                 if paid > 0 and parent:
-                    q_ret("INSERT INTO references_ (created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
-                      (uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,university,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
-                    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id']), commit=True)
+                    q_ret("INSERT INTO references_ (tenant_id,created_by,parent_id,name,phone,student,university,amount,paid_amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (tid,uid,parent['id'],name,first_val(raw,'Phone','Mobile'),student_name,university,paid,parse_date_value(first_val(raw,'Payment Date','Paid Date')),first_val(raw,'Payment Mode','Mode') or 'Cash',first_val(raw,'UTR','Ref No / UTR'),'Paid',first_val(raw,'Remarks','Notes')))
+                    q("UPDATE references_ SET paid_amount=%s,status=%s WHERE id=%s AND tenant_id=%s", (paid,'Paid' if paid>=decided else 'Partial',parent['id'],tid), commit=True)
                 stats['references'] += 1
             except Exception as ex:
                 get_db().rollback()
@@ -2444,7 +2512,7 @@ def import_multi():
 def import_students():
     rows=request.json or []
     if not isinstance(rows,list): return jsonify({'error':'Invalid import data'}),400
-    uid=session['user_id']; ok=0; errors=[]
+    uid=session['user_id']; tid=current_tenant_id(); ok=0; errors=[]
     for i,d in enumerate(rows, start=1):
         try:
 
@@ -2453,14 +2521,14 @@ def import_students():
             row_amount = parse_amount(d.get('amount') or d.get('payment_amount') or d.get('received_amount') or d.get('fee_received'))
             row_date = parse_date_value(d.get('payment_date') or d.get('date') or d.get('pay_date'))
             if row_name and row_amount > 0 and (not d.get('father') or not d.get('mobile')):
-                st = q("SELECT * FROM students WHERE LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (row_name,), one=True)
+                st = q("SELECT * FROM students WHERE tenant_id=%s AND LOWER(name)=LOWER(%s) ORDER BY id DESC LIMIT 1", (tid,row_name), one=True)
                 if not st:
                     errors.append({'row':i,'error':f'Student not found for payment row: {row_name}'}); continue
-                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,row_amount,d.get('fee_type') or 'Imported Payment',d.get('payment_mode') or d.get('mode') or d.get('pay_mode') or 'Cash',d.get('ref_no') or d.get('utr') or d.get('utr_no') or '',row_date or date.today().isoformat(),d.get('remarks') or d.get('remark') or '', 'student_receivable'))
-                q("UPDATE students SET paid=COALESCE(paid,0)+%s WHERE id=%s", (row_amount,st['id']), commit=True)
+                q_ret("INSERT INTO fee_payments (tenant_id,student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,st['id'],uid,row_amount,d.get('fee_type') or 'Imported Payment',d.get('payment_mode') or d.get('mode') or d.get('pay_mode') or 'Cash',d.get('ref_no') or d.get('utr') or d.get('utr_no') or '',row_date or date.today().isoformat(),d.get('remarks') or d.get('remark') or '', 'student_receivable'))
+                q("UPDATE students SET paid=COALESCE(paid,0)+%s WHERE id=%s AND tenant_id=%s", (row_amount,st['id'],tid), commit=True)
                 univ_paid_row=parse_amount(d.get('university_paid') or d.get('univ_paid'))
                 if univ_paid_row>0:
-                    q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (st['id'],uid,st.get('university'),st.get('name'),parse_amount(d.get('university_payable') or d.get('univ_fee') or st.get('univ_fee')),univ_paid_row,d.get('university_fee_type') or 'Tuition',row_date,d.get('payment_mode') or d.get('mode') or 'Cash',d.get('ref_no') or d.get('utr') or '', 'Pending', d.get('university_remarks') or d.get('remarks') or 'Imported'))
+                    q_ret("INSERT INTO university_payables (tenant_id,student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,st['id'],uid,st.get('university'),st.get('name'),parse_amount(d.get('university_payable') or d.get('univ_fee') or st.get('univ_fee')),univ_paid_row,d.get('university_fee_type') or 'Tuition',row_date,d.get('payment_mode') or d.get('mode') or 'Cash',d.get('ref_no') or d.get('utr') or '', 'Pending', d.get('university_remarks') or d.get('remarks') or 'Imported'))
                 ok+=1
                 continue
             if not d.get('name'):
@@ -2468,7 +2536,7 @@ def import_students():
             student_total=parse_amount(d.get('total_fee'))
             legacy_paid=parse_amount(d.get('paid'))
             univ_fee=parse_amount(d.get('univ_fee'))
-            row=q_ret("""INSERT INTO students (created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (uid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
+            row=q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE AND tenant_id=%s LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (tid,uid,tid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
             assign_student_code(sid)
             student_payments=collect_numbered_payments(d,'pay',5,d.get('fee_type') or 'Initial Payment',d.get('pay_mode') or 'Cash') or parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
@@ -2477,22 +2545,22 @@ def import_students():
             paid_total=0
             for pay in student_payments:
                 paid_total += pay['amount']
-                q_ret("INSERT INTO fee_payments (student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,pay['amount'],pay['fee_type'],pay['mode'],pay['ref'],pay['date'] or date.today().isoformat(),pay['remarks'],'student_receivable'))
+                q_ret("INSERT INTO fee_payments (tenant_id,student_id,recorded_by,amount,fee_type,pay_mode,ref_no,pay_date,remarks,account_bucket) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,sid,uid,pay['amount'],pay['fee_type'],pay['mode'],pay['ref'],pay['date'] or date.today().isoformat(),pay['remarks'],'student_receivable'))
             if paid_total and paid_total != legacy_paid:
-                q("UPDATE students SET paid=%s WHERE id=%s", (paid_total,sid), commit=True)
+                q("UPDATE students SET paid=%s WHERE id=%s AND tenant_id=%s", (paid_total,sid,tid), commit=True)
             univ_entries=collect_numbered_university_payments(d,'univ_pay',5,d.get('university_fee_type') or 'Tuition',d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash') or parse_university_entries(d.get('university_payments') or d.get('univ_payments'), d.get('university_fee_type') or 'Tuition', d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash')
             legacy_univ_paid=parse_amount(d.get('univ_paid'))
             if not univ_entries and (univ_fee>0 or legacy_univ_paid>0):
                 univ_entries=[{'date':parse_date_value(d.get('univ_payment_date')),'fee_type':d.get('university_fee_type') or 'Tuition','payable':univ_fee,'paid':legacy_univ_paid,'mode':d.get('univ_pay_mode') or d.get('pay_mode') or 'Cash','ref':d.get('univ_ref') or '','remarks':d.get('university_remarks') or 'Imported from student sheet'}]
             for up in univ_entries:
                 status='Paid' if up['payable']>0 and up['paid']>=up['payable'] else 'Pending'
-                q_ret("INSERT INTO university_payables (student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (sid,uid,d.get('university'),d.get('name'),up['payable'] or univ_fee,up['paid'],up['fee_type'],up['date'],up['mode'],up['ref'],status,up['remarks']))
+                q_ret("INSERT INTO university_payables (tenant_id,student_id,created_by,university,student,amount,paid_amount,fee_type,paid_date,pay_mode,ref_no,status,remarks) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,sid,uid,d.get('university'),d.get('name'),up['payable'] or univ_fee,up['paid'],up['fee_type'],up['date'],up['mode'],up['ref'],status,up['remarks']))
             assoc_amt=parse_amount(d.get('associate_amount'))
             if d.get('associate_name') and assoc_amt>0:
-                q_ret("INSERT INTO associates (created_by,name,phone,student,work_done,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (uid,d.get('associate_name'),d.get('associate_phone'),d.get('name'),d.get('associate_work') or 'Admission',assoc_amt,parse_date_value(d.get('associate_pay_date')),d.get('associate_pay_mode') or 'Cash',d.get('associate_utr') or '',d.get('associate_status') or 'Paid',d.get('associate_remarks') or 'Imported'))
+                q_ret("INSERT INTO associates (tenant_id,created_by,name,phone,student,work_done,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,uid,d.get('associate_name'),d.get('associate_phone'),d.get('name'),d.get('associate_work') or 'Admission',assoc_amt,parse_date_value(d.get('associate_pay_date')),d.get('associate_pay_mode') or 'Cash',d.get('associate_utr') or '',d.get('associate_status') or 'Paid',d.get('associate_remarks') or 'Imported'))
             ref_amt=parse_amount(d.get('reference_amount'))
             if d.get('reference_name') and ref_amt>0:
-                q_ret("INSERT INTO references_ (created_by,name,phone,student,university,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (uid,d.get('reference_name'),d.get('reference_phone'),d.get('name'),d.get('university'),ref_amt,parse_date_value(d.get('reference_pay_date')),d.get('reference_pay_mode') or 'Cash',d.get('reference_utr') or '',d.get('reference_status') or 'Paid',d.get('reference_remarks') or 'Imported'))
+                q_ret("INSERT INTO references_ (tenant_id,created_by,name,phone,student,university,amount,pay_date,pay_mode,utr,status,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id", (tid,uid,d.get('reference_name'),d.get('reference_phone'),d.get('name'),d.get('university'),ref_amt,parse_date_value(d.get('reference_pay_date')),d.get('reference_pay_mode') or 'Cash',d.get('reference_utr') or '',d.get('reference_status') or 'Paid',d.get('reference_remarks') or 'Imported'))
             ok+=1
         except Exception as ex:
             get_db().rollback(); errors.append({'row':i,'error':str(ex)[:180]})
