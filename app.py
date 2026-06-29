@@ -191,8 +191,25 @@ def log_action(action, module, record_id=None, detail=None):
     try:
         uid = session.get('user_id')
         if not uid: return
-        q("INSERT INTO activity_logs (user_id,action_type,module_name,record_id,detail,ip_address) VALUES (%s,%s,%s,%s,%s,%s)",
-          (uid, action, module, record_id, detail, request.remote_addr or 'unknown'), commit=True)
+        q("INSERT INTO activity_logs (tenant_id,user_id,action_type,module_name,record_id,detail,ip_address) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+          (current_tenant_id(), uid, action, module, record_id, detail, request.remote_addr or 'unknown'), commit=True)
+    except Exception: pass
+
+def record_active_session(user, token):
+    try:
+        ua = (request.headers.get('User-Agent') or '')[:300]
+        q("""INSERT INTO active_sessions (tenant_id,user_id,session_token,ip_address,user_agent,last_seen,is_active)
+             VALUES (%s,%s,%s,%s,%s,NOW(),TRUE)""",
+          (user.get('tenant_id'), user.get('id'), token, request.remote_addr or 'unknown', ua), commit=True)
+    except Exception: pass
+
+def touch_active_session():
+    try:
+        token = session.get('session_token')
+        uid = session.get('user_id')
+        if token and uid:
+            q("UPDATE active_sessions SET last_seen=NOW() WHERE user_id=%s AND session_token=%s AND is_active=TRUE",
+              (uid, token), commit=True)
     except Exception: pass
 
 def notify_user(uid, title, msg, ntype='info', link=None):
@@ -328,13 +345,16 @@ def login_required(f):
         try:
             stored = q("SELECT id,tenant_id,role,session_token,is_active FROM users WHERE id=%s", (session['user_id'],), one=True)
             if stored:
-                if stored.get('session_token') != session.get('session_token'):
+                token = session.get('session_token')
+                active = q("SELECT id FROM active_sessions WHERE user_id=%s AND session_token=%s AND is_active=TRUE", (session['user_id'], token), one=True)
+                if not active and stored.get('session_token') != token:
                     session.clear(); return jsonify({'error':'Session expired','redirect':'/'}), 401
                 if not stored.get('is_active'):
                     session.clear(); return jsonify({'error':'Account disabled','redirect':'/'}), 401
                 blocked = subscription_block(stored)
                 if blocked:
                     session.clear(); return jsonify({'error':blocked,'redirect':'/'}), 403
+                touch_active_session()
         except Exception: pass
         return f(*args, **kwargs)
     return decorated
@@ -543,9 +563,12 @@ def init_db():
     CREATE TABLE IF NOT EXISTS student_photos (id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE, file_path TEXT NOT NULL, file_name TEXT, uploaded_by INTEGER REFERENCES users(id), uploaded_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS leads (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), name TEXT NOT NULL, mobile TEXT, email TEXT, course TEXT, university TEXT, source TEXT DEFAULT 'Walk-in', status TEXT DEFAULT 'New', remarks TEXT, follow_up_date DATE, converted_to INTEGER REFERENCES students(id), created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS follow_ups (id SERIAL PRIMARY KEY, created_by INTEGER REFERENCES users(id), student_id INTEGER REFERENCES students(id) ON DELETE CASCADE, lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE, note TEXT NOT NULL, follow_type TEXT DEFAULT 'Call', next_date DATE, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS activity_logs (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), action_type TEXT NOT NULL, module_name TEXT, record_id INTEGER, detail TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
-    CREATE TABLE IF NOT EXISTS login_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), username TEXT, status TEXT DEFAULT 'Success', ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS activity_logs (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), action_type TEXT NOT NULL, module_name TEXT, record_id INTEGER, detail TEXT, ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS login_history (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), username TEXT, status TEXT DEFAULT 'Success', ip_address TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS active_sessions (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), session_token TEXT NOT NULL, ip_address TEXT, user_agent TEXT, last_seen TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), is_active BOOLEAN DEFAULT TRUE, revoked_at TIMESTAMP, revoked_by INTEGER REFERENCES users(id));
     CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id), title TEXT NOT NULL, message TEXT, type TEXT DEFAULT 'info', is_read BOOLEAN DEFAULT FALSE, link TEXT, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS student_notes (id SERIAL PRIMARY KEY, tenant_id INTEGER, student_id INTEGER REFERENCES students(id) ON DELETE CASCADE, created_by INTEGER REFERENCES users(id), note TEXT NOT NULL, is_pinned BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS approval_requests (id SERIAL PRIMARY KEY, tenant_id INTEGER, requested_by INTEGER REFERENCES users(id), module_name TEXT, record_id INTEGER, action_type TEXT, reason TEXT, status TEXT DEFAULT 'Pending', decided_by INTEGER REFERENCES users(id), decided_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS tenant_renewals (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) ON DELETE CASCADE, renewed_by INTEGER REFERENCES users(id), plan_name TEXT, amount NUMERIC(12,2) DEFAULT 0, pay_mode TEXT, payment_status TEXT DEFAULT 'Paid', payment_provider TEXT, payment_link TEXT, start_date DATE, end_date DATE, notes TEXT, invoice_sent_at TIMESTAMP, invoice_send_channel TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS backup_history (id SERIAL PRIMARY KEY, tenant_id INTEGER, downloaded_by INTEGER REFERENCES users(id), scope TEXT, file_name TEXT, created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS university_payables (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id), university TEXT, student TEXT, amount NUMERIC(12,2) DEFAULT 0, paid_amount NUMERIC(12,2) DEFAULT 0, fee_type TEXT DEFAULT 'Tuition', due_date DATE, paid_date DATE, pay_mode TEXT, ref_no TEXT, status TEXT DEFAULT 'Pending', remarks TEXT, created_at TIMESTAMP DEFAULT NOW());
@@ -656,6 +679,12 @@ def init_db():
               "ALTER TABLE tenant_renewals ADD COLUMN IF NOT EXISTS payment_provider TEXT",
               "ALTER TABLE tenant_renewals ADD COLUMN IF NOT EXISTS payment_link TEXT",
               "ALTER TABLE fee_payments ADD COLUMN IF NOT EXISTS receipt_no TEXT",
+              "ALTER TABLE documents ADD COLUMN IF NOT EXISTS expiry_date DATE",
+              "ALTER TABLE student_notes ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "ALTER TABLE login_history ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
+              "CREATE TABLE IF NOT EXISTS active_sessions (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), session_token TEXT NOT NULL, ip_address TEXT, user_agent TEXT, last_seen TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), is_active BOOLEAN DEFAULT TRUE, revoked_at TIMESTAMP, revoked_by INTEGER REFERENCES users(id))",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_payments_receipt_no ON fee_payments(receipt_no) WHERE receipt_no IS NOT NULL AND receipt_no<>''",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_client_code ON tenants(lower(client_code)) WHERE client_code IS NOT NULL AND client_code<>''",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
@@ -856,8 +885,8 @@ def login():
     admin_recovery_ok = bool(user and is_admin_login and admin_recovery_mode and password)
     if not user or (user['password'] != hash_pw(password) and not admin_recovery_ok):
         try:
-            q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
-              (user['id'] if user else None, username, 'Failed', ip), commit=True)
+            q("INSERT INTO login_history (tenant_id,user_id,username,status,ip_address) VALUES (%s,%s,%s,%s,%s)",
+              (user.get('tenant_id') if user else None, user['id'] if user else None, username, 'Failed', ip), commit=True)
             if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
         except Exception: pass
         if is_admin_login:
@@ -871,9 +900,10 @@ def login():
     token = str(uuid.uuid4())
     q("UPDATE users SET session_token=%s, failed_logins=0, last_login=NOW() WHERE id=%s", (token, user['id']), commit=True)
     try:
-        q("INSERT INTO login_history (user_id,username,status,ip_address) VALUES (%s,%s,%s,%s)",
-          (user['id'], user['username'], 'Success', ip), commit=True)
+        q("INSERT INTO login_history (tenant_id,user_id,username,status,ip_address) VALUES (%s,%s,%s,%s,%s)",
+          (user.get('tenant_id'), user['id'], user['username'], 'Success', ip), commit=True)
     except Exception: pass
+    record_active_session(user, token)
     session.permanent = True
     session['user_id'] = user['id']; session['username'] = user['username']; session['tenant_id'] = user.get('tenant_id')
     session['role'] = user['role']; session['session_token'] = token
@@ -897,7 +927,8 @@ app.view_functions['login'] = login_with_diagnostics
 def logout():
     if 'user_id' in session:
         log_action('Logout','Auth')
-        q("UPDATE users SET session_token=NULL WHERE id=%s", (session['user_id'],), commit=True)
+        q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE user_id=%s AND session_token=%s",
+          (session['user_id'], session['user_id'], session.get('session_token')), commit=True)
     session.clear(); return jsonify({'success':True})
 
 @app.route('/api/me')
@@ -1041,6 +1072,114 @@ def student_timeline(sid):
         add(r.get('action_type') or 'Activity',r.get('module_name') or 'Student',r.get('detail') or '',r.get('created_at'))
     items.sort(key=lambda x: str(x.get('created_at') or ''), reverse=True)
     return jsonify(items)
+
+@app.route('/api/students/<int:sid>/notes', methods=['GET','POST'])
+@login_required
+def student_notes_api(sid):
+    uid=session['user_id']; fs, fp = student_filter(uid,'s')
+    st=q(f"SELECT id,tenant_id,name FROM students s WHERE s.id=%s {fs}", [sid]+list(fp), one=True)
+    if not st: return jsonify({'error':'Not found or access denied'}), 404
+    if request.method == 'POST':
+        note=(request.json or {}).get('note','').strip()
+        if not note: return jsonify({'error':'Note required'}), 400
+        row=q_ret("INSERT INTO student_notes (tenant_id,student_id,created_by,note,is_pinned) VALUES (%s,%s,%s,%s,%s) RETURNING *",
+                  (st.get('tenant_id'),sid,uid,note,bool((request.json or {}).get('is_pinned'))))
+        log_action('Add','Student Note',sid,st.get('name'))
+        return jsonify(serialize(row)), 201
+    rows=q("""SELECT sn.*, u.full_name AS by_name FROM student_notes sn
+              LEFT JOIN users u ON u.id=sn.created_by
+              WHERE sn.student_id=%s AND sn.tenant_id=%s ORDER BY sn.is_pinned DESC, sn.id DESC""", (sid,st.get('tenant_id')))
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/student-notes/<int:nid>/pin', methods=['PUT'])
+@login_required
+def pin_student_note(nid):
+    row=q_ret("""UPDATE student_notes SET is_pinned=%s WHERE id=%s AND tenant_id=%s RETURNING *""",
+              (bool((request.json or {}).get('is_pinned')),nid,current_tenant_id()))
+    if not row and is_super_admin():
+        row=q_ret("UPDATE student_notes SET is_pinned=%s WHERE id=%s RETURNING *", (bool((request.json or {}).get('is_pinned')),nid))
+    if not row: return jsonify({'error':'Note not found'}), 404
+    return jsonify(serialize(row))
+
+@app.route('/api/student-notes/<int:nid>', methods=['DELETE'])
+@login_required
+def delete_student_note(nid):
+    if is_super_admin(): q("DELETE FROM student_notes WHERE id=%s", (nid,), commit=True)
+    else: q("DELETE FROM student_notes WHERE id=%s AND tenant_id=%s", (nid,current_tenant_id()), commit=True)
+    return jsonify({'success':True})
+
+@app.route('/api/insights')
+@login_required
+def app_insights():
+    uid=session['user_id']; fs, fp = student_filter(uid,'s')
+    insights=[]
+    try:
+        inactive=q("SELECT COUNT(*) AS c FROM leads WHERE status NOT IN ('Converted','Lost') AND created_at < NOW()-INTERVAL '7 days'" + ("" if is_super_admin() else " AND tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
+        if inactive and inactive['c']: insights.append({'type':'CRM','title':'Inactive leads', 'detail':f"{inactive['c']} leads 7 din se update nahi hue."})
+    except Exception: pass
+    try:
+        due=q(f"SELECT COUNT(*) AS c, COALESCE(SUM(fi.amount),0) AS amount FROM fee_installments fi JOIN students s ON s.id=fi.student_id WHERE fi.status='Pending' AND fi.due_date<CURRENT_DATE {fs}", fp, one=True)
+        if due and due['c']: insights.append({'type':'Finance','title':'Overdue fee recovery', 'detail':f"{due['c']} installments overdue hain, approx Rs {float(due['amount'] or 0):,.0f}."})
+    except Exception: pass
+    try:
+        docs=q(f"SELECT COUNT(*) AS c FROM students s WHERE TRUE {fs} AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.student_id=s.id)", fp, one=True)
+        if docs and docs['c']: insights.append({'type':'Documents','title':'No documents uploaded', 'detail':f"{docs['c']} students ke documents abhi missing hain."})
+    except Exception: pass
+    try:
+        course=q(f"SELECT COALESCE(course,'Unknown') AS course, COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM students s WHERE TRUE {fs} GROUP BY COALESCE(course,'Unknown') ORDER BY paid ASC LIMIT 1", fp, one=True)
+        if course and course['c']: insights.append({'type':'Business','title':'Course watch', 'detail':f"{course['course']} me collections low/track karne layak hain."})
+    except Exception: pass
+    return jsonify(insights[:8])
+
+@app.route('/api/document-alerts')
+@login_required
+@require_perm('can_view_documents')
+def document_alerts():
+    uid=session['user_id']; fs, fp = student_filter(uid,'s')
+    rows=q(f"""SELECT d.*, s.name AS student_name FROM documents d JOIN students s ON s.id=d.student_id
+              WHERE d.expiry_date IS NOT NULL AND d.expiry_date <= CURRENT_DATE+30 {fs}
+              ORDER BY d.expiry_date LIMIT 30""", fp)
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/approvals', methods=['GET','POST'])
+@login_required
+def approvals_api():
+    if request.method == 'POST':
+        d=request.json or {}; reason=(d.get('reason') or '').strip()
+        if not reason: return jsonify({'error':'Reason required'}), 400
+        row=q_ret("""INSERT INTO approval_requests (tenant_id,requested_by,module_name,record_id,action_type,reason,status)
+                     VALUES (%s,%s,%s,%s,%s,%s,'Pending') RETURNING *""",
+                  (current_tenant_id(),session['user_id'],d.get('module_name') or 'General',d.get('record_id') or None,d.get('action_type') or 'Approval',reason))
+        try:
+            admins=q("SELECT id FROM users WHERE tenant_id=%s AND role IN ('Admin','Super Admin') AND is_active=TRUE", (current_tenant_id(),))
+            for a in admins: notify_user(a['id'],'Approval Request',reason,'info')
+        except Exception: pass
+        return jsonify(serialize(row)), 201
+    if is_super_admin():
+        rows=q("""SELECT ar.*, u.full_name AS requested_by_name, t.name AS tenant_name FROM approval_requests ar
+                  LEFT JOIN users u ON u.id=ar.requested_by LEFT JOIN tenants t ON t.id=ar.tenant_id
+                  ORDER BY ar.id DESC LIMIT 100""")
+    elif is_admin():
+        rows=q("""SELECT ar.*, u.full_name AS requested_by_name FROM approval_requests ar
+                  LEFT JOIN users u ON u.id=ar.requested_by WHERE ar.tenant_id=%s ORDER BY ar.id DESC LIMIT 100""", (current_tenant_id(),))
+    else:
+        rows=q("""SELECT ar.*, u.full_name AS requested_by_name FROM approval_requests ar
+                  LEFT JOIN users u ON u.id=ar.requested_by WHERE ar.tenant_id=%s AND ar.requested_by=%s ORDER BY ar.id DESC LIMIT 100""", (current_tenant_id(),session['user_id']))
+    return jsonify([serialize(r) for r in rows])
+
+@app.route('/api/approvals/<int:aid>/status', methods=['PUT'])
+@login_required
+@admin_required
+def approval_status(aid):
+    status=(request.json or {}).get('status') or 'Approved'
+    if status not in ('Approved','Rejected','Pending'): return jsonify({'error':'Invalid status'}), 400
+    if is_super_admin():
+        row=q_ret("UPDATE approval_requests SET status=%s, decided_by=%s, decided_at=NOW() WHERE id=%s RETURNING *", (status,session['user_id'],aid))
+    else:
+        row=q_ret("UPDATE approval_requests SET status=%s, decided_by=%s, decided_at=NOW() WHERE id=%s AND tenant_id=%s RETURNING *", (status,session['user_id'],aid,current_tenant_id()))
+    if not row: return jsonify({'error':'Approval not found'}), 404
+    log_action(status,'Approval',aid,row.get('reason'))
+    return jsonify(serialize(row))
 
 @app.route('/api/work/today')
 @login_required
@@ -2045,8 +2184,8 @@ def add_document():
         st = q(f"SELECT tenant_id FROM students s WHERE s.id=%s {fs}", [d.get('student_id')]+list(fp), one=True)
         if not st: return jsonify({'error':'Student access denied'}), 403
         tid = st.get('tenant_id')
-    row = q_ret("INSERT INTO documents (tenant_id,student_id,student,doc_type,university,issue_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-          (tid,d.get('student_id'),d.get('student'),d.get('doc_type'),d.get('university'),d.get('issue_date') or None,d.get('status','Delivered'),d.get('delivered_to'),session['user_id']))
+    row = q_ret("INSERT INTO documents (tenant_id,student_id,student,doc_type,university,issue_date,expiry_date,status,delivered_to,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+          (tid,d.get('student_id'),d.get('student'),d.get('doc_type'),d.get('university'),d.get('issue_date') or None,d.get('expiry_date') or None,d.get('status','Delivered'),d.get('delivered_to'),session['user_id']))
     log_action('Issue','Document',row['id'] if row else None,d.get('doc_type'))
     return jsonify(serialize(row)), 201
 
@@ -2448,7 +2587,9 @@ def toggle_user_active(uid):
     if not user: return jsonify({'error':'Not found'}), 404
     new_state = not user['is_active']
     q("UPDATE users SET is_active=%s WHERE id=%s", (new_state,uid), commit=True)
-    if not new_state: q("UPDATE users SET session_token=NULL WHERE id=%s", (uid,), commit=True)
+    if not new_state:
+        q("UPDATE users SET session_token=NULL WHERE id=%s", (uid,), commit=True)
+        q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE user_id=%s AND is_active=TRUE", (session['user_id'],uid), commit=True)
     return jsonify({'success':True,'is_active':new_state})
 
 @app.route('/api/users/<int:uid>/force-logout', methods=['POST'])
@@ -2457,14 +2598,56 @@ def toggle_user_active(uid):
 def force_logout_user(uid):
     if uid == session.get('user_id'): return jsonify({'error':'Cannot force-logout yourself'}), 400
     q("UPDATE users SET session_token=NULL WHERE id=%s", (uid,), commit=True)
+    q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE user_id=%s AND is_active=TRUE", (session['user_id'],uid), commit=True)
+    log_action('Force Logout','User',uid)
     return jsonify({'success':True})
+
+@app.route('/api/active-sessions')
+@login_required
+@admin_required
+def get_active_sessions():
+    uid_filter = request.args.get('user_id')
+    sql = """SELECT s.id, s.tenant_id, t.name AS tenant_name, s.user_id, u.full_name AS user_name, u.username,
+                    u.role, s.ip_address, s.user_agent, s.created_at, s.last_seen,
+                    CASE WHEN s.user_id=%s AND s.session_token=%s THEN TRUE ELSE FALSE END AS is_current
+             FROM active_sessions s
+             LEFT JOIN users u ON u.id=s.user_id
+             LEFT JOIN tenants t ON t.id=s.tenant_id
+             WHERE s.is_active=TRUE"""
+    params = [session.get('user_id'), session.get('session_token')]
+    if not is_super_admin():
+        sql += " AND s.tenant_id=%s"; params.append(current_tenant_id())
+    if uid_filter:
+        sql += " AND s.user_id=%s"; params.append(int(uid_filter))
+    sql += " ORDER BY s.last_seen DESC LIMIT 200"
+    return jsonify([serialize(r) for r in q(sql, params)])
+
+@app.route('/api/active-sessions/<int:sid>/logout', methods=['POST'])
+@login_required
+@admin_required
+def logout_active_session(sid):
+    sess = q("SELECT * FROM active_sessions WHERE id=%s AND is_active=TRUE", (sid,), one=True)
+    if not sess: return jsonify({'error':'Session not found'}), 404
+    if not is_super_admin() and sess.get('tenant_id') != current_tenant_id():
+        return jsonify({'error':'Session access denied'}), 403
+    is_current = sess.get('user_id') == session.get('user_id') and sess.get('session_token') == session.get('session_token')
+    q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE id=%s", (session['user_id'],sid), commit=True)
+    user = q("SELECT id,session_token FROM users WHERE id=%s", (sess.get('user_id'),), one=True)
+    if user and user.get('session_token') == sess.get('session_token'):
+        q("UPDATE users SET session_token=NULL WHERE id=%s", (user.get('id'),), commit=True)
+    log_action('Logout Session','Auth',sid,f"User #{sess.get('user_id')} from {sess.get('ip_address')}")
+    if is_current:
+        session.clear()
+    return jsonify({'success':True,'logged_out_current':is_current})
 
 @app.route('/api/users/<int:uid>', methods=['DELETE'])
 @login_required
 @require_perm('can_manage_users')
 def delete_user(uid):
     if uid == session.get('user_id'): return jsonify({'error':'Cannot delete yourself'}), 400
-    q("UPDATE users SET is_active=FALSE, session_token=NULL WHERE id=%s", (uid,), commit=True); log_action('Disable','User',uid); return jsonify({'success':True,'disabled':True})
+    q("UPDATE users SET is_active=FALSE, session_token=NULL WHERE id=%s", (uid,), commit=True)
+    q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE user_id=%s AND is_active=TRUE", (session['user_id'],uid), commit=True)
+    log_action('Disable','User',uid); return jsonify({'success':True,'disabled':True})
 
 @app.route('/api/change-password', methods=['POST'])
 @login_required
@@ -2483,8 +2666,10 @@ def change_password():
 def get_audit_logs():
     uid_filter = request.args.get('user_id'); module = request.args.get('module','')
     limit = int(request.args.get('limit',100))
-    sql = "SELECT al.*, u.full_name AS user_name FROM activity_logs al LEFT JOIN users u ON u.id=al.user_id WHERE TRUE"
+    sql = "SELECT al.*, u.full_name AS user_name, t.name AS tenant_name FROM activity_logs al LEFT JOIN users u ON u.id=al.user_id LEFT JOIN tenants t ON t.id=COALESCE(al.tenant_id,u.tenant_id) WHERE TRUE"
     params = []
+    if not is_super_admin():
+        sql += " AND COALESCE(al.tenant_id,u.tenant_id)=%s"; params.append(current_tenant_id())
     if uid_filter: sql += " AND al.user_id=%s"; params.append(int(uid_filter))
     if module: sql += " AND al.module_name=%s"; params.append(module)
     return jsonify([serialize(r) for r in q(f"{sql} ORDER BY al.created_at DESC LIMIT {limit}", params)])
@@ -2520,10 +2705,47 @@ def export_audit_logs():
 @admin_required
 def get_login_history():
     uid_filter = request.args.get('user_id')
-    sql = "SELECT lh.*, u.full_name AS user_name FROM login_history lh LEFT JOIN users u ON u.id=lh.user_id WHERE TRUE"
+    sql = "SELECT lh.*, u.full_name AS user_name, t.name AS tenant_name FROM login_history lh LEFT JOIN users u ON u.id=lh.user_id LEFT JOIN tenants t ON t.id=COALESCE(lh.tenant_id,u.tenant_id) WHERE TRUE"
     params = []
+    if not is_super_admin():
+        sql += " AND COALESCE(lh.tenant_id,u.tenant_id)=%s"; params.append(current_tenant_id())
     if uid_filter: sql += " AND lh.user_id=%s"; params.append(int(uid_filter))
     return jsonify([serialize(r) for r in q(sql+' ORDER BY lh.created_at DESC LIMIT 100', params)])
+
+@app.route('/api/activity-history')
+@login_required
+@admin_required
+def get_activity_history():
+    uid_filter = request.args.get('user_id')
+    module = request.args.get('module','')
+    limit = min(int(request.args.get('limit',200)), 500)
+    login_sql = """SELECT lh.created_at, COALESCE(lh.tenant_id,u.tenant_id) AS tenant_id, COALESCE(t.name,'') AS tenant_name,
+                          lh.user_id, COALESCE(u.full_name,lh.username,'Unknown') AS user_name, COALESCE(u.username,lh.username,'') AS username,
+                          CASE WHEN lh.status='Success' THEN 'Login' ELSE 'Login Failed' END AS action_type,
+                          'Auth' AS module_name, NULL::INTEGER AS record_id, lh.status AS detail, lh.ip_address
+                   FROM login_history lh
+                   LEFT JOIN users u ON u.id=lh.user_id
+                   LEFT JOIN tenants t ON t.id=COALESCE(lh.tenant_id,u.tenant_id)
+                   WHERE TRUE"""
+    audit_sql = """SELECT al.created_at, COALESCE(al.tenant_id,u.tenant_id) AS tenant_id, COALESCE(t.name,'') AS tenant_name,
+                          al.user_id, COALESCE(u.full_name,'System') AS user_name, COALESCE(u.username,'') AS username,
+                          al.action_type, al.module_name, al.record_id, al.detail, al.ip_address
+                   FROM activity_logs al
+                   LEFT JOIN users u ON u.id=al.user_id
+                   LEFT JOIN tenants t ON t.id=COALESCE(al.tenant_id,u.tenant_id)
+                   WHERE TRUE"""
+    login_params = []
+    audit_params = []
+    if not is_super_admin():
+        login_sql += " AND COALESCE(lh.tenant_id,u.tenant_id)=%s"; login_params.append(current_tenant_id())
+        audit_sql += " AND COALESCE(al.tenant_id,u.tenant_id)=%s"; audit_params.append(current_tenant_id())
+    if uid_filter:
+        login_sql += " AND lh.user_id=%s"; login_params.append(int(uid_filter))
+        audit_sql += " AND al.user_id=%s"; audit_params.append(int(uid_filter))
+    if module:
+        audit_sql += " AND al.module_name=%s"; audit_params.append(module)
+    sql = f"SELECT * FROM ({login_sql} UNION ALL {audit_sql}) x ORDER BY created_at DESC LIMIT {limit}"
+    return jsonify([serialize(r) for r in q(sql, login_params + audit_params)])
 
 @app.route('/enquiry/<code>')
 def public_enquiry_page(code):
@@ -2799,10 +3021,12 @@ def download_backup():
         table_names=['users','universities','academic_sessions','courses','subjects','fee_types','document_types','students','fee_payments','fee_installments','university_payables','expenses','associates','references_','documents','leads','follow_ups','activity_logs','login_history']
         for t in table_names:
             try:
-                if all_tenants or t in ('activity_logs','login_history'):
+                if all_tenants:
                     data['tables'][t]=rows(f"SELECT * FROM {t} ORDER BY id")
                 elif t == 'users':
                     data['tables'][t]=rows("SELECT * FROM users WHERE tenant_id=%s ORDER BY id", (tenant_id,))
+                elif t in ('activity_logs','login_history'):
+                    data['tables'][t]=rows(f"SELECT * FROM {t} WHERE tenant_id=%s ORDER BY id", (tenant_id,))
                 else:
                     data['tables'][t]=rows(f"SELECT * FROM {t} WHERE tenant_id=%s ORDER BY id", (tenant_id,))
             except Exception as ex: data['tables'][t]={'error':str(ex)[:120]}
