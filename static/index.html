@@ -218,6 +218,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">&#128202;</span>Dashboard</button>
       <button class="nv" onclick="nav('students',this)"><span class="ni">&#128100;</span>Students<span class="nb" id="nb-s">0</span></button>
       <button class="nv" onclick="nav('addstudent',this)"><span class="ni">&#10133;</span>Add Student</button>
+      <button class="nv" onclick="nav('unregistered',this)"><span class="ni">&#128221;</span>Unregistered<span class="nb" id="nb-unreg">0</span></button>
       <div class="sb-sec">Finance</div>
       <button class="nv" onclick="nav('fees',this)"><span class="ni">&#128176;</span>Fee Management</button>
       <button class="nv" onclick="nav('feereceive',this)"><span class="ni">&#129534;</span>Receive Fee</button>
@@ -273,6 +274,11 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
         <div class="card"><div class="card-hd"><div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading&#8230;</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option></select><button class="btn btn-r btn-sm" id="bulk-del-btn" onclick="bulkDeleteStudents()" style="display:none">Bulk Delete</button><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button></div></div>
           <div class="loading" id="s-loading"><div class="spin"></div>Loading students&#8230;</div>
           <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr><tr class="filter-row"><th><input class="fi" id="sf-id" oninput="renderStudentsRows()" placeholder="ID"></th><th><input class="fi" id="sf-name" oninput="renderStudentsRows()" placeholder="Name"></th><th><input class="fi" id="sf-father" oninput="renderStudentsRows()" placeholder="Father"></th><th><input class="fi" id="sf-course" oninput="renderStudentsRows()" placeholder="Course"></th><th><input class="fi" id="sf-univ" oninput="renderStudentsRows()" placeholder="University"></th><th><input class="fi" id="sf-mobile" oninput="renderStudentsRows()" placeholder="Mobile"></th><th><select class="fi" id="sf-status" onchange="renderStudentsRows()"><option value="">All</option></select></th><th><select class="fi" id="sf-bal" onchange="renderStudentsRows()"><option value="">All</option><option value="due">Due</option><option value="clear">Clear</option></select></th><th></th></tr></thead><tbody id="s-table"></tbody></table></div>
+        </div>
+      </div>
+      <div class="view" id="view-unregistered">
+        <div class="card"><div class="card-hd"><div><div class="card-title">Unregistered Students</div><div class="card-sub" id="unreg-sub">Save &amp; Exit wale incomplete admissions yahan rahenge</div></div><div class="card-acts"><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New Draft</button></div></div>
+          <div class="tw"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Saved On</th><th>Actions</th></tr></thead><tbody id="unreg-table"></tbody></table></div>
         </div>
       </div>
       <div class="view" id="view-addstudent">
@@ -550,6 +556,7 @@ async function initApp(){
   ['fr-date','ma-date','mr-date','qf-date','id-date','f-admdate'].forEach(id=>{const el=document.getElementById(id);if(el)el.valueAsDate=new Date();});
   allStudents=await api('GET','/students')||[];
   const nbS=document.getElementById('nb-s');if(nbS)nbS.textContent=allStudents.length;
+  await loadUnregisteredCount();
   populateDropdowns();
   try{await loadSessionInfo();}catch(e){}
   try{loadNotifications();setInterval(loadNotifications,60000);}catch(e){}
@@ -562,7 +569,7 @@ async function initApp(){
 }
 async function loadUniversities(){allUnivs=await api('GET','/universities')||[];populateDropdowns();}
 async function loadGuides(){allGuides=await api('GET','/guides')||[];populateDropdowns();}
-const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',guides:'Guide Registration',documents:'Documents',sessions:'Academic Sessions',accounts:'Accounts',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
+const TITLES={dashboard:'Dashboard',students:'Students',unregistered:'Unregistered Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',guides:'Guide Registration',documents:'Documents',sessions:'Academic Sessions',accounts:'Accounts',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
 function nav(id,btn){
   if(id==='tenants'&&!isSA()){toast('Tenant Management sirf Sky Eduworld owner ke liye hai','er');id='dashboard';btn=document.querySelector('.nv');}
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -573,6 +580,7 @@ function nav(id,btn){
   document.getElementById('pg-title').textContent=t;
   document.getElementById('pg-bc').textContent=tenantName()+' \u203a '+t;
   if(id==='students')loadStudents();
+  else if(id==='unregistered')loadUnregisteredStudents();
   else if(id==='fees')loadFees();
   else if(id==='feereceive'){populateDropdowns();const d=document.getElementById('fr-date');if(d)d.valueAsDate=new Date();}
   else if(id==='incentive'){loadIncTab();loadIncStats();}
@@ -697,6 +705,19 @@ async function loadStudents(q){
   var bd=document.getElementById('bulk-del-btn');if(bd)bd.style.display=(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student))?'inline-flex':'none';
   renderStudentsRows();
   populateDropdowns();
+  loadUnregisteredCount();
+}
+async function loadUnregisteredCount(){
+  const rows=await api('GET','/students?registration=unregistered')||[];
+  const nb=document.getElementById('nb-unreg');if(nb)nb.textContent=rows.length;
+  return rows;
+}
+async function loadUnregisteredStudents(){
+  const rows=await loadUnregisteredCount();
+  window._unregisteredStudents=rows;
+  const sub=document.getElementById('unreg-sub');if(sub)sub.textContent=rows.length+' unregistered student'+(rows.length!==1?'s':'')+' found';
+  const tb=document.getElementById('unreg-table');if(!tb)return;
+  tb.innerHTML=rows.map(function(s){return'<tr><td class="cmo">'+(s.student_code||('DRAFT-'+s.id))+'</td><td><div class="av-cell">'+studentAv(s)+'<div><div class="cp">'+escH(s.name||'Untitled Draft')+'</div><div class="cm">Continue karke final register karein</div></div></div></td><td class="cm">'+escH(s.father||'&mdash;')+'</td><td><span class="tag tg">'+escH(s.course||'&mdash;')+'</span></td><td class="cm">'+escH(s.university||'&mdash;')+'</td><td class="cmo">'+escH(s.mobile||'')+'</td><td class="cm">'+escH((s.updated_at||s.created_at||'').slice(0,10))+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="editStudent('+s.id+')">Continue</button><button class="btn btn-g btn-sm" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No unregistered students</td></tr>';
 }
 function renderStudentsRows(){
   var data=allStudents||[],bid=fv('sf-id'),bn=fv('sf-name'),bf=fv('sf-father'),bc=fv('sf-course'),bu=fv('sf-univ'),bm=fv('sf-mobile'),bs=fv('sf-status'),bb=fv('sf-bal');
@@ -712,8 +733,8 @@ function resetForm(){
   stab('tp',document.querySelector('.tab'));
 }
 async function editStudent(id){
-  let s=await api('GET','/students/'+id);if(!s)s=allStudents.find(x=>x.id===id);if(!s)return;editingId=id;nav('addstudent',null);
-  document.getElementById('as-title').textContent='Edit \u2014 '+s.name;document.getElementById('s-save-btn').textContent='Update Student';
+  let s=await api('GET','/students/'+id);if(!s)s=(allStudents||[]).concat(window._unregisteredStudents||[]).find(x=>x.id===id);if(!s)return;nav('addstudent',null);editingId=id;
+  document.getElementById('as-title').textContent='Edit \u2014 '+s.name;document.getElementById('s-save-btn').textContent=(s.status==='Draft'?'Register Student':'Update Student');
   const set=(i,v)=>{const el=document.getElementById(i);if(el)el.value=v||'';};
   set('f-name',s.name);set('f-dob',s.dob);set('f-mobile',s.mobile);set('f-email',s.email);set('f-aadhar',s.aadhar);set('f-father',s.father);set('f-mother',s.mother);set('f-address',s.address);set('f-enroll',s.enroll_no);set('f-roll',s.roll_no);set('f-admdate',s.adm_date);set('f-remarks',s.remarks);set('f-total',s.total_fee);set('f-univfee',s.univ_fee);set('f-paid',s.paid);set('f-utr',s.utr);set('f-docnotes',s.doc_notes);
   document.getElementById('f-gender').value=s.gender||'';document.getElementById('f-univ').value=s.university||'';populateGuideSelect();document.getElementById('f-guide').value=s.guide?s.guide.id:'';document.getElementById('f-course').value=s.course||'';document.getElementById('f-subject').value=s.subject||'';document.getElementById('f-batch').value=s.batch||'2025-26';var st=document.getElementById('f-status');if(st){st.value=s.status||'Active';if(!st.value){st.innerHTML+='<option>'+escH(s.status||'Active')+'</option>';st.value=s.status||'Active';}}
@@ -748,29 +769,32 @@ async function uploadStudentDocFiles(studentId,studentName,university){
 
 async function saveStudent(partial){
   const name=document.getElementById('f-name').value.trim(),mobile=document.getElementById('f-mobile').value.trim(),father=document.getElementById('f-father').value.trim();
-  if(!partial && (!name||!mobile||!father)){toast('Name, Mobile and Father Name are required','er');return;} if(partial && !name){toast('Partial save ke liye kam se kam name zaroori hai','er');return;} var canPartial=isSA()||((currentUser&&currentUser.permissions)||{}).can_save_partial_student;if(partial&&!canPartial){toast('Partial save permission nahi hai','er');return;}
-  if(!editingId&&!partial){var dup=await checkDuplicateStudent(name,mobile,father,document.getElementById('f-email').value.trim());if(dup)return;}
   const g=id=>document.getElementById(id)?document.getElementById(id).value:'';
-  const body={name,father,mother:g('f-mother'),dob:g('f-dob'),gender:g('f-gender'),mobile,email:g('f-email'),aadhar:g('f-aadhar'),address:g('f-address'),course:g('f-course'),subject:g('f-subject'),guide_id:g('f-guide')||null,university:g('f-univ'),batch:g('f-batch'),enroll_no:g('f-enroll'),roll_no:g('f-roll'),adm_date:g('f-admdate'),remarks:g('f-remarks'),total_fee:parseFloat(g('f-total'))||0,paid:parseFloat(g('f-paid'))||0,univ_fee:parseFloat(g('f-univfee'))||0,pay_mode:g('f-paymode'),utr:g('f-utr'),doc_notes:g('f-docnotes'),status:partial?'Draft':(g('f-status')||'Active'),is_partial:!!partial};
+  const totalFee=parseFloat(g('f-total'))||0;
+  if(!partial && (!name||!mobile||!father||!g('f-univ')||!g('f-course')||totalFee<=0)){toast('Final register ke liye Name, Mobile, Father, University, Course aur Total Fee required hain','er');return;}
+  if(partial && !name){toast('Save & Exit ke liye kam se kam name zaroori hai','er');return;} var canPartial=isSA()||((currentUser&&currentUser.permissions)||{}).can_save_partial_student;if(partial&&!canPartial){toast('Partial save permission nahi hai','er');return;}
+  if(!partial){var dup=await checkDuplicateStudent(name,mobile,father,document.getElementById('f-email').value.trim(),editingId);if(dup)return;}
+  const body={name,father,mother:g('f-mother'),dob:g('f-dob'),gender:g('f-gender'),mobile,email:g('f-email'),aadhar:g('f-aadhar'),address:g('f-address'),course:g('f-course'),subject:g('f-subject'),guide_id:g('f-guide')||null,university:g('f-univ'),batch:g('f-batch'),enroll_no:g('f-enroll'),roll_no:g('f-roll'),adm_date:g('f-admdate'),remarks:g('f-remarks'),total_fee:parseFloat(g('f-total'))||0,paid:parseFloat(g('f-paid'))||0,univ_fee:parseFloat(g('f-univfee'))||0,pay_mode:g('f-paymode'),utr:g('f-utr'),doc_notes:g('f-docnotes'),status:partial?'Draft':(g('f-status')==='Draft'?'Active':(g('f-status')||'Active')),is_partial:!!partial};
   const btn=document.getElementById('s-save-btn');btn.disabled=true;
   let result;
+  const wasEditing=!!editingId;
   if(editingId)result=await api('PUT','/students/'+editingId,body);
   else result=await api('POST','/students',body);
   btn.disabled=false;if(!result)return;
   if(pendingInst.length>0){const sid=result.id||editingId;if(sid){for(const inst of pendingInst)await api('POST','/students/'+sid+'/installments',inst);pendingInst=[];}}const sidDoc=result.id||editingId;if(sidDoc){await uploadStudentDocFiles(sidDoc,name,g('f-univ'));}
-  toast(editingId?'Student updated!':'Student registered!','ok');
-  allStudents=await api('GET','/students')||[];await loadGuides();document.getElementById('nb-s').textContent=allStudents.length;populateDropdowns();nav('students',null);
+  toast(partial?'Student unregistered list me save ho gaya':(wasEditing?'Student updated / registered!':'Student registered!'),'ok');
+  allStudents=await api('GET','/students')||[];await loadGuides();document.getElementById('nb-s').textContent=allStudents.length;populateDropdowns();await loadUnregisteredCount();nav(partial?'unregistered':'students',null);
 }
-async function checkDuplicateStudent(name,mobile,father,email){
-  var key=[name,mobile,father,email].join('|');if(_lastDupKey===key)return false;
-  var rows=await api('GET','/duplicates?name='+encodeURIComponent(name||'')+'&mobile='+encodeURIComponent(mobile||'')+'&father='+encodeURIComponent(father||'')+'&email='+encodeURIComponent(email||''))||[];
+async function checkDuplicateStudent(name,mobile,father,email,excludeId){
+  var key=[name,mobile,father,email,excludeId||''].join('|');if(_lastDupKey===key)return false;
+  var rows=await api('GET','/duplicates?name='+encodeURIComponent(name||'')+'&mobile='+encodeURIComponent(mobile||'')+'&father='+encodeURIComponent(father||'')+'&email='+encodeURIComponent(email||'')+(excludeId?'&student_id='+encodeURIComponent(excludeId):''))||[];
   if(rows.length){var msg='Possible duplicate found:\\n'+rows.map(function(r){return (r.student_code||r.id)+' - '+r.name+' - '+(r.mobile||'');}).join('\\n')+'\\n\\nPhir bhi save karna hai?';if(!confirm(msg))return true;_lastDupKey=key;}
   return false;
 }
 async function delStudent(id){
   if(!confirm('Delete this student? This cannot be undone.'))return;
   const r=await api('DELETE','/students/'+id);if(!r)return;
-  allStudents=allStudents.filter(s=>s.id!==id);document.getElementById('nb-s').textContent=allStudents.length;populateDropdowns();loadStudents();toast('Student deleted','ok');
+  allStudents=allStudents.filter(s=>s.id!==id);document.getElementById('nb-s').textContent=allStudents.length;populateDropdowns();await loadUnregisteredCount();if(document.getElementById('view-unregistered').classList.contains('active'))loadUnregisteredStudents();else loadStudents();toast('Student deleted','ok');
 }
 async function bulkDeleteStudents(){
   const univ=document.getElementById('flt-u').value||'';
