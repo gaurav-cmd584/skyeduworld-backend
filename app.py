@@ -692,6 +692,9 @@ def init_db():
               "ALTER TABLE login_history ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "CREATE TABLE IF NOT EXISTS active_sessions (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), session_token TEXT NOT NULL, ip_address TEXT, user_agent TEXT, last_seen TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), is_active BOOLEAN DEFAULT TRUE, revoked_at TIMESTAMP, revoked_by INTEGER REFERENCES users(id))",
               "CREATE TABLE IF NOT EXISTS wallet_entries (id SERIAL PRIMARY KEY, tenant_id INTEGER, owner_type TEXT NOT NULL DEFAULT 'tenant', owner_id INTEGER, entry_type TEXT NOT NULL, amount NUMERIC(12,2) NOT NULL, note TEXT, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW())",
+              "ALTER TABLE wallet_entries ADD COLUMN IF NOT EXISTS student_id INTEGER",
+              "ALTER TABLE wallet_entries ADD COLUMN IF NOT EXISTS fee_type TEXT",
+              "ALTER TABLE wallet_entries ADD COLUMN IF NOT EXISTS ref_no TEXT",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_payments_receipt_no ON fee_payments(receipt_no) WHERE receipt_no IS NOT NULL AND receipt_no<>''",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_client_code ON tenants(lower(client_code)) WHERE client_code IS NOT NULL AND client_code<>''",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
@@ -1289,11 +1292,12 @@ def get_wallets():
     tid = current_tenant_id()
     if is_super_admin() and request.args.get('tenant_id'):
         tid = int(request.args.get('tenant_id'))
-    rows = q("""SELECT we.*, u.full_name AS by_name
+    rows = q("""SELECT we.*, u.full_name AS by_name, s.name AS student_name, s.student_code
                 FROM wallet_entries we LEFT JOIN users u ON u.id=we.created_by
+                LEFT JOIN students s ON s.id=we.student_id AND s.tenant_id=we.tenant_id
                 WHERE we.tenant_id=%s ORDER BY we.id DESC""", (tid,))
     balance = sum((float(r.get('amount') or 0) if r.get('entry_type')=='Credit' else -float(r.get('amount') or 0)) for r in rows)
-    return jsonify({'balance': balance, 'entries': [serialize(r) for r in rows]})
+    return jsonify({'balance': max(balance, 0), 'entries': [serialize(r) for r in rows]})
 
 @app.route('/api/wallets', methods=['POST'])
 @login_required
@@ -1306,9 +1310,17 @@ def add_wallet_entry():
         return jsonify({'error':'Credit entry sirf Super Admin kar sakta hai'}), 403
     if not is_super_admin() and tid != current_tenant_id():
         return jsonify({'error':'Access denied'}), 403
-    row = q_ret("""INSERT INTO wallet_entries (tenant_id,owner_type,owner_id,entry_type,amount,note,created_by)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-                (tid,d.get('owner_type') or 'tenant',d.get('owner_id'),et,amount,d.get('note'),uid))
+    if et == 'Debit':
+        bal_row = q("SELECT COALESCE(SUM(CASE WHEN entry_type='Credit' THEN amount ELSE -amount END),0) AS balance FROM wallet_entries WHERE tenant_id=%s", (tid,), one=True)
+        if float((bal_row or {}).get('balance') or 0) < amount:
+            return jsonify({'error':'You do not have sufficient balance'}), 400
+        if not d.get('student_id'):
+            return jsonify({'error':'Debit entry ke liye student select karein'}), 400
+        st = q("SELECT id FROM students WHERE id=%s AND tenant_id=%s", (int(d.get('student_id')),tid), one=True)
+        if not st: return jsonify({'error':'Student not found'}), 404
+    row = q_ret("""INSERT INTO wallet_entries (tenant_id,owner_type,owner_id,entry_type,amount,note,created_by,student_id,fee_type,ref_no)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+                (tid,d.get('owner_type') or 'tenant',d.get('owner_id'),et,amount,d.get('note'),uid,d.get('student_id') or None,d.get('fee_type'),d.get('ref_no')))
     log_action(et, 'Wallet', row.get('id') if row else None, d.get('note'))
     return jsonify(serialize(row)), 201
 
@@ -1317,6 +1329,7 @@ def add_wallet_entry():
 def get_students():
     uid = session['user_id']; search = request.args.get('q','').strip()
     univ = request.args.get('university',''); status = request.args.get('status','')
+    registration = request.args.get('registration','').strip().lower()
     target_user = request.args.get('user_id'); sess_id = request.args.get('session_id')
     fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.*, u.full_name AS created_by_name, ac.name AS session_name FROM students s LEFT JOIN users u ON u.id=s.created_by LEFT JOIN academic_sessions ac ON ac.id=s.session_id WHERE TRUE {fs}"
@@ -1326,7 +1339,12 @@ def get_students():
         sql += " AND (s.student_code ILIKE %s OR s.name ILIKE %s OR s.father ILIKE %s OR s.mobile ILIKE %s OR s.course ILIKE %s OR s.university ILIKE %s OR s.enroll_no ILIKE %s)"
         p = f'%{search}%'; params += [p,p,p,p,p,p,p]
     if univ: sql += " AND s.university=%s"; params.append(univ)
-    if status: sql += " AND s.status=%s"; params.append(status)
+    if registration in ('unregistered','draft','partial'):
+        sql += " AND COALESCE(s.status,'Draft')='Draft'"
+    elif status:
+        sql += " AND s.status=%s"; params.append(status)
+    else:
+        sql += " AND COALESCE(s.status,'Active')<>'Draft'"
     if sess_id: sql += " AND s.session_id=%s"; params.append(int(sess_id))
     sql += " ORDER BY s.id DESC"
     return jsonify([serialize(r) for r in q(sql, params)])
