@@ -1282,6 +1282,7 @@ def custom_report():
 def get_students():
     uid = session['user_id']; search = request.args.get('q','').strip()
     univ = request.args.get('university',''); status = request.args.get('status','')
+    registration = request.args.get('registration','').strip().lower()
     target_user = request.args.get('user_id'); sess_id = request.args.get('session_id')
     fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.*, u.full_name AS created_by_name, ac.name AS session_name FROM students s LEFT JOIN users u ON u.id=s.created_by LEFT JOIN academic_sessions ac ON ac.id=s.session_id WHERE TRUE {fs}"
@@ -1291,7 +1292,12 @@ def get_students():
         sql += " AND (s.student_code ILIKE %s OR s.name ILIKE %s OR s.father ILIKE %s OR s.mobile ILIKE %s OR s.course ILIKE %s OR s.university ILIKE %s OR s.enroll_no ILIKE %s)"
         p = f'%{search}%'; params += [p,p,p,p,p,p,p]
     if univ: sql += " AND s.university=%s"; params.append(univ)
-    if status: sql += " AND s.status=%s"; params.append(status)
+    if registration in ('unregistered','draft','partial'):
+        sql += " AND COALESCE(s.status,'Draft')='Draft'"
+    elif status:
+        sql += " AND s.status=%s"; params.append(status)
+    else:
+        sql += " AND COALESCE(s.status,'Active')<>'Draft'"
     if sess_id: sql += " AND s.session_id=%s"; params.append(int(sess_id))
     sql += " ORDER BY s.id DESC"
     return jsonify([serialize(r) for r in q(sql, params)])
@@ -1303,7 +1309,8 @@ def add_student():
     d = request.json or {}; uid = session['user_id']
     partial = bool(d.get('is_partial'))
     if partial and not (is_super_admin() or get_user_perms(uid).get('can_save_partial_student')): return jsonify({'error':'Permission denied: can_save_partial_student'}), 403
-    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father')): return jsonify({'error':'Name, Mobile and Father Name are required'}), 400
+    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father') or not d.get('university') or not d.get('course') or float(d.get('total_fee',0) or 0) <= 0):
+        return jsonify({'error':'Final register ke liye Name, Mobile, Father, University, Course aur Total Fee required hain'}), 400
     univs = get_user_univs(uid)
     if univs and d.get('university') not in univs: return jsonify({'error':'Not assigned to this university'}), 403
     active_sess = get_active_session()
@@ -1403,6 +1410,10 @@ def update_student(sid):
     if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
         return jsonify({'error':'Not found or access denied'}), 404
     d = request.json or {}
+    partial = bool(d.get('is_partial')) or (d.get('status') == 'Draft')
+    if partial and not (is_super_admin() or get_user_perms(uid).get('can_save_partial_student')): return jsonify({'error':'Permission denied: can_save_partial_student'}), 403
+    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father') or not d.get('university') or not d.get('course') or float(d.get('total_fee',0) or 0) <= 0):
+        return jsonify({'error':'Final register ke liye Name, Mobile, Father, University, Course aur Total Fee required hain'}), 400
     row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s WHERE id=%s RETURNING *""",
                (d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),sid))
     try:
