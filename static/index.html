@@ -1096,18 +1096,18 @@ function renderTenants(){
     var limits='<div class="cm">Code: '+escH(t.client_code||'--')+'</div><div class="cm">URL: '+escH(t.subdomain||t.custom_domain||'--')+'</div><div class="cm">CRM: '+escH(t.crm_status||'Active Client')+'</div><div class="cm">Health: '+(t.health_score||0)+'/100</div><div class="cm">Grace: '+(t.grace_days||0)+' days</div><div class="cm">Students: '+(t.student_count||0)+'/'+(t.max_students||'Unlimited')+'</div><div class="cm">Users: '+(t.user_count||0)+'/'+(t.max_users||'Unlimited')+'</div><div class="cm">Storage: '+(t.storage_limit_mb||'Unlimited')+' MB</div><div class="cm">Cloud: '+(t.cloud_backup_enabled?'On':'Off')+' '+escH(t.cloud_backup_provider||'')+'</div>';
     var formUrl=t.client_code?('/enquiry/'+encodeURIComponent(t.client_code)):'';
     var publicBtn=formUrl?'<a class="btn btn-g btn-sm" target="_blank" href="'+formUrl+'">Public Form</a>':'';
-    var acts='<div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editTenant('+t.id+')">Edit</button><button class="btn btn-g btn-sm" onclick="openTenantUsers('+t.id+')">Users</button><button class="btn btn-g btn-sm" onclick="openTenantUser('+t.id+')">+ Admin</button><button class="btn btn-g btn-sm" onclick="openRenewals('+t.id+')">History</button>'+publicBtn+'<button class="btn btn-g btn-sm" onclick="runCloudBackup('+t.id+')">Cloud Test</button><button class="btn btn-g btn-sm" onclick="impersonateTenant('+t.id+')">Login As</button><button class="btn btn-p btn-sm" onclick="downloadTenantBackup('+t.id+')">Backup</button></div>';
+    var acts='<div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="impersonateTenant('+t.id+')">View Tenant Data</button><button class="btn btn-g btn-sm" onclick="editTenant('+t.id+')">Edit</button><button class="btn btn-g btn-sm" onclick="openTenantUsers('+t.id+')">Users</button><button class="btn btn-g btn-sm" onclick="openTenantUser('+t.id+')">+ Admin</button><button class="btn btn-g btn-sm" onclick="openRenewals('+t.id+')">History</button>'+publicBtn+'<button class="btn btn-g btn-sm" onclick="runCloudBackup('+t.id+')">Cloud Test</button><button class="btn btn-p btn-sm" onclick="downloadTenantBackup('+t.id+')">Backup</button></div>';
     return'<tr><td><div class="cp">'+escH(t.name||'')+'</div><div class="cm">Tenant ID: '+t.id+'</div></td><td>'+tag+'</td><td class="cm">'+sub+limits+'</td><td class="cmo">'+(t.user_count||0)+'</td><td class="cmo">'+(t.student_count||0)+'</td><td class="cm">'+escH(t.notes||'--')+'</td><td>'+acts+'</td></tr>';
   }).join('')||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--slate)">No clients found</td></tr>';
 }
 async function impersonateTenant(id){
   if(!isSA()){toast('Support login sirf Sky owner ke liye hai','er');return;}
-  if(!confirm('Is client ke admin account me support login karna hai?'))return;
+  if(!confirm('Is client ka separate data view karna hai? Sky view se data mix nahi hoga; aap temporary client admin context me jayenge.'))return;
   const r=await api('POST','/tenants/'+id+'/impersonate');
   if(!r||!r.user)return;
   currentUser=r.user;applyTenantBrand();applyPermsPhase2();
   await initApp();nav('dashboard',document.querySelector('.nv'));
-  toast('Client account me support login ho gaya','ok');
+  toast('Client data view open ho gaya','ok');
 }
 async function stopImpersonation(){
   const r=await api('POST','/impersonation/stop');
