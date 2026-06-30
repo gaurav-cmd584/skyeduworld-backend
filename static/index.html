@@ -160,7 +160,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 .uc-state{font-size:11px;color:var(--slate);margin-bottom:9px}
 .uc-cnt{font-size:22px;font-weight:700}
 @media(max-width:900px){.sidebar{transform:translateX(-100%);transition:transform .2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.stats-row{grid-template-columns:1fr 1fr!important}.univ-grid{grid-template-columns:1fr 1fr}.content{padding:14px 12px}.topbar{padding:0 12px}.form-grid{grid-template-columns:1fr}.srch{width:150px}.mobile-menu-btn{display:inline-flex!important}}
-.mobile-menu-btn{display:none;width:34px;height:34px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--slate-lt);align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--ink)}
+.mobile-menu-btn{display:inline-flex;width:34px;height:34px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--slate-lt);align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--ink)}
 .notif-btn{position:relative;width:34px;height:34px;border-radius:var(--rs);background:var(--slate-lt);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
 .notif-btn:hover{background:var(--sky-lt);border-color:#BFDBFE}
 .notif-badge{position:absolute;top:-4px;right:-4px;background:var(--rose);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:99px;min-width:16px;text-align:center;display:none}
@@ -219,6 +219,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <button class="nv active" onclick="nav('dashboard',this)"><span class="ni">&#128202;</span>Dashboard</button>
       <button class="nv" onclick="nav('students',this)"><span class="ni">&#128100;</span>Students<span class="nb" id="nb-s">0</span></button>
       <button class="nv" onclick="nav('addstudent',this)"><span class="ni">&#10133;</span>Add Student</button>
+      <button class="nv" onclick="nav('unregistered',this)"><span class="ni">&#128221;</span>Unregistered<span class="nb" id="nb-unreg">0</span></button>
       <div class="sb-sec">Finance</div>
       <button class="nv" onclick="nav('fees',this)"><span class="ni">&#128176;</span>Fee Management</button>
       <button class="nv" onclick="nav('feereceive',this)"><span class="ni">&#129534;</span>Receive Fee</button>
@@ -277,6 +278,11 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
           <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr><tr class="filter-row"><th><input class="fi" id="sf-id" oninput="renderStudentsRows()" placeholder="ID"></th><th><input class="fi" id="sf-name" oninput="renderStudentsRows()" placeholder="Name"></th><th><input class="fi" id="sf-father" oninput="renderStudentsRows()" placeholder="Father"></th><th><input class="fi" id="sf-course" oninput="renderStudentsRows()" placeholder="Course"></th><th><input class="fi" id="sf-univ" oninput="renderStudentsRows()" placeholder="University"></th><th><input class="fi" id="sf-mobile" oninput="renderStudentsRows()" placeholder="Mobile"></th><th><select class="fi" id="sf-status" onchange="renderStudentsRows()"><option value="">All</option></select></th><th><select class="fi" id="sf-bal" onchange="renderStudentsRows()"><option value="">All</option><option value="due">Due</option><option value="clear">Clear</option></select></th><th></th></tr></thead><tbody id="s-table"></tbody></table></div>
         </div>
       </div>
+      <div class="view" id="view-unregistered">
+        <div class="card"><div class="card-hd"><div><div class="card-title">Unregistered Students</div><div class="card-sub" id="unreg-sub">Save &amp; Exit wale incomplete admissions yahan rahenge</div></div><div class="card-acts"><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New Draft</button></div></div>
+          <div class="tw"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Saved On</th><th>Actions</th></tr></thead><tbody id="unreg-table"></tbody></table></div>
+        </div>
+      </div>
       <div class="view" id="view-addstudent">
         <div class="card">
           <div class="card-hd"><div><div class="card-title" id="as-title">New Student Registration</div><div class="card-sub">Fill all required fields</div></div></div>
@@ -316,7 +322,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       </div>
       <div class="view" id="view-wallets">
         <div class="stats-row" style="grid-template-columns:repeat(2,1fr)"><div class="sc green"><div class="sc-lbl">Wallet Balance</div><div class="sc-val" id="wallet-balance">&#8377;0</div><div class="sc-sub">Current tenant</div></div><div class="sc blue"><div class="sc-lbl">Rules</div><div class="sc-val" style="font-size:14px;letter-spacing:0">Credit: Super Admin</div><div class="sc-sub">Debit: tenant/reference users</div></div></div>
-        <div class="card"><div class="card-hd"><div><div class="card-title">Wallet Entries</div><div class="card-sub">Tenant aur reference fund ledger</div></div><div class="card-acts"><select class="fi" id="wallet-owner" style="width:auto"><option value="tenant">Tenant</option><option value="reference">Reference</option></select><select class="fi" id="wallet-type" style="width:auto"><option>Debit</option><option>Credit</option></select><input class="fi" id="wallet-amt" type="number" placeholder="Amount" style="width:130px"><input class="fi" id="wallet-note" placeholder="Note / reference name" style="width:220px"><button class="btn btn-p btn-sm" onclick="addWalletEntry()">Add Entry</button></div></div><div class="tw"><table><thead><tr><th>Date</th><th>Owner</th><th>Type</th><th>Amount</th><th>Note</th><th>By</th></tr></thead><tbody id="wallet-table"></tbody></table></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title">Wallet Entries</div><div class="card-sub">Debit entries student fee ke against save hongi</div></div><div class="card-acts"><select class="fi" id="wallet-owner" style="width:auto"><option value="tenant">Tenant</option><option value="reference">Reference</option></select><select class="fi" id="wallet-type" style="width:auto"><option>Debit</option><option>Credit</option></select><select class="fi" id="wallet-student" style="width:190px"><option value="">Select student</option></select><select class="fi" id="wallet-fee-type" style="width:145px"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other Fee</option></select><input class="fi" id="wallet-amt" type="number" placeholder="Amount" style="width:110px"><input class="fi" id="wallet-ref" placeholder="Ref No." style="width:110px"><input class="fi" id="wallet-note" placeholder="Note / reference name" style="width:190px"><button class="btn btn-p btn-sm" onclick="addWalletEntry()">Add Entry</button></div></div><div class="tw"><table><thead><tr><th>Date</th><th>Student</th><th>Owner</th><th>Type</th><th>Fee Type</th><th>Amount</th><th>Note</th><th>By</th></tr></thead><tbody id="wallet-table"></tbody></table></div></div>
       </div>
       <div class="view" id="view-universities">
         <div class="card"><div class="card-hd"><div class="card-title">Partner Universities</div><button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button></div><div class="univ-grid" id="univ-grid"></div></div>
@@ -588,6 +594,7 @@ async function initApp(){
   ['fr-date','ma-date','mr-date','qf-date','id-date','f-admdate'].forEach(id=>{const el=document.getElementById(id);if(el)el.valueAsDate=new Date();});
   allStudents=await api('GET','/students')||[];
   const nbS=document.getElementById('nb-s');if(nbS)nbS.textContent=allStudents.length;
+  await loadUnregisteredCount();
   populateDropdowns();
   try{await loadSessionInfo();}catch(e){}
   try{loadNotifications();setInterval(loadNotifications,60000);}catch(e){}
@@ -600,7 +607,7 @@ async function initApp(){
 }
 async function loadUniversities(){allUnivs=await api('GET','/universities')||[];populateDropdowns();}
 async function loadGuides(){allGuides=await api('GET','/guides')||[];populateDropdowns();}
-const TITLES={dashboard:'Dashboard',students:'Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',guides:'Guide Registration',documents:'Documents',sessions:'Academic Sessions',accounts:'Accounts',wallets:'Wallets',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
+const TITLES={dashboard:'Dashboard',students:'Students',unregistered:'Unregistered Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',universities:'Partner Universities',guides:'Guide Registration',documents:'Documents',sessions:'Academic Sessions',accounts:'Accounts',wallets:'Wallets',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
 function nav(id,btn){
   if(window.innerWidth<=900){document.querySelector('.sidebar').classList.remove('open');}
   if(id==='tenants'&&!isSA()){toast('Tenant Management sirf Sky Eduworld owner ke liye hai','er');id='dashboard';btn=document.querySelector('.nv');}
@@ -612,6 +619,7 @@ function nav(id,btn){
   document.getElementById('pg-title').textContent=t;
   document.getElementById('pg-bc').textContent=tenantName()+' \u203a '+t;
   if(id==='students')loadStudents();
+  else if(id==='unregistered')loadUnregisteredStudents();
   else if(id==='fees')loadFees();
   else if(id==='feereceive'){populateDropdowns();const d=document.getElementById('fr-date');if(d)d.valueAsDate=new Date();}
   else if(id==='incentive'){loadIncTab();loadIncStats();}
@@ -739,6 +747,19 @@ async function loadStudents(q){
   var bd=document.getElementById('bulk-del-btn');if(bd)bd.style.display=(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student))?'inline-flex':'none';
   renderStudentsRows();
   populateDropdowns();
+  loadUnregisteredCount();
+}
+async function loadUnregisteredCount(){
+  const rows=await api('GET','/students?registration=unregistered')||[];
+  const nb=document.getElementById('nb-unreg');if(nb)nb.textContent=rows.length;
+  return rows;
+}
+async function loadUnregisteredStudents(){
+  const rows=await loadUnregisteredCount();
+  window._unregisteredStudents=rows;
+  const sub=document.getElementById('unreg-sub');if(sub)sub.textContent=rows.length+' unregistered student'+(rows.length!==1?'s':'')+' found';
+  const tb=document.getElementById('unreg-table');if(!tb)return;
+  tb.innerHTML=rows.map(function(s){return'<tr><td class="cmo">'+(s.student_code||('DRAFT-'+s.id))+'</td><td><div class="av-cell">'+studentAv(s)+'<div><div class="cp">'+escH(s.name||'Untitled Draft')+'</div><div class="cm">Continue karke final register karein</div></div></div></td><td class="cm">'+escH(s.father||'&mdash;')+'</td><td><span class="tag tg">'+escH(s.course||'&mdash;')+'</span></td><td class="cm">'+escH(s.university||'&mdash;')+'</td><td class="cmo">'+escH(s.mobile||'')+'</td><td class="cm">'+escH((s.updated_at||s.created_at||'').slice(0,10))+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="editStudent('+s.id+')">Continue</button><button class="btn btn-g btn-sm" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No unregistered students</td></tr>';
 }
 function renderStudentsRows(){
   var data=allStudents||[],bid=fv('sf-id'),bn=fv('sf-name'),bf=fv('sf-father'),bc=fv('sf-course'),bu=fv('sf-univ'),bm=fv('sf-mobile'),bs=fv('sf-status'),bb=fv('sf-bal');
@@ -754,7 +775,7 @@ function resetForm(){
   populateStates();stab('tp',document.querySelector('.tab'));updateStudentButtons();
 }
 async function editStudent(id){
-  let s=await api('GET','/students/'+id);if(!s)s=allStudents.find(x=>x.id===id);if(!s)return;nav('addstudent',null);editingId=id;editingWasDraft=(s.status==='Draft');
+  let s=await api('GET','/students/'+id);if(!s)s=(allStudents||[]).concat(window._unregisteredStudents||[]).find(x=>x.id===id);if(!s)return;nav('addstudent',null);editingId=id;editingWasDraft=(s.status==='Draft');
   document.getElementById('as-title').textContent='Edit \u2014 '+s.name;
   const set=(i,v)=>{const el=document.getElementById(i);if(el)el.value=v||'';};
   set('f-name',s.name);var fn=document.getElementById('f-name');if(fn)fn.disabled=(s.status!=='Draft');set('f-dob',s.dob);set('f-mobile',s.mobile);set('f-email',s.email);set('f-aadhar',s.aadhar);set('f-apaar',s.apaar_id);set('f-father',s.father);set('f-mother',s.mother);set('f-address',s.address);set('f-state',s.state);populateDistricts();set('f-district',s.district);set('f-pincode',s.pincode);set('f-enroll',s.enroll_no);set('f-admdate',s.adm_date);set('f-remarks',s.remarks);set('f-total',s.total_fee);set('f-univfee',s.univ_fee);set('f-paid',s.paid);set('f-utr',s.utr);set('f-docnotes',s.doc_notes);
@@ -847,17 +868,20 @@ async function loadFees(){
   document.getElementById('fee-loading').style.display='none';document.getElementById('fee-tw').style.display='block';renderFeeRows();
 }
 async function loadWallets(){
+  if(!allStudents.length)allStudents=await api('GET','/students')||[];
+  const ws=document.getElementById('wallet-student');if(ws){const cur=ws.value;ws.innerHTML='<option value="">Select student</option>'+allStudents.map(function(s){return '<option value="'+s.id+'">'+escH((s.student_code||'')+' - '+s.name+' - '+(s.course||''))+'</option>';}).join('');ws.value=cur;}
   const data=await api('GET','/wallets')||{balance:0,entries:[]};
   document.getElementById('wallet-balance').textContent=fmt(data.balance||0);
-  document.getElementById('wallet-table').innerHTML=(data.entries||[]).map(function(r){return '<tr><td class="cm">'+escH((r.created_at||'').slice(0,19).replace('T',' '))+'</td><td>'+escH(r.owner_type||'tenant')+'</td><td>'+stag(r.entry_type)+'</td><td class="cmo" style="color:'+(r.entry_type==='Credit'?'var(--em)':'var(--rose)')+'">'+fmt(r.amount)+'</td><td>'+escH(r.note||'')+'</td><td class="cm">'+escH(r.by_name||'')+'</td></tr>';}).join('')||'<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--slate)">No wallet entries</td></tr>';
+  document.getElementById('wallet-table').innerHTML=(data.entries||[]).map(function(r){return '<tr><td class="cm">'+escH((r.created_at||'').slice(0,19).replace('T',' '))+'</td><td><div class="cp">'+escH(r.student_name||'&mdash;')+'</div><div class="cm">'+escH(r.student_code||'')+'</div></td><td>'+escH(r.owner_type||'tenant')+'</td><td>'+stag(r.entry_type)+'</td><td class="cm">'+escH(r.fee_type||'')+'</td><td class="cmo" style="color:'+(r.entry_type==='Credit'?'var(--em)':'var(--rose)')+'">'+fmt(r.amount)+'</td><td>'+escH(r.note||'')+'</td><td class="cm">'+escH(r.by_name||'')+'</td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No wallet entries</td></tr>';
   var wt=document.getElementById('wallet-type');if(wt&&!isSA())wt.innerHTML='<option>Debit</option>';
 }
 async function addWalletEntry(){
-  var amount=parseFloat(document.getElementById('wallet-amt').value)||0, entry_type=document.getElementById('wallet-type').value, note=document.getElementById('wallet-note').value, owner_type=document.getElementById('wallet-owner').value;
+  var amount=parseFloat(document.getElementById('wallet-amt').value)||0, entry_type=document.getElementById('wallet-type').value, note=document.getElementById('wallet-note').value, owner_type=document.getElementById('wallet-owner').value, student_id=document.getElementById('wallet-student').value, fee_type=document.getElementById('wallet-fee-type').value, ref_no=document.getElementById('wallet-ref').value;
   if(amount<=0){toast('Amount enter karein','er');return;}
-  var r=await api('POST','/wallets',{amount,entry_type,note,owner_type});
+  if(entry_type==='Debit'&&!student_id){toast('Debit ke liye student select karein','er');return;}
+  var r=await api('POST','/wallets',{amount,entry_type,note,owner_type,student_id,fee_type,ref_no});
   if(!r)return;
-  document.getElementById('wallet-amt').value='';document.getElementById('wallet-note').value='';toast('Wallet entry saved','ok');loadWallets();
+  document.getElementById('wallet-amt').value='';document.getElementById('wallet-note').value='';document.getElementById('wallet-ref').value='';toast('Wallet entry saved','ok');loadWallets();
 }
 function renderFeeRows(){var data=window._feeStudents||[];var q=(document.getElementById('fee-search')?.value||'').toLowerCase(),sn=fv('ff-student'),un=fv('ff-univ'),fb=fv('ff-bal'),fs=fv('ff-status');if(q)data=data.filter(s=>String(s.name+' '+s.mobile+' '+s.university+' '+s.course).toLowerCase().includes(q));data=data.filter(function(s){var b=Number(s.total_fee||0)-Number(s.paid||0),pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0,st=b===0?'active':(pct>50?'partial':'due');return hasTxt(s.name+' '+s.mobile,sn)&&hasTxt(s.university,un)&&(!fb||(fb==='due'?b>0:b<=0))&&(!fs||st===fs);});document.getElementById('fee-table').innerHTML=data.map(function(s){const b=Number(s.total_fee||0)-Number(s.paid||0),pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="cp">'+escH(s.name)+'</div><div class="cm">'+escH(s.mobile||'')+'</div></td><td class="cm">'+escH((s.university||'').split(' ').slice(0,2).join(' '))+'</td><td class="cmo">'+fmt(s.total_fee)+'</td><td class="cmo" style="color:var(--em)">'+fmt(s.paid)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td>'+(b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>')+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="quickFeeFor('+s.id+')">+ Fee</button><button class="btn btn-g btn-sm" onclick="openStudentLedger('+s.id+')">Ledger</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button></td></tr>';}).join('')||'<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--slate)">No fee records</td></tr>';}
 function quickFeeFor(id){openM('m-qfee');setTimeout(()=>{document.getElementById('qf-s').value=id;loadQuickFeeBreakups();},50);}
