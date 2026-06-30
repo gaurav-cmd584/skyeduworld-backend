@@ -3,7 +3,7 @@ Sky Eduworld ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Management System (PHASE 2 U
 Backend: Flask + PostgreSQL
 """
 
-import os, csv, io, hashlib, uuid, json
+import os, csv, io, hashlib, uuid, json, re
 from datetime import datetime, timedelta, date
 from functools import wraps
 
@@ -691,6 +691,7 @@ def init_db():
               "ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "ALTER TABLE login_history ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "CREATE TABLE IF NOT EXISTS active_sessions (id SERIAL PRIMARY KEY, tenant_id INTEGER, user_id INTEGER REFERENCES users(id), session_token TEXT NOT NULL, ip_address TEXT, user_agent TEXT, last_seen TIMESTAMP DEFAULT NOW(), created_at TIMESTAMP DEFAULT NOW(), is_active BOOLEAN DEFAULT TRUE, revoked_at TIMESTAMP, revoked_by INTEGER REFERENCES users(id))",
+              "CREATE TABLE IF NOT EXISTS wallet_entries (id SERIAL PRIMARY KEY, tenant_id INTEGER, owner_type TEXT NOT NULL DEFAULT 'tenant', owner_id INTEGER, entry_type TEXT NOT NULL, amount NUMERIC(12,2) NOT NULL, note TEXT, created_by INTEGER REFERENCES users(id), created_at TIMESTAMP DEFAULT NOW())",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_payments_receipt_no ON fee_payments(receipt_no) WHERE receipt_no IS NOT NULL AND receipt_no<>''",
               "CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_client_code ON tenants(lower(client_code)) WHERE client_code IS NOT NULL AND client_code<>''",
               "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
@@ -711,6 +712,11 @@ def init_db():
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_path TEXT",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS session_id INTEGER",
               "ALTER TABLE students ADD COLUMN IF NOT EXISTS subject TEXT",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS state TEXT",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS district TEXT",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS pincode TEXT",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS branch TEXT",
+              "ALTER TABLE students ADD COLUMN IF NOT EXISTS apaar_id TEXT",
               "ALTER TABLE universities ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "ALTER TABLE academic_sessions ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
               "ALTER TABLE fee_types ADD COLUMN IF NOT EXISTS tenant_id INTEGER",
@@ -1277,12 +1283,40 @@ def custom_report():
     return csv_response(csv_rows, cols, f'Custom_{entity}_{datetime.now().strftime("%Y%m%d")}.csv')
 
 # STUDENTS
+@app.route('/api/wallets', methods=['GET'])
+@login_required
+def get_wallets():
+    tid = current_tenant_id()
+    if is_super_admin() and request.args.get('tenant_id'):
+        tid = int(request.args.get('tenant_id'))
+    rows = q("""SELECT we.*, u.full_name AS by_name
+                FROM wallet_entries we LEFT JOIN users u ON u.id=we.created_by
+                WHERE we.tenant_id=%s ORDER BY we.id DESC""", (tid,))
+    balance = sum((float(r.get('amount') or 0) if r.get('entry_type')=='Credit' else -float(r.get('amount') or 0)) for r in rows)
+    return jsonify({'balance': balance, 'entries': [serialize(r) for r in rows]})
+
+@app.route('/api/wallets', methods=['POST'])
+@login_required
+def add_wallet_entry():
+    d = request.json or {}; uid=session['user_id']; amount=float(d.get('amount',0) or 0)
+    if amount <= 0: return jsonify({'error':'Amount required'}), 400
+    et = 'Credit' if d.get('entry_type') == 'Credit' else 'Debit'
+    tid = int(d.get('tenant_id') or current_tenant_id())
+    if et == 'Credit' and not is_super_admin():
+        return jsonify({'error':'Credit entry sirf Super Admin kar sakta hai'}), 403
+    if not is_super_admin() and tid != current_tenant_id():
+        return jsonify({'error':'Access denied'}), 403
+    row = q_ret("""INSERT INTO wallet_entries (tenant_id,owner_type,owner_id,entry_type,amount,note,created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+                (tid,d.get('owner_type') or 'tenant',d.get('owner_id'),et,amount,d.get('note'),uid))
+    log_action(et, 'Wallet', row.get('id') if row else None, d.get('note'))
+    return jsonify(serialize(row)), 201
+
 @app.route('/api/students', methods=['GET'])
 @login_required
 def get_students():
     uid = session['user_id']; search = request.args.get('q','').strip()
     univ = request.args.get('university',''); status = request.args.get('status','')
-    registration = request.args.get('registration','').strip().lower()
     target_user = request.args.get('user_id'); sess_id = request.args.get('session_id')
     fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.*, u.full_name AS created_by_name, ac.name AS session_name FROM students s LEFT JOIN users u ON u.id=s.created_by LEFT JOIN academic_sessions ac ON ac.id=s.session_id WHERE TRUE {fs}"
@@ -1292,12 +1326,7 @@ def get_students():
         sql += " AND (s.student_code ILIKE %s OR s.name ILIKE %s OR s.father ILIKE %s OR s.mobile ILIKE %s OR s.course ILIKE %s OR s.university ILIKE %s OR s.enroll_no ILIKE %s)"
         p = f'%{search}%'; params += [p,p,p,p,p,p,p]
     if univ: sql += " AND s.university=%s"; params.append(univ)
-    if registration in ('unregistered','draft','partial'):
-        sql += " AND COALESCE(s.status,'Draft')='Draft'"
-    elif status:
-        sql += " AND s.status=%s"; params.append(status)
-    else:
-        sql += " AND COALESCE(s.status,'Active')<>'Draft'"
+    if status: sql += " AND s.status=%s"; params.append(status)
     if sess_id: sql += " AND s.session_id=%s"; params.append(int(sess_id))
     sql += " ORDER BY s.id DESC"
     return jsonify([serialize(r) for r in q(sql, params)])
@@ -1309,20 +1338,21 @@ def add_student():
     d = request.json or {}; uid = session['user_id']
     partial = bool(d.get('is_partial'))
     if partial and not (is_super_admin() or get_user_perms(uid).get('can_save_partial_student')): return jsonify({'error':'Permission denied: can_save_partial_student'}), 403
-    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father') or not d.get('university') or not d.get('course') or float(d.get('total_fee',0) or 0) <= 0):
-        return jsonify({'error':'Final register ke liye Name, Mobile, Father, University, Course aur Total Fee required hain'}), 400
+    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father')): return jsonify({'error':'Name, Mobile and Father Name are required'}), 400
     univs = get_user_univs(uid)
     if univs and d.get('university') not in univs: return jsonify({'error':'Not assigned to this university'}), 403
     active_sess = get_active_session()
     tid = current_tenant_id()
+    if d.get('aadhar') and q("SELECT id FROM students WHERE tenant_id=%s AND NULLIF(regexp_replace(COALESCE(aadhar,''),'\\D','','g'),'')=%s LIMIT 1", (tid, re.sub(r'\D','',str(d.get('aadhar')))), one=True):
+        return jsonify({'error':'Same Aadhar number already exists'}), 400
     limit_error = check_tenant_limit(tid, 'students')
     if limit_error: return jsonify({'error':limit_error}), 403
-    row = q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+    row = q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,state,district,pincode,course,branch,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status,apaar_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
                (tid, uid, active_sess['id'] if active_sess else None, d.get('name'), d.get('father'), d.get('mother'),
                 d.get('dob') or None, d.get('gender'), d.get('mobile'), d.get('email'), d.get('aadhar'), d.get('address'),
-                d.get('course'), d.get('subject'), d.get('university'), d.get('batch'), d.get('enroll_no'), d.get('roll_no'),
+                d.get('state'), d.get('district'), d.get('pincode'), d.get('course'), d.get('branch'), d.get('subject'), d.get('university'), d.get('batch'), d.get('enroll_no'), d.get('roll_no'),
                 d.get('adm_date') or None, d.get('remarks'), d.get('total_fee',0), d.get('paid',0),
-                d.get('univ_fee',0), d.get('pay_mode'), d.get('utr'), d.get('doc_notes'), 'Draft' if partial else 'Active'))
+                d.get('univ_fee',0), d.get('pay_mode'), d.get('utr'), d.get('doc_notes'), 'Draft' if partial else 'Active', d.get('apaar_id')))
     paid = float(d.get('paid',0) or 0)
     if paid > 0 and row:
         conn = get_db(); cur = conn.cursor()
@@ -1407,15 +1437,15 @@ def cleanup_student_related_rows(student_ids=None, student_names=None, tenant_id
 @require_perm('can_edit_student')
 def update_student(sid):
     uid = session['user_id']; fs, fp = student_filter(uid)
-    if not q(f"SELECT id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True):
+    existing = q(f"SELECT id,name,status,tenant_id FROM students WHERE id=%s {fs}", [sid]+list(fp), one=True)
+    if not existing:
         return jsonify({'error':'Not found or access denied'}), 404
     d = request.json or {}
-    partial = bool(d.get('is_partial')) or (d.get('status') == 'Draft')
-    if partial and not (is_super_admin() or get_user_perms(uid).get('can_save_partial_student')): return jsonify({'error':'Permission denied: can_save_partial_student'}), 403
-    if not partial and (not d.get('name') or not d.get('mobile') or not d.get('father') or not d.get('university') or not d.get('course') or float(d.get('total_fee',0) or 0) <= 0):
-        return jsonify({'error':'Final register ke liye Name, Mobile, Father, University, Course aur Total Fee required hain'}), 400
-    row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,course=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s WHERE id=%s RETURNING *""",
-               (d.get('name'),d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),sid))
+    if d.get('aadhar') and q("SELECT id FROM students WHERE tenant_id=%s AND id<>%s AND NULLIF(regexp_replace(COALESCE(aadhar,''),'\\D','','g'),'')=%s LIMIT 1", (existing.get('tenant_id'), sid, re.sub(r'\D','',str(d.get('aadhar')))), one=True):
+        return jsonify({'error':'Same Aadhar number already exists'}), 400
+    safe_name = d.get('name') if (existing.get('status') == 'Draft') else existing.get('name')
+    row = q_ret("""UPDATE students SET name=%s,father=%s,mother=%s,dob=%s,gender=%s,mobile=%s,email=%s,aadhar=%s,address=%s,state=%s,district=%s,pincode=%s,course=%s,branch=%s,subject=%s,university=%s,batch=%s,enroll_no=%s,roll_no=%s,adm_date=%s,remarks=%s,total_fee=%s,univ_fee=%s,pay_mode=%s,utr=%s,doc_notes=%s,status=%s,apaar_id=%s WHERE id=%s RETURNING *""",
+               (safe_name,d.get('father'),d.get('mother'),d.get('dob') or None,d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('state'),d.get('district'),d.get('pincode'),d.get('course'),d.get('branch'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),d.get('adm_date') or None,d.get('remarks'),d.get('total_fee',0),d.get('univ_fee',0),d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),d.get('status','Active'),d.get('apaar_id'),sid))
     try:
         assign_student_to_guide(sid, d.get('guide_id'))
     except ValueError as e:
