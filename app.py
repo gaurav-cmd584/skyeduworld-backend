@@ -234,11 +234,17 @@ def current_tenant_id():
     uid = session.get('user_id')
     if not uid: return None
     row = q("SELECT tenant_id FROM users WHERE id=%s", (uid,), one=True)
-    return row.get('tenant_id') if row else None
+    if row and row.get('tenant_id'): return row.get('tenant_id')
+    if is_super_admin():
+        default_tenant = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
+        return default_tenant.get('id') if default_tenant else None
+    return None
 
 def tenant_filter(alias='', include_super=False):
-    if is_super_admin() and not include_super:
-        return '', []
+    # Normal app screens must always stay inside the active tenant context.
+    # Super Admin can inspect another tenant through Tenant Management support login.
+    if is_super_admin() and include_super and not request.path.startswith('/api/tenants') and not request.path.startswith('/api/backup') and not request.path.startswith('/api/audit') and not request.path.startswith('/api/active-sessions') and not request.path.startswith('/api/activity-history') and not request.path.startswith('/api/login-history'):
+        include_super = False
     tid = current_tenant_id()
     if not tid:
         return '', []
@@ -954,10 +960,10 @@ def dashboard():
     perms = get_user_perms(uid)
     assoc_total = ref_total = 0
     if perms.get('can_view_associates') or is_super_admin():
-        a = q("SELECT COALESCE(SUM(amount),0) AS t FROM associates" + ("" if is_super_admin() else " WHERE tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
+        a = q("SELECT COALESCE(SUM(amount),0) AS t FROM associates WHERE tenant_id=%s", (current_tenant_id(),), one=True)
         assoc_total = float(a['t'])
     if perms.get('can_view_references') or is_super_admin():
-        r = q("SELECT COALESCE(SUM(amount),0) AS t FROM references_" + ("" if is_super_admin() else " WHERE tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
+        r = q("SELECT COALESCE(SUM(amount),0) AS t FROM references_ WHERE tenant_id=%s", (current_tenant_id(),), one=True)
         ref_total = float(r['t'])
     stats['assoc_ref_paid'] = assoc_total + ref_total
     today_col = q(f"SELECT COALESCE(SUM(fp.amount),0) AS t FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE DATE(fp.created_at)=CURRENT_DATE {fs}", fp, one=True)
@@ -967,18 +973,15 @@ def dashboard():
         stats['overdue_count'] = pending_inst['c']; stats['overdue_amount'] = float(pending_inst['total'])
     except Exception: stats['overdue_count'] = 0; stats['overdue_amount'] = 0
     try:
-        leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted'" + ("" if is_super_admin() else " AND tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
+        leads_count = q("SELECT COUNT(*) AS c FROM leads WHERE status != 'Converted' AND tenant_id=%s", (current_tenant_id(),), one=True)
         stats['active_leads'] = leads_count['c']
     except Exception: stats['active_leads'] = 0
     recent = q(f"SELECT s.*, u.full_name AS created_by_name FROM students s LEFT JOIN users u ON u.id=s.created_by WHERE TRUE {fs} ORDER BY s.id DESC LIMIT 6", fp)
     fee_tracker = q(f"SELECT s.* FROM students s WHERE TRUE {fs} AND s.total_fee > s.paid ORDER BY (s.total_fee-s.paid) DESC LIMIT 5", fp)
-    if is_super_admin():
-        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10")
-    else:
-        univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id WHERE u.tenant_id=%s GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10", (current_tenant_id(),))
+    univs = q("SELECT u.name, u.color, COUNT(s.id) AS count FROM universities u LEFT JOIN students s ON s.university=u.name AND s.tenant_id=u.tenant_id WHERE u.tenant_id=%s GROUP BY u.name,u.color ORDER BY count DESC LIMIT 10", (current_tenant_id(),))
     user_summary = []
     if is_super_admin():
-        user_summary = [serialize(r) for r in q("SELECT u.id, u.full_name, u.role, u.last_login, COUNT(s.id) AS student_count, COALESCE(SUM(s.paid),0) AS total_collected, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding FROM users u LEFT JOIN students s ON s.created_by=u.id GROUP BY u.id,u.full_name,u.role,u.last_login ORDER BY student_count DESC")]
+        user_summary = [serialize(r) for r in q("SELECT u.id, u.full_name, u.role, u.last_login, COUNT(s.id) AS student_count, COALESCE(SUM(s.paid),0) AS total_collected, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding FROM users u LEFT JOIN students s ON s.created_by=u.id AND s.tenant_id=u.tenant_id WHERE u.tenant_id=%s GROUP BY u.id,u.full_name,u.role,u.last_login ORDER BY student_count DESC", (current_tenant_id(),))]
     try:
         followups = q("SELECT f.*, s.name AS student_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id WHERE f.next_date >= CURRENT_DATE AND f.next_date <= CURRENT_DATE+7 AND f.created_by=%s ORDER BY f.next_date LIMIT 5", (uid,))
     except Exception: followups = []
@@ -1114,7 +1117,7 @@ def app_insights():
     uid=session['user_id']; fs, fp = student_filter(uid,'s')
     insights=[]
     try:
-        inactive=q("SELECT COUNT(*) AS c FROM leads WHERE status NOT IN ('Converted','Lost') AND created_at < NOW()-INTERVAL '7 days'" + ("" if is_super_admin() else " AND tenant_id=%s"), () if is_super_admin() else (current_tenant_id(),), one=True)
+        inactive=q("SELECT COUNT(*) AS c FROM leads WHERE status NOT IN ('Converted','Lost') AND created_at < NOW()-INTERVAL '7 days' AND tenant_id=%s", (current_tenant_id(),), one=True)
         if inactive and inactive['c']: insights.append({'type':'CRM','title':'Inactive leads', 'detail':f"{inactive['c']} leads 7 din se update nahi hue."})
     except Exception: pass
     try:
@@ -1632,9 +1635,9 @@ def add_followup(sid):
 def upcoming_followups():
     uid = session['user_id']; days = int(request.args.get('days',7))
     if is_super_admin():
-        rows = q("SELECT f.*, s.name AS student_name, l.name AS lead_name, u.full_name AS by_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id LEFT JOIN leads l ON l.id=f.lead_id LEFT JOIN users u ON u.id=f.created_by WHERE f.next_date BETWEEN CURRENT_DATE AND CURRENT_DATE+%s ORDER BY f.next_date", (days,))
+        rows = q("SELECT f.*, s.name AS student_name, l.name AS lead_name, u.full_name AS by_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id LEFT JOIN leads l ON l.id=f.lead_id LEFT JOIN users u ON u.id=f.created_by WHERE f.tenant_id=%s AND f.next_date BETWEEN CURRENT_DATE AND CURRENT_DATE+%s ORDER BY f.next_date", (current_tenant_id(),days))
     else:
-        rows = q("SELECT f.*, s.name AS student_name, l.name AS lead_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id LEFT JOIN leads l ON l.id=f.lead_id WHERE f.created_by=%s AND f.next_date BETWEEN CURRENT_DATE AND CURRENT_DATE+%s ORDER BY f.next_date", (uid,days))
+        rows = q("SELECT f.*, s.name AS student_name, l.name AS lead_name FROM follow_ups f LEFT JOIN students s ON s.id=f.student_id LEFT JOIN leads l ON l.id=f.lead_id WHERE f.created_by=%s AND f.tenant_id=%s AND f.next_date BETWEEN CURRENT_DATE AND CURRENT_DATE+%s ORDER BY f.next_date", (uid,current_tenant_id(),days))
     return jsonify([serialize(r) for r in rows])
 
 # LEADS
@@ -1643,7 +1646,7 @@ def upcoming_followups():
 def get_leads():
     uid = session['user_id']; status = request.args.get('status','')
     if is_super_admin():
-        sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE TRUE"; params = []
+        sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE l.tenant_id=%s"; params = [current_tenant_id()]
     else:
         sql = "SELECT l.*, u.full_name AS by_name FROM leads l LEFT JOIN users u ON u.id=l.created_by WHERE l.tenant_id=%s"; params = [current_tenant_id()]
     if status: sql += " AND l.status=%s"; params.append(status)
@@ -1707,7 +1710,7 @@ def delete_lead(lid):
 @require_perm('can_view_associates')
 def get_associates():
     uid = session['user_id']
-    if is_super_admin(): rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL ORDER BY a.id DESC")
+    if is_super_admin(): rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL AND a.tenant_id=%s ORDER BY a.id DESC", (current_tenant_id(),))
     else: rows = q("SELECT a.*, u.full_name AS by_name FROM associates a LEFT JOIN users u ON u.id=a.created_by WHERE a.parent_id IS NULL AND a.tenant_id=%s ORDER BY a.id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
@@ -1754,7 +1757,7 @@ def bulk_delete_associates():
 @require_perm('can_view_references')
 def get_references():
     uid = session['user_id']
-    if is_super_admin(): rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL ORDER BY r.id DESC")
+    if is_super_admin(): rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL AND r.tenant_id=%s ORDER BY r.id DESC", (current_tenant_id(),))
     else: rows = q("SELECT r.*, u.full_name AS by_name FROM references_ r LEFT JOIN users u ON u.id=r.created_by WHERE r.parent_id IS NULL AND r.tenant_id=%s ORDER BY r.id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
@@ -2793,7 +2796,7 @@ def balance_overview():
     daily = q(f"SELECT DATE(fp.created_at) AS day, COALESCE(SUM(fp.amount),0) AS amount FROM fee_payments fp JOIN students s ON s.id=fp.student_id WHERE fp.created_at >= CURRENT_DATE-7 {fs} GROUP BY DATE(fp.created_at) ORDER BY day", fp)
     result['daily_collections'] = [{'day':str(r['day']),'amount':float(r['amount'])} for r in daily]
     if is_super_admin():
-        per_user = q("SELECT u.id, u.full_name, COALESCE(SUM(s.total_fee),0) AS total_fee, COALESCE(SUM(s.paid),0) AS total_paid, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding, COUNT(s.id) AS student_count FROM users u LEFT JOIN students s ON s.created_by=u.id WHERE u.role != 'Super Admin' GROUP BY u.id,u.full_name ORDER BY total_paid DESC")
+        per_user = q("SELECT u.id, u.full_name, COALESCE(SUM(s.total_fee),0) AS total_fee, COALESCE(SUM(s.paid),0) AS total_paid, COALESCE(SUM(s.total_fee-s.paid),0) AS outstanding, COUNT(s.id) AS student_count FROM users u LEFT JOIN students s ON s.created_by=u.id AND s.tenant_id=u.tenant_id WHERE u.role != 'Super Admin' AND u.tenant_id=%s GROUP BY u.id,u.full_name ORDER BY total_paid DESC", (current_tenant_id(),))
         result['per_user'] = [{'id':r['id'],'full_name':r['full_name'],'total_fee':float(r['total_fee']),'total_paid':float(r['total_paid']),'outstanding':float(r['outstanding']),'student_count':r['student_count']} for r in per_user]
     return jsonify(result)
 
@@ -2835,8 +2838,8 @@ def report_outstanding():
 @require_perm('can_view_assocref_report')
 def report_assoc_ref():
     uid = session['user_id']
-    assocs = q("SELECT * FROM associates ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM associates WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
-    refs = q("SELECT * FROM references_ ORDER BY pay_date DESC") if is_super_admin() else q("SELECT * FROM references_ WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
+    assocs = q("SELECT * FROM associates WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
+    refs = q("SELECT * FROM references_ WHERE tenant_id=%s ORDER BY pay_date DESC", (current_tenant_id(),))
     rows = [['Associate',a['name'],a['phone'],a['student'],a['work_done'],float(a['amount']),a['pay_date'],a['pay_mode'],a['utr'],a['notes']] for a in assocs]
     rows += [['Reference',r['name'],r['phone'],r['student'],'Referral',float(r['amount']),r['pay_date'],r['pay_mode'],r['utr'],r['notes']] for r in refs]
     return csv_response(rows,['Type','Name','Phone','Student','Work','Amount','Date','Mode','UTR','Notes'],f'AssocRef_{datetime.now().strftime("%Y%m%d")}.csv')
@@ -2846,7 +2849,7 @@ def report_assoc_ref():
 @require_perm('can_view_leads_report')
 def report_leads():
     uid = session['user_id']
-    data = q("SELECT * FROM leads ORDER BY created_at DESC") if is_super_admin() else q("SELECT * FROM leads WHERE tenant_id=%s ORDER BY created_at DESC", (current_tenant_id(),))
+    data = q("SELECT * FROM leads WHERE tenant_id=%s ORDER BY created_at DESC", (current_tenant_id(),))
     rows = [[r['name'],r['mobile'],r['course'],r['university'],r['source'],r['status'],str(r['created_at'])[:10]] for r in data]
     return csv_response(rows,['Name','Mobile','Course','University','Source','Status','Date'],f'Leads_{datetime.now().strftime("%Y%m%d")}.csv')
 
@@ -2858,9 +2861,9 @@ def accounts_overview():
     uid = session['user_id']; fs, fp = student_filter(uid, 's')
     st = q(f"SELECT COALESCE(SUM(s.total_fee),0) AS student_total, COALESCE(SUM(s.paid),0) AS student_received, COALESCE(SUM(s.total_fee-s.paid),0) AS student_due FROM students s WHERE TRUE {fs}", fp, one=True)
     up = q(f"SELECT COALESCE(SUM(up.amount),0) AS payable, COALESCE(SUM(up.paid_amount),0) AS paid FROM university_payables up LEFT JOIN students s ON s.id=up.student_id WHERE TRUE {fs}", fp, one=True)
-    ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE tenant_id=%s", (current_tenant_id(),), one=True)
-    assoc = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates WHERE tenant_id=%s", (current_tenant_id(),), one=True)
-    refs = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_", one=True) if is_super_admin() else q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_ WHERE tenant_id=%s", (current_tenant_id(),), one=True)
+    ex = q("SELECT COALESCE(SUM(amount),0) AS total FROM expenses WHERE tenant_id=%s", (current_tenant_id(),), one=True)
+    assoc = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM associates WHERE tenant_id=%s", (current_tenant_id(),), one=True)
+    refs = q("SELECT COALESCE(SUM(paid_amount),0) AS total FROM references_ WHERE tenant_id=%s", (current_tenant_id(),), one=True)
     received=float(st['student_received']); total_exp=float(ex['total'])+float(assoc['total'])+float(refs['total'])+float(up['paid'])
     return jsonify({'student_total':float(st['student_total']),'student_received':received,'student_due':float(st['student_due']),'university_payable':float(up['payable']),'university_paid':float(up['paid']),'university_balance':float(up['payable'])-float(up['paid']),'expenses_total':total_exp,'net_profit':received-total_exp})
 
@@ -2901,7 +2904,7 @@ def expenses_api():
         return jsonify(serialize(row)),201
     if not (is_super_admin() or get_user_perms(session['user_id']).get('can_view_accounts')): return jsonify({'error':'Permission denied: can_view_accounts'}), 403
     uid=session['user_id']
-    rows=q("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC") if is_super_admin() else q("SELECT * FROM expenses WHERE tenant_id=%s ORDER BY expense_date DESC, id DESC", (current_tenant_id(),))
+    rows=q("SELECT * FROM expenses WHERE tenant_id=%s ORDER BY expense_date DESC, id DESC", (current_tenant_id(),))
     return jsonify([serialize(r) for r in rows])
 
 
