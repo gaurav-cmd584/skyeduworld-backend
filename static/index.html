@@ -275,7 +275,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       <div class="view" id="view-students">
         <div class="card"><div class="card-hd"><div><div class="card-title">All Students</div><div class="card-sub" id="s-sub">Loading&#8230;</div></div><div class="card-acts"><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-u" onchange="loadStudents()"><option value="">All Universities</option></select><select class="fi" style="width:auto;padding:5px 8px;font-size:11px" id="flt-s" onchange="loadStudents()"><option value="">All Status</option></select><button class="btn btn-r btn-sm" id="bulk-del-btn" onclick="bulkDeleteStudents()" style="display:none">Bulk Delete</button><button class="btn btn-p btn-sm" onclick="nav('addstudent',null)">+ New</button></div></div>
           <div class="loading" id="s-loading"><div class="spin"></div>Loading students&#8230;</div>
-          <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr><tr class="filter-row"><th><input class="fi" id="sf-id" oninput="renderStudentsRows()" placeholder="ID"></th><th><input class="fi" id="sf-name" oninput="renderStudentsRows()" placeholder="Name"></th><th><input class="fi" id="sf-father" oninput="renderStudentsRows()" placeholder="Father"></th><th><input class="fi" id="sf-course" oninput="renderStudentsRows()" placeholder="Course"></th><th><input class="fi" id="sf-univ" oninput="renderStudentsRows()" placeholder="University"></th><th><input class="fi" id="sf-mobile" oninput="renderStudentsRows()" placeholder="Mobile"></th><th><select class="fi" id="sf-status" onchange="renderStudentsRows()"><option value="">All</option></select></th><th><select class="fi" id="sf-bal" onchange="renderStudentsRows()"><option value="">All</option><option value="due">Due</option><option value="clear">Clear</option></select></th><th></th></tr></thead><tbody id="s-table"></tbody></table></div>
+          <div class="tw" id="s-table-wrap" style="display:none"><table><thead><tr><th><input type="checkbox" id="s-select-all" onchange="toggleAllStudentSelection(this)"></th><th>ID</th><th>Student</th><th>Father</th><th>Course</th><th>University</th><th>Mobile</th><th>Status</th><th>Balance</th><th>Actions</th></tr><tr class="filter-row"><th></th><th><input class="fi" id="sf-id" oninput="renderStudentsRows()" placeholder="ID"></th><th><input class="fi" id="sf-name" oninput="renderStudentsRows()" placeholder="Name"></th><th><input class="fi" id="sf-father" oninput="renderStudentsRows()" placeholder="Father"></th><th><input class="fi" id="sf-course" oninput="renderStudentsRows()" placeholder="Course"></th><th><input class="fi" id="sf-univ" oninput="renderStudentsRows()" placeholder="University"></th><th><input class="fi" id="sf-mobile" oninput="renderStudentsRows()" placeholder="Mobile"></th><th><select class="fi" id="sf-status" onchange="renderStudentsRows()"><option value="">All</option></select></th><th><select class="fi" id="sf-bal" onchange="renderStudentsRows()"><option value="">All</option><option value="due">Due</option><option value="clear">Clear</option></select></th><th></th></tr></thead><tbody id="s-table"></tbody></table></div>
         </div>
       </div>
       <div class="view" id="view-unregistered">
@@ -429,6 +429,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
 <script>
 let allStudents=[],allUnivs=[],allCourses=[],allSubjects=[],allDocTypes=[],allFeeTypes=[],allStudentStatuses=[],allGuides=[],allTenants=[],masterKind='courses',currentUser=null,editingId=null,editingWasDraft=true,incTab='associate',allUsers=[],pendingInst=[],guideSelectedStudentIds=[];
 let _detailStudent=null,_detailInstallments=[],_detailPayments=[],_detailUniversityPayments=[],_detailAssociates=[],_detailReferences=[];
+let selectedStudentIds=new Set();
 async function api(method,path,body){
   const opts={method,headers:{'Content-Type':'application/json'},credentials:'same-origin'};
   if(body)opts.body=JSON.stringify(body);
@@ -440,8 +441,9 @@ async function api(method,path,body){
   var data=null;
   if(text){
     try{data=JSON.parse(text);}catch(ex){
-      var clean=text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,220);
-      var msg='Server returned '+r.status+' '+r.statusText+(clean?': '+clean:'');
+      var clean=text.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      if(clean.includes('@font-face')||clean.includes('data:font')||clean.length>180)clean='';
+      var msg=r.status>=500?'Server temporarily unavailable. Please refresh once.':('Server returned '+r.status+' '+r.statusText+(clean?': '+clean.slice(0,160):''));
       if(!r.ok){toast(msg,'er');return {error:msg,errors:[{row:'-',error:msg}]};}
       throw new Error(msg);
     }
@@ -452,7 +454,7 @@ async function api(method,path,body){
 async function apiUpload(path,formData){
   const r=await fetch('/api'+path,{method:'POST',body:formData,credentials:'same-origin'});
   if(r.status===401){showLogin();return null;}
-  if(!r.ok){const e=await r.json();toast(e.error||'Upload error','er');return null;}
+  if(!r.ok){let msg='Upload error';try{const e=await r.json();msg=e.error||msg;}catch(_){msg=r.status>=500?'Server temporarily unavailable. Please refresh once.':'Upload error';}toast(msg,'er');return null;}
   return r.json();
 }const AVCOLS=['#3B82F6','#10B981','#F5A623','#F43F5E','#8B5CF6','#06B6D4','#EF4444','#84CC16'];
 function avCol(n){let h=0;for(let c of(n||''))h=c.charCodeAt(0)+h*31;return AVCOLS[Math.abs(h)%AVCOLS.length];}
@@ -764,8 +766,14 @@ async function loadUnregisteredStudents(){
 function renderStudentsRows(){
   var data=allStudents||[],bid=fv('sf-id'),bn=fv('sf-name'),bf=fv('sf-father'),bc=fv('sf-course'),bu=fv('sf-univ'),bm=fv('sf-mobile'),bs=fv('sf-status'),bb=fv('sf-bal');
   data=data.filter(function(s){var b=Number(s.total_fee||0)-Number(s.paid||0),code=s.student_code||('STU'+String(s.id).padStart(6,'0'));return hasTxt(code+' '+s.id,bid)&&hasTxt(s.name,bn)&&hasTxt(s.father,bf)&&hasTxt(s.course,bc)&&hasTxt(s.university,bu)&&hasTxt(s.mobile,bm)&&(!bs||String(s.status||'').toLowerCase()===bs)&&(!bb||(bb==='due'?b>0:b<=0));});
-  document.getElementById('s-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid;return'<tr><td class="cmo">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</td><td><div class="av-cell" onclick="showStudentDetail('+s.id+')" style="cursor:pointer">'+studentAv(s)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+' &bull; Click for details</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+(s.mobile||'')+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--slate)">No students found</td></tr>';
+  window._visibleStudentIds=data.map(s=>s.id);
+  selectedStudentIds=new Set([...selectedStudentIds].filter(id=>window._visibleStudentIds.includes(id)));
+  document.getElementById('s-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid;return'<tr><td><input type="checkbox" class="student-select" value="'+s.id+'" '+(selectedStudentIds.has(s.id)?'checked':'')+' onchange="toggleStudentSelection('+s.id+',this.checked)"></td><td class="cmo">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</td><td><div class="av-cell" onclick="showStudentDetail('+s.id+')" style="cursor:pointer">'+studentAv(s)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+' &bull; Click for details</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+(s.mobile||'')+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--slate)">No students found</td></tr>';
+  updateStudentSelectionUI();
 }
+function toggleStudentSelection(id,checked){if(checked)selectedStudentIds.add(id);else selectedStudentIds.delete(id);updateStudentSelectionUI();}
+function toggleAllStudentSelection(cb){(window._visibleStudentIds||[]).forEach(id=>{if(cb.checked)selectedStudentIds.add(id);else selectedStudentIds.delete(id);});document.querySelectorAll('.student-select').forEach(x=>x.checked=cb.checked);updateStudentSelectionUI();}
+function updateStudentSelectionUI(){var n=selectedStudentIds.size, b=document.getElementById('bulk-del-btn'), all=document.getElementById('s-select-all');if(b)b.textContent=n?('Delete Selected ('+n+')'):'Bulk Delete';if(all){var ids=window._visibleStudentIds||[];all.checked=ids.length>0&&ids.every(id=>selectedStudentIds.has(id));all.indeterminate=n>0&&!all.checked;}}
 function calcBal(){const t=parseFloat(document.getElementById('f-total').value)||0;const p=parseFloat(document.getElementById('f-paid').value)||0;document.getElementById('f-bal').value='\u20b9 '+Math.max(0,t-p).toLocaleString('en-IN');}
 function resetForm(){
   editingId=null;editingWasDraft=true;document.getElementById('as-title').textContent='New Student Registration';document.getElementById('s-save-btn').textContent='\u{1F4BE} Register Student';var fn=document.getElementById('f-name');if(fn)fn.disabled=false;
@@ -848,14 +856,16 @@ async function delStudent(id){
 async function bulkDeleteStudents(){
   const univ=document.getElementById('flt-u').value||'';
   const stat=document.getElementById('flt-s').value||'';
-  const count=allStudents.length;
+  const ids=[...selectedStudentIds];
+  const count=ids.length;
   if(!count){toast('Delete karne ke liye koi student nahi','er');return;}
-  var scope=(univ||stat)?'current filter ke '+count+' student':'saare accessible '+count+' student';
+  var scope='selected '+count+' student';
   if(!confirm('Bulk delete: '+scope+' delete honge. Ye action undo nahi hoga. Continue?'))return;
   var typed=prompt('Confirm karne ke liye DELETE type karo');
   if(typed!=='DELETE'){toast('Bulk delete cancel ho gaya','er');return;}
-  const r=await api('POST','/students/bulk-delete',{university:univ,status:stat});
+  const r=await api('POST','/students/bulk-delete',{ids:ids,university:univ,status:stat});
   if(!r)return;
+  selectedStudentIds.clear();
   toast((r.deleted||0)+' students deleted','ok');
   await loadStudents();
   await loadDashboard();
