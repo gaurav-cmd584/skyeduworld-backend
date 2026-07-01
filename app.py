@@ -1494,6 +1494,9 @@ def bulk_delete_students():
     fs, fp = student_filter(uid, 's')
     sql = f"SELECT s.id,s.name FROM students s WHERE TRUE {fs}"
     params = list(fp)
+    selected_ids = [int(x) for x in (d.get('ids') or []) if str(x).isdigit()]
+    if selected_ids:
+        sql += " AND s.id = ANY(%s)"; params.append(selected_ids)
     if d.get('university'):
         sql += " AND s.university=%s"; params.append(d.get('university'))
     if d.get('status'):
