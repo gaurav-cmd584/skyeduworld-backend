@@ -322,7 +322,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
       </div>
       <div class="view" id="view-wallets">
         <div class="stats-row" style="grid-template-columns:repeat(2,1fr)"><div class="sc green"><div class="sc-lbl">Wallet Balance</div><div class="sc-val" id="wallet-balance">&#8377;0</div><div class="sc-sub">Current tenant</div></div><div class="sc blue"><div class="sc-lbl">Rules</div><div class="sc-val" style="font-size:14px;letter-spacing:0">Credit: Super Admin</div><div class="sc-sub">Debit: tenant/reference users</div></div></div>
-        <div class="card"><div class="card-hd"><div><div class="card-title">Wallet Entries</div><div class="card-sub">Debit entries student fee ke against save hongi</div></div><div class="card-acts"><select class="fi" id="wallet-owner" style="width:auto"><option value="tenant">Tenant</option><option value="reference">Reference</option></select><select class="fi" id="wallet-type" style="width:auto"><option>Debit</option><option>Credit</option></select><select class="fi" id="wallet-student" style="width:190px"><option value="">Select student</option></select><select class="fi" id="wallet-fee-type" style="width:145px"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other Fee</option></select><input class="fi" id="wallet-amt" type="number" placeholder="Amount" style="width:110px"><input class="fi" id="wallet-ref" placeholder="Ref No." style="width:110px"><input class="fi" id="wallet-note" placeholder="Note / reference name" style="width:190px"><button class="btn btn-p btn-sm" onclick="addWalletEntry()">Add Entry</button></div></div><div class="tw"><table><thead><tr><th>Date</th><th>Student</th><th>Owner</th><th>Type</th><th>Fee Type</th><th>Amount</th><th>Note</th><th>By</th></tr></thead><tbody id="wallet-table"></tbody></table></div></div>
+        <div class="card"><div class="card-hd"><div><div class="card-title">Wallet Entries</div><div class="card-sub">Credit tenant wallet me, debit student fee ke against save hoga</div></div><div class="card-acts"><input type="hidden" id="wallet-id"><select class="fi" id="wallet-tenant" style="width:180px;display:none"><option value="">Select tenant</option></select><select class="fi" id="wallet-owner" style="width:auto"><option value="tenant">Tenant</option><option value="reference">Reference</option></select><select class="fi" id="wallet-type" style="width:auto" onchange="onWalletTypeChange()"><option>Debit</option><option>Credit</option></select><select class="fi" id="wallet-student" style="width:190px"><option value="">Select student</option></select><select class="fi" id="wallet-fee-type" style="width:145px"><option>Tuition Fee</option><option>Examination Fee</option><option>Registration Fee</option><option>Other Fee</option></select><input class="fi" id="wallet-amt" type="number" placeholder="Amount" style="width:110px"><input class="fi" id="wallet-ref" placeholder="Ref No." style="width:110px"><input class="fi" id="wallet-note" placeholder="Note / reference name" style="width:190px"><button class="btn btn-g btn-sm" onclick="clearWalletForm()">Clear</button><button class="btn btn-p btn-sm" id="wallet-save-btn" onclick="addWalletEntry()">Add Entry</button></div></div><div class="tw"><table><thead><tr><th>Date</th><th>Tenant</th><th>Student</th><th>Owner</th><th>Type</th><th>Fee Type</th><th>Amount</th><th>Note</th><th>By</th><th>Actions</th></tr></thead><tbody id="wallet-table"></tbody></table></div></div>
       </div>
       <div class="view" id="view-universities">
         <div class="card"><div class="card-hd"><div class="card-title">Partner Universities</div><button class="btn btn-p btn-sm" onclick="openM('m-univ')">+ Add University</button></div><div class="univ-grid" id="univ-grid"></div></div>
@@ -879,19 +879,71 @@ async function loadFees(){
 }
 async function loadWallets(){
   if(!allStudents.length)allStudents=await api('GET','/students')||[];
+  if(isSA()&&!allTenants.length)allTenants=await api('GET','/tenants')||[];
+  const tenantSel=document.getElementById('wallet-tenant');
+  if(tenantSel){
+    tenantSel.style.display=isSA()?'inline-flex':'none';
+    const curT=tenantSel.value;
+    tenantSel.innerHTML='<option value="">Select tenant</option>'+(allTenants||[]).map(function(t){return '<option value="'+t.id+'">'+escH(t.name||('Tenant '+t.id))+'</option>';}).join('');
+    tenantSel.value=curT;
+  }
   const ws=document.getElementById('wallet-student');if(ws){const cur=ws.value;ws.innerHTML='<option value="">Select student</option>'+allStudents.map(function(s){return '<option value="'+s.id+'">'+escH((s.student_code||'')+' - '+s.name+' - '+(s.course||''))+'</option>';}).join('');ws.value=cur;}
   const data=await api('GET','/wallets')||{balance:0,entries:[]};
   document.getElementById('wallet-balance').textContent=fmt(data.balance||0);
-  document.getElementById('wallet-table').innerHTML=(data.entries||[]).map(function(r){return '<tr><td class="cm">'+escH((r.created_at||'').slice(0,19).replace('T',' '))+'</td><td><div class="cp">'+escH(r.student_name||'&mdash;')+'</div><div class="cm">'+escH(r.student_code||'')+'</div></td><td>'+escH(r.owner_type||'tenant')+'</td><td>'+stag(r.entry_type)+'</td><td class="cm">'+escH(r.fee_type||'')+'</td><td class="cmo" style="color:'+(r.entry_type==='Credit'?'var(--em)':'var(--rose)')+'">'+fmt(r.amount)+'</td><td>'+escH(r.note||'')+'</td><td class="cm">'+escH(r.by_name||'')+'</td></tr>';}).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--slate)">No wallet entries</td></tr>';
+  const canManage=isSA()||isAdm()||((currentUser&&currentUser.permissions)||{}).can_manage_accounts;
+  document.getElementById('wallet-table').innerHTML=(data.entries||[]).map(function(r){
+    const st=r.student_name?('<div class="cp">'+escH(r.student_name)+'</div><div class="cm">'+escH(r.student_code||'')+'</div>'):'<span class="cm">--</span>';
+    const acts=canManage?'<div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="editWalletEntry('+r.id+')">Edit</button><button class="btn btn-r btn-sm" onclick="deleteWalletEntry('+r.id+')">&#128465;</button></div>':'<span class="cm">View only</span>';
+    return '<tr><td class="cm">'+escH((r.created_at||'').slice(0,19).replace('T',' '))+'</td><td class="cm">'+escH(r.tenant_name||tenantName())+'</td><td>'+st+'</td><td>'+escH(r.owner_type||'tenant')+'</td><td>'+stag(r.entry_type)+'</td><td class="cm">'+escH(r.fee_type||'')+'</td><td class="cmo" style="color:'+(r.entry_type==='Credit'?'var(--em)':'var(--rose)')+'">'+fmt(r.amount)+'</td><td>'+escH(r.note||'')+'</td><td class="cm">'+escH(r.by_name||'')+'</td><td>'+acts+'</td></tr>';
+  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--slate)">No wallet entries</td></tr>';
   var wt=document.getElementById('wallet-type');if(wt&&!isSA())wt.innerHTML='<option>Debit</option>';
+  window._walletEntries=data.entries||[];
+  onWalletTypeChange();
+}
+function onWalletTypeChange(){
+  const type=document.getElementById('wallet-type')?.value||'Debit';
+  const student=document.getElementById('wallet-student'), fee=document.getElementById('wallet-fee-type'), tenant=document.getElementById('wallet-tenant');
+  if(student)student.style.display=type==='Debit'?'inline-flex':'none';
+  if(fee)fee.style.display=type==='Debit'?'inline-flex':'none';
+  if(tenant)tenant.style.display=(isSA()&&type==='Credit')?'inline-flex':'none';
+}
+function clearWalletForm(){
+  ['wallet-id','wallet-amt','wallet-ref','wallet-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['wallet-student','wallet-tenant'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const owner=document.getElementById('wallet-owner');if(owner)owner.value='tenant';
+  const type=document.getElementById('wallet-type');if(type)type.value='Debit';
+  const btn=document.getElementById('wallet-save-btn');if(btn)btn.textContent='Add Entry';
+  onWalletTypeChange();
 }
 async function addWalletEntry(){
-  var amount=parseFloat(document.getElementById('wallet-amt').value)||0, entry_type=document.getElementById('wallet-type').value, note=document.getElementById('wallet-note').value, owner_type=document.getElementById('wallet-owner').value, student_id=document.getElementById('wallet-student').value, fee_type=document.getElementById('wallet-fee-type').value, ref_no=document.getElementById('wallet-ref').value;
+  var id=document.getElementById('wallet-id').value, amount=parseFloat(document.getElementById('wallet-amt').value)||0, entry_type=document.getElementById('wallet-type').value, note=document.getElementById('wallet-note').value, owner_type=document.getElementById('wallet-owner').value, student_id=document.getElementById('wallet-student').value, fee_type=document.getElementById('wallet-fee-type').value, ref_no=document.getElementById('wallet-ref').value, tenant_id=document.getElementById('wallet-tenant')?document.getElementById('wallet-tenant').value:'';
   if(amount<=0){toast('Amount enter karein','er');return;}
   if(entry_type==='Debit'&&!student_id){toast('Debit ke liye student select karein','er');return;}
-  var r=await api('POST','/wallets',{amount,entry_type,note,owner_type,student_id,fee_type,ref_no});
+  if(entry_type==='Credit'&&isSA()&&!tenant_id){toast('Credit ke liye tenant select karein','er');return;}
+  var body={amount,entry_type,note,owner_type,student_id,fee_type,ref_no,tenant_id};
+  var r=id?await api('PUT','/wallets/'+id,body):await api('POST','/wallets',body);
   if(!r)return;
-  document.getElementById('wallet-amt').value='';document.getElementById('wallet-note').value='';document.getElementById('wallet-ref').value='';toast('Wallet entry saved','ok');loadWallets();
+  clearWalletForm();toast(id?'Wallet entry updated':'Wallet entry saved','ok');loadWallets();
+}
+function editWalletEntry(id){
+  const r=(window._walletEntries||[]).find(x=>x.id===id);if(!r)return;
+  document.getElementById('wallet-id').value=r.id;
+  document.getElementById('wallet-owner').value=r.owner_type||'tenant';
+  document.getElementById('wallet-type').value=r.entry_type||'Debit';
+  document.getElementById('wallet-amt').value=r.amount||'';
+  document.getElementById('wallet-note').value=r.note||'';
+  document.getElementById('wallet-ref').value=r.ref_no||'';
+  if(document.getElementById('wallet-student'))document.getElementById('wallet-student').value=r.student_id||'';
+  if(document.getElementById('wallet-tenant'))document.getElementById('wallet-tenant').value=r.tenant_id||'';
+  if(document.getElementById('wallet-fee-type'))document.getElementById('wallet-fee-type').value=r.fee_type||'Tuition Fee';
+  document.getElementById('wallet-save-btn').textContent='Update Entry';
+  onWalletTypeChange();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function deleteWalletEntry(id){
+  if(!confirm('Wallet entry delete karni hai? Balance bhi update hoga.'))return;
+  const r=await api('DELETE','/wallets/'+id);if(!r)return;
+  toast('Wallet entry deleted','ok');clearWalletForm();loadWallets();
 }
 function renderFeeRows(){var data=window._feeStudents||[];var q=(document.getElementById('fee-search')?.value||'').toLowerCase(),sn=fv('ff-student'),un=fv('ff-univ'),fb=fv('ff-bal'),fs=fv('ff-status');if(q)data=data.filter(s=>String(s.name+' '+s.mobile+' '+s.university+' '+s.course).toLowerCase().includes(q));data=data.filter(function(s){var b=Number(s.total_fee||0)-Number(s.paid||0),pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0,st=b===0?'active':(pct>50?'partial':'due');return hasTxt(s.name+' '+s.mobile,sn)&&hasTxt(s.university,un)&&(!fb||(fb==='due'?b>0:b<=0))&&(!fs||st===fs);});document.getElementById('fee-table').innerHTML=data.map(function(s){const b=Number(s.total_fee||0)-Number(s.paid||0),pct=s.total_fee>0?Math.round(s.paid/s.total_fee*100):0;return'<tr><td><div class="cp">'+escH(s.name)+'</div><div class="cm">'+escH(s.mobile||'')+'</div></td><td class="cm">'+escH((s.university||'').split(' ').slice(0,2).join(' '))+'</td><td class="cmo">'+fmt(s.total_fee)+'</td><td class="cmo" style="color:var(--em)">'+fmt(s.paid)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td>'+(b===0?stag('Active'):pct>50?'<span class="tag ta">Partial</span>':'<span class="tag tr">Due</span>')+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="quickFeeFor('+s.id+')">+ Fee</button><button class="btn btn-g btn-sm" onclick="openStudentLedger('+s.id+')">Ledger</button><button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button></td></tr>';}).join('')||'<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--slate)">No fee records</td></tr>';}
 function quickFeeFor(id){openM('m-qfee');setTimeout(()=>{document.getElementById('qf-s').value=id;loadQuickFeeBreakups();},50);}
