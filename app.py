@@ -1292,37 +1292,89 @@ def get_wallets():
     tid = current_tenant_id()
     if is_super_admin() and request.args.get('tenant_id'):
         tid = int(request.args.get('tenant_id'))
-    rows = q("""SELECT we.*, u.full_name AS by_name, s.name AS student_name, s.student_code
+    rows = q("""SELECT we.*, u.full_name AS by_name, s.name AS student_name, s.student_code, t.name AS tenant_name
                 FROM wallet_entries we LEFT JOIN users u ON u.id=we.created_by
                 LEFT JOIN students s ON s.id=we.student_id AND s.tenant_id=we.tenant_id
+                LEFT JOIN tenants t ON t.id=we.tenant_id
                 WHERE we.tenant_id=%s ORDER BY we.id DESC""", (tid,))
     balance = sum((float(r.get('amount') or 0) if r.get('entry_type')=='Credit' else -float(r.get('amount') or 0)) for r in rows)
     return jsonify({'balance': max(balance, 0), 'entries': [serialize(r) for r in rows]})
 
-@app.route('/api/wallets', methods=['POST'])
-@login_required
-def add_wallet_entry():
-    d = request.json or {}; uid=session['user_id']; amount=float(d.get('amount',0) or 0)
-    if amount <= 0: return jsonify({'error':'Amount required'}), 400
+def can_manage_wallet_entry():
+    return is_super_admin() or is_admin() or get_user_perms(session.get('user_id')).get('can_manage_accounts')
+
+def wallet_balance(tid, exclude_id=None):
+    sql = "SELECT COALESCE(SUM(CASE WHEN entry_type='Credit' THEN amount ELSE -amount END),0) AS balance FROM wallet_entries WHERE tenant_id=%s"
+    params = [tid]
+    if exclude_id:
+        sql += " AND id<>%s"; params.append(exclude_id)
+    row = q(sql, params, one=True)
+    return float((row or {}).get('balance') or 0)
+
+def parse_wallet_payload(d, existing_id=None):
+    amount = float(d.get('amount',0) or 0)
+    if amount <= 0: return None, ({'error':'Amount required'}, 400)
     et = 'Credit' if d.get('entry_type') == 'Credit' else 'Debit'
     tid = int(d.get('tenant_id') or current_tenant_id())
     if et == 'Credit' and not is_super_admin():
-        return jsonify({'error':'Credit entry sirf Super Admin kar sakta hai'}), 403
+        return None, ({'error':'Credit entry sirf Super Admin kar sakta hai'}, 403)
+    if is_super_admin() and et == 'Credit' and not d.get('tenant_id'):
+        return None, ({'error':'Credit ke liye tenant select karein'}, 400)
     if not is_super_admin() and tid != current_tenant_id():
-        return jsonify({'error':'Access denied'}), 403
+        return None, ({'error':'Access denied'}, 403)
+    student_id = d.get('student_id') or None
     if et == 'Debit':
-        bal_row = q("SELECT COALESCE(SUM(CASE WHEN entry_type='Credit' THEN amount ELSE -amount END),0) AS balance FROM wallet_entries WHERE tenant_id=%s", (tid,), one=True)
-        if float((bal_row or {}).get('balance') or 0) < amount:
-            return jsonify({'error':'You do not have sufficient balance'}), 400
-        if not d.get('student_id'):
-            return jsonify({'error':'Debit entry ke liye student select karein'}), 400
-        st = q("SELECT id FROM students WHERE id=%s AND tenant_id=%s", (int(d.get('student_id')),tid), one=True)
-        if not st: return jsonify({'error':'Student not found'}), 404
+        if not student_id:
+            return None, ({'error':'Debit entry ke liye student select karein'}, 400)
+        if wallet_balance(tid, existing_id) < amount:
+            return None, ({'error':'You do not have sufficient balance'}, 400)
+    if student_id:
+        st = q("SELECT id FROM students WHERE id=%s AND tenant_id=%s", (int(student_id),tid), one=True)
+        if not st: return None, ({'error':'Student not found in selected tenant'}, 404)
+    return {'tenant_id':tid,'entry_type':et,'amount':amount,'student_id':student_id}, None
+
+@app.route('/api/wallets', methods=['POST'])
+@login_required
+def add_wallet_entry():
+    if not can_manage_wallet_entry(): return jsonify({'error':'Permission denied: wallet'}), 403
+    d = request.json or {}; uid=session['user_id']
+    parsed, err = parse_wallet_payload(d)
+    if err: return jsonify(err[0]), err[1]
     row = q_ret("""INSERT INTO wallet_entries (tenant_id,owner_type,owner_id,entry_type,amount,note,created_by,student_id,fee_type,ref_no)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-                (tid,d.get('owner_type') or 'tenant',d.get('owner_id'),et,amount,d.get('note'),uid,d.get('student_id') or None,d.get('fee_type'),d.get('ref_no')))
-    log_action(et, 'Wallet', row.get('id') if row else None, d.get('note'))
+                (parsed['tenant_id'],d.get('owner_type') or 'tenant',d.get('owner_id'),parsed['entry_type'],parsed['amount'],d.get('note'),uid,parsed['student_id'],d.get('fee_type'),d.get('ref_no')))
+    log_action(parsed['entry_type'], 'Wallet', row.get('id') if row else None, d.get('note'))
     return jsonify(serialize(row)), 201
+
+@app.route('/api/wallets/<int:wid>', methods=['PUT'])
+@login_required
+def update_wallet_entry(wid):
+    if not can_manage_wallet_entry(): return jsonify({'error':'Permission denied: wallet'}), 403
+    old = q("SELECT * FROM wallet_entries WHERE id=%s", (wid,), one=True)
+    if not old: return jsonify({'error':'Wallet entry not found'}), 404
+    if not is_super_admin() and old.get('tenant_id') != current_tenant_id():
+        return jsonify({'error':'Access denied'}), 403
+    d = request.json or {}
+    parsed, err = parse_wallet_payload(d, wid)
+    if err: return jsonify(err[0]), err[1]
+    row = q_ret("""UPDATE wallet_entries SET tenant_id=%s, owner_type=%s, owner_id=%s, entry_type=%s, amount=%s,
+                   note=%s, student_id=%s, fee_type=%s, ref_no=%s WHERE id=%s RETURNING *""",
+                (parsed['tenant_id'],d.get('owner_type') or 'tenant',d.get('owner_id'),parsed['entry_type'],parsed['amount'],
+                 d.get('note'),parsed['student_id'],d.get('fee_type'),d.get('ref_no'),wid))
+    log_action('Update', 'Wallet', wid, d.get('note'))
+    return jsonify(serialize(row))
+
+@app.route('/api/wallets/<int:wid>', methods=['DELETE'])
+@login_required
+def delete_wallet_entry(wid):
+    if not can_manage_wallet_entry(): return jsonify({'error':'Permission denied: wallet'}), 403
+    old = q("SELECT * FROM wallet_entries WHERE id=%s", (wid,), one=True)
+    if not old: return jsonify({'error':'Wallet entry not found'}), 404
+    if not is_super_admin() and old.get('tenant_id') != current_tenant_id():
+        return jsonify({'error':'Access denied'}), 403
+    q("DELETE FROM wallet_entries WHERE id=%s", (wid,), commit=True)
+    log_action('Delete', 'Wallet', wid, old.get('note'))
+    return jsonify({'success':True})
 
 @app.route('/api/students', methods=['GET'])
 @login_required
