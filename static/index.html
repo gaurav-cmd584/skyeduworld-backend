@@ -55,12 +55,13 @@ body{font-family:"Inter","Segoe UI",system-ui,sans-serif;background:#EFF3F8;colo
 .lb-btn{margin-left:auto;font-size:14px;color:rgba(255,255,255,0.35);cursor:pointer;background:none;border:none;padding:2px}
 .lb-btn:hover{color:rgba(255,255,255,0.7)}
 .main{margin-left:var(--sw);display:flex;flex-direction:column;min-height:100vh}
-.topbar{background:var(--wh);border-bottom:1px solid var(--bd);padding:0 22px;height:55px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
-.pg-title{font-size:16px;font-weight:700;color:var(--ink)}
-.pg-bc{font-size:11px;color:var(--slate);margin-top:1px}
+.topbar{background:var(--wh);border-bottom:1px solid var(--bd);padding:0 22px;height:55px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 1px 3px rgba(0,0,0,0.05);gap:10px}
+.pg-title-wrap{min-width:0;flex:1;overflow:hidden}
+.pg-title{font-size:16px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.pg-bc{font-size:11px;color:var(--slate);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .pg-bc-home{cursor:pointer}
 .pg-bc-home:hover{color:var(--sky);text-decoration:underline}
-.topbar-r{display:flex;align-items:center;gap:10px}
+.topbar-r{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .srch{display:flex;align-items:center;gap:7px;background:var(--slate-lt);border:1px solid var(--bd);border-radius:var(--rs);padding:6px 11px;width:210px}
 .srch input{border:none;background:none;outline:none;font-size:12.5px;color:var(--ink);width:100%;font-family:inherit}
 .srch input::placeholder{color:var(--slate)}
@@ -175,7 +176,30 @@ tr.s-row:hover{background:var(--sky-lt)}
 .uc-name{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px}
 .uc-state{font-size:11px;color:var(--slate);margin-bottom:9px}
 .uc-cnt{font-size:22px;font-weight:700}
-@media(max-width:900px){.sidebar{transform:translateX(-100%);transition:transform .2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.stats-row{grid-template-columns:1fr 1fr!important}.univ-grid{grid-template-columns:1fr 1fr}.content{padding:14px 12px}.topbar{padding:0 12px}.form-grid{grid-template-columns:1fr}.srch{width:150px}.mobile-menu-btn{display:inline-flex!important}}
+@media(max-width:900px){.sidebar{transform:translateX(-100%);transition:transform .2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.stats-row{grid-template-columns:1fr 1fr!important}.univ-grid{grid-template-columns:1fr 1fr}.content{padding:14px 12px}.topbar{padding:0 12px}.form-grid{grid-template-columns:1fr}.srch{width:150px}.mobile-menu-btn{display:inline-flex!important}.rep-grid{grid-template-columns:1fr!important}}
+@media(max-width:520px){
+  .topbar{padding:0 10px;height:52px;gap:6px}
+  .pg-title{font-size:14px}
+  .pg-bc{font-size:10px}
+  .srch{width:36px;padding:6px;overflow:hidden;border-radius:50%}
+  .srch input{width:0;padding:0;opacity:0;transition:width .18s,opacity .18s}
+  .srch.expanded{width:calc(100vw - 120px);border-radius:var(--rs)}
+  .srch.expanded input{width:100%;opacity:1;padding-left:4px}
+  .notif-dropdown{position:fixed;top:56px;left:10px;right:10px;width:auto}
+  .smart-box{position:fixed;top:56px;left:10px;right:10px;width:auto}
+  .stats-row{grid-template-columns:1fr!important}
+  .rep-card{flex-wrap:wrap}
+  .rep-card>span{margin-left:0!important}
+  .card-hd{flex-direction:column;align-items:flex-start!important}
+  .card-acts{width:100%}
+  .card-acts input,.card-acts select{width:100%!important}
+  .tw table{font-size:11.5px}
+  .modal{margin:0 8px;max-width:calc(100vw - 16px)}
+  .doc-grid{grid-template-columns:1fr!important}
+  .tabs{padding:10px 10px 0}
+  .tab{padding:8px 10px 10px;font-size:11.5px}
+  .univ-grid{grid-template-columns:1fr!important}
+}
 .mobile-menu-btn{display:inline-flex;width:34px;height:34px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--slate-lt);align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--ink)}
 .notif-btn{position:relative;width:34px;height:34px;border-radius:var(--rs);background:var(--slate-lt);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
 .notif-btn:hover{background:var(--sky-lt);border-color:#BFDBFE}
@@ -267,10 +291,10 @@ tr.s-row:hover{background:var(--sky-lt)}
   </nav>
   <div class="main">
     <div class="topbar">
-      <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button><div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div></div>
+      <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button><div class="pg-title-wrap"><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div></div>
       <div class="topbar-r">
         <div style="position:relative" id="notif-wrap"><button class="notif-btn" onclick="toggleNotif()">&#128276;<span class="notif-badge" id="notif-badge">0</span></button><div class="notif-dropdown" id="notif-panel"><div class="notif-hd"><span style="font-size:13px;font-weight:700">Notifications</span><button class="btn btn-g btn-sm" onclick="markAllRead()">Mark all read</button></div><div id="notif-list"></div></div></div>
-        <div class="srch" style="position:relative"><span style="color:var(--slate);font-size:14px">&#128269;</span><input type="text" placeholder="Search anything..." id="g-srch" oninput="globalSearch(this.value)"><div class="smart-box" id="smart-results"></div></div>
+        <div class="srch" id="srch-wrap" style="position:relative" onclick="if(window.innerWidth<=520){this.classList.add('expanded');document.getElementById('g-srch').focus();}"><span style="color:var(--slate);font-size:14px">&#128269;</span><input type="text" placeholder="Search anything..." id="g-srch" oninput="globalSearch(this.value)" onblur="if(window.innerWidth<=520&&!this.value)document.getElementById('srch-wrap').classList.remove('expanded');"><div class="smart-box" id="smart-results"></div></div>
       </div>
     </div>
     <div class="content">
@@ -376,12 +400,14 @@ tr.s-row:hover{background:var(--sky-lt)}
         </div>
         <!-- EXPORT CARDS -->
         <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--slate);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;padding-left:2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> Reports &amp; Export</div>
+        <div class="rep-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
         <div class="rep-card" onclick="openReport('students')"><div class="rep-ico" style="background:var(--sky-lt)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1Z"/><rect x="4" y="4" width="16" height="18" rx="2"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">All Students Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Complete list with all details</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
         <div class="rep-card" onclick="openReport('fees')"><div class="rep-ico" style="background:var(--gold-lt)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Fee Collection Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Studentwise fee paid, balance due</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
         <div class="rep-card" onclick="openReport('outstanding')"><div class="rep-ico" style="background:var(--rose-lt)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Outstanding Balance Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Pending dues sorted by amount</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
         <div class="rep-card" onclick="openReport('assoc-ref')"><div class="rep-ico" style="background:var(--em-lt)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0-9-9"/><path d="M8 13l3 3 6-6"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Associate &amp; Reference Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All payments made to associates and references</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
         <div class="rep-card" onclick="openReport('profit')"><div class="rep-ico" style="background:var(--em-lt)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Profit &amp; Expenses</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">Student, month, year, associate, reference wise profit</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
         <div class="rep-card" onclick="openReport('leads')"><div class="rep-ico" style="background:#F5F3FF;color:#7C3AED"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1Z"/><rect x="4" y="4" width="16" height="18" rx="2"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></svg></div><div><div style="font-size:13.5px;font-weight:700;color:var(--ink)">Leads Report</div><div style="font-size:11.5px;color:var(--slate);margin-top:2px">All inquiries and conversion status</div></div><span style="margin-left:auto" class="tag tg">CSV / Excel / PDF</span></div>
+        </div>
       </div>
       <div class="view" id="view-settings">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
