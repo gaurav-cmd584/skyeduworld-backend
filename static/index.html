@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sky Eduworld Management System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--sky:#1A6CF6;--sky-lt:#EAF1FF;--sky-dk:#0F44B5;--gold:#D97706;--gold-lt:#FFF8EC;--em:#10B981;--em-lt:#ECFDF5;--rose:#F43F5E;--rose-lt:#FFF1F4;--slate:#64748B;--slate-lt:#F8FAFC;--ink:#0F172A;--ink2:#334155;--bd:#E2E8F0;--wh:#fff;--r:10px;--rs:7px;--sw:224px;}
-body{font-family:"Segoe UI",system-ui,sans-serif;background:#EFF3F8;color:var(--ink);font-size:13px;min-height:100vh}
+body{font-family:"Inter","Segoe UI",system-ui,sans-serif;background:#EFF3F8;color:var(--ink);font-size:13px;min-height:100vh}
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:radial-gradient(circle at top left,#2563EB 0,#0F172A 36%,#020617 100%);padding:28px;position:relative;overflow:hidden}
 #login-screen:before{content:"";position:absolute;inset:10%;background:linear-gradient(120deg,rgba(255,255,255,.14),rgba(255,255,255,0));filter:blur(40px);transform:rotate(-8deg)}
 .login-box{background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.72);border-radius:22px;padding:0;width:min(920px,100%);box-shadow:0 28px 90px rgba(2,6,23,.45);display:grid;grid-template-columns:1.05fr .95fr;overflow:hidden;position:relative}
@@ -37,7 +40,8 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#EFF3F8;color:var(--
 .sb-sub{font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.5px}
 .sb-nav{flex:1;padding:8px 7px}
 #app.perm-pending .sb-nav{visibility:hidden;pointer-events:none}
-.sb-sec{font-size:10px;font-weight:600;letter-spacing:.8px;color:rgba(255,255,255,0.3);text-transform:uppercase;padding:12px 9px 5px}
+.sb-sec{font-size:10px;font-weight:700;letter-spacing:.8px;color:rgba(255,255,255,0.35);text-transform:uppercase;padding:18px 9px 6px;border-top:1px solid rgba(255,255,255,0.06);margin-top:4px}
+.sb-sec:first-of-type{border-top:none;margin-top:0}
 .nv{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--rs);cursor:pointer;color:rgba(255,255,255,0.5);margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-size:12.5px;font-weight:500;font-family:inherit;transition:all .12s}
 .nv:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85)}
 .nv.active{background:rgba(26,108,246,0.3);color:#fff}
@@ -54,6 +58,8 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:#EFF3F8;color:var(--
 .topbar{background:var(--wh);border-bottom:1px solid var(--bd);padding:0 22px;height:55px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 .pg-title{font-size:16px;font-weight:700;color:var(--ink)}
 .pg-bc{font-size:11px;color:var(--slate);margin-top:1px}
+.pg-bc-home{cursor:pointer}
+.pg-bc-home:hover{color:var(--sky);text-decoration:underline}
 .topbar-r{display:flex;align-items:center;gap:10px}
 .srch{display:flex;align-items:center;gap:7px;background:var(--slate-lt);border:1px solid var(--bd);border-radius:var(--rs);padding:6px 11px;width:210px}
 .srch input{border:none;background:none;outline:none;font-size:12.5px;color:var(--ink);width:100%;font-family:inherit}
@@ -91,7 +97,11 @@ thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:600;color:v
 tbody tr{border-bottom:1px solid var(--bd);transition:background .1s}
 tbody tr:hover{background:#FAFCFF}
 tbody tr:last-child{border-bottom:none}
-tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
+tbody td{padding:7px 14px;font-size:12.5px;color:var(--ink2)}
+tr.s-row{cursor:pointer;transition:background .1s}
+tr.s-row:hover{background:var(--sky-lt)}
+.s-actions{display:flex;gap:4px;flex-wrap:nowrap;white-space:nowrap}
+.s-actions .btn{padding:5px 8px}
 .cp{font-weight:600;color:var(--ink)}.cm{font-size:11px;color:var(--slate)}.cmo{font-family:"Courier New",monospace;font-size:12px}
 .tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .tg{background:#EAF1FF;color:#0F44B5}.tgr{background:#ECFDF5;color:#065F46}.ta{background:#FFF8EC;color:#92400E}.tr{background:#FFF1F4;color:#9F1239}.tsl{background:#F1F5F9;color:#475569}
@@ -248,7 +258,7 @@ tbody td{padding:10px 14px;font-size:12.5px;color:var(--ink2)}
   </nav>
   <div class="main">
     <div class="topbar">
-      <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button><button class="btn btn-g btn-sm" onclick="nav('dashboard',null)">Home</button><div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div></div>
+      <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button><div><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div></div>
       <div class="topbar-r">
         <div style="position:relative" id="notif-wrap"><button class="notif-btn" onclick="toggleNotif()">&#128276;<span class="notif-badge" id="notif-badge">0</span></button><div class="notif-dropdown" id="notif-panel"><div class="notif-hd"><span style="font-size:13px;font-weight:700">Notifications</span><button class="btn btn-g btn-sm" onclick="markAllRead()">Mark all read</button></div><div id="notif-list"></div></div></div>
         <div class="srch" style="position:relative"><span style="color:var(--slate);font-size:14px">&#128269;</span><input type="text" placeholder="Search anything..." id="g-srch" oninput="globalSearch(this.value)"><div class="smart-box" id="smart-results"></div></div>
@@ -648,7 +658,7 @@ function nav(id,btn){
   if(btn)btn.classList.add('active');
   const t=TITLES[id]||id;
   document.getElementById('pg-title').textContent=t;
-  document.getElementById('pg-bc').textContent=tenantName()+' \u203a '+t;
+  document.getElementById('pg-bc').innerHTML='<span class="pg-bc-home" onclick="nav(\'dashboard\',null)">'+escH(tenantName())+'</span> \u203a '+escH(t);
   if(id==='students')loadStudents();
   else if(id==='unregistered')loadUnregisteredStudents();
   else if(id==='fees')loadFees();
@@ -797,7 +807,7 @@ function renderStudentsRows(){
   data=data.filter(function(s){var b=Number(s.total_fee||0)-Number(s.paid||0),code=s.student_code||('STU'+String(s.id).padStart(6,'0'));return hasTxt(code+' '+s.id,bid)&&hasTxt(s.name,bn)&&hasTxt(s.father,bf)&&hasTxt(s.course,bc)&&hasTxt(s.university,bu)&&hasTxt(s.mobile,bm)&&(!bs||String(s.status||'').toLowerCase()===bs)&&(!bb||(bb==='due'?b>0:b<=0));});
   window._visibleStudentIds=data.map(s=>s.id);
   selectedStudentIds=new Set([...selectedStudentIds].filter(id=>window._visibleStudentIds.includes(id)));
-  document.getElementById('s-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid;return'<tr><td><input type="checkbox" class="student-select" value="'+s.id+'" '+(selectedStudentIds.has(s.id)?'checked':'')+' onchange="toggleStudentSelection('+s.id+',this.checked)"></td><td class="cmo">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</td><td><div class="av-cell" onclick="showStudentDetail('+s.id+')" style="cursor:pointer">'+studentAv(s)+'<div><div class="cp">'+s.name+'</div><div class="cm">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+' &bull; Click for details</div></div></div></td><td class="cm">'+(s.father||'&mdash;')+'</td><td><span class="tag tg">'+(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.university||'&mdash;')+'</td><td class="cmo">'+(s.mobile||'')+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+(b>0?'var(--rose)':'var(--em)')+';font-weight:600">'+fmt(b)+'</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-g btn-sm" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--slate)">No students found</td></tr>';
+  document.getElementById('s-table').innerHTML=data.map(function(s){const b=s.total_fee-s.paid;const balColor=b>0?'var(--gold)':'var(--em)';const balLabel=b>0?fmt(b):'<span style="font-weight:600">Clear</span>';return'<tr class="s-row" onclick="showStudentDetail('+s.id+')"><td onclick="event.stopPropagation()"><input type="checkbox" class="student-select" value="'+s.id+'" '+(selectedStudentIds.has(s.id)?'checked':'')+' onchange="toggleStudentSelection('+s.id+',this.checked)"></td><td class="cmo">'+(s.student_code||('STU'+String(s.id).padStart(6,'0')))+'</td><td><div class="av-cell">'+studentAv(s,26)+'<div class="cp">'+escH(s.name)+'</div></div></td><td class="cm">'+escH(s.father||'&mdash;')+'</td><td><span class="tag tg">'+escH(s.course||'&mdash;')+'</span></td><td class="cm" style="max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escH(s.university||'&mdash;')+'</td><td class="cmo">'+escH(s.mobile||'')+'</td><td>'+stag(s.status)+'</td><td class="cmo" style="color:'+balColor+';font-weight:600">'+balLabel+'</td><td class="s-actions" onclick="event.stopPropagation()"><button class="btn btn-g btn-sm" title="View" onclick="showStudentDetail('+s.id+')">&#128065;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_edit_student)?'<button class="btn btn-g btn-sm" title="Edit" onclick="editStudent('+s.id+')">&#9999;</button>':'')+'<button class="btn btn-g btn-sm" title="Receipt" onclick="showLastReceipt('+s.id+')">&#129534;</button>'+(isSA()||(currentUser&&(currentUser.permissions||{}).can_delete_student)?'<button class="btn btn-r btn-sm" title="Delete" onclick="delStudent('+s.id+')">&#128465;</button>':'')+'</td></tr>';}).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--slate)">No students found</td></tr>';
   updateStudentSelectionUI();
 }
 function toggleStudentSelection(id,checked){if(checked)selectedStudentIds.add(id);else selectedStudentIds.delete(id);updateStudentSelectionUI();}
@@ -1116,7 +1126,7 @@ async function renderUnivGrid(){
   document.getElementById('univ-grid').innerHTML=data.map(function(u){
     var deleteBtn='';
     if(isSA()){deleteBtn='<button class="btn btn-r btn-sm" style="padding:3px 8px;font-size:11px;flex-shrink:0" data-uid="'+u.id+'" onclick="event.stopPropagation();delUniversity(parseInt(this.dataset.uid))" title="Delete">&#128465;</button>';}
-    return'<div class="uc" onclick="openUniversityDetail('+u.id+')" style="border-top-color:'+u.color+';cursor:pointer">'+'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px"><div><div class="uc-name">'+escH(u.name)+'</div><div class="uc-state">'+escH(u.state||'\u2014')+'</div></div>'+deleteBtn+'</div>'+'<div class="uc-cnt" style="color:'+u.color+'">'+(u.student_count||0)+' <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div><div class="cm" style="margin-top:8px">Click for details & guides</div></div>';
+    return'<div class="uc" onclick="openUniversityDetail('+u.id+')" style="border-top-color:'+u.color+';cursor:pointer">'+'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px"><div><div class="uc-name">'+escH(u.name)+'</div><div class="uc-state">'+escH(u.state||'\u2014')+'</div></div>'+deleteBtn+'</div>'+'<div class="uc-cnt" style="color:'+u.color+'">'+(u.student_count||0)+' <span style="font-size:12px;color:var(--slate);font-weight:400">students</span></div></div>';
   }).join('');
 }
 let currentUniversityDetail=null,currentGuides=[];
