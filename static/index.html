@@ -200,7 +200,9 @@ tr.s-row:hover{background:var(--sky-lt)}
   .tab{padding:8px 10px 10px;font-size:11.5px}
   .univ-grid{grid-template-columns:1fr!important}
 }
-.mobile-menu-btn{display:inline-flex;width:34px;height:34px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--slate-lt);align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--ink)}
+.mobile-menu-btn{display:inline-flex;width:34px;height:34px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--slate-lt);align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--ink);position:relative;z-index:60}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:45}
+.sidebar-backdrop.open{display:block}
 .notif-btn{position:relative;width:34px;height:34px;border-radius:var(--rs);background:var(--slate-lt);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
 .notif-btn:hover{background:var(--sky-lt);border-color:#BFDBFE}
 .notif-badge{position:absolute;top:-4px;right:-4px;background:var(--rose);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:99px;min-width:16px;text-align:center;display:none}
@@ -289,6 +291,7 @@ tr.s-row:hover{background:var(--sky-lt)}
     </div>
     <div class="sb-foot"><button class="btn btn-g btn-sm" id="stop-imp-btn" style="display:none;margin:0 10px 8px;width:calc(100% - 20px);justify-content:center" onclick="stopImpersonation()">Back to Sky Owner</button><div class="user-card"><div class="uav" id="sb-av">AD</div><div><div class="uname" id="sb-name">Admin</div><div class="urole" id="sb-role">Super Admin</div></div><button class="lb-btn" onclick="doLogout()" title="Logout">&#9211;</button></div></div>
   </nav>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
   <div class="main">
     <div class="topbar">
       <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button><div class="pg-title-wrap"><div class="pg-title" id="pg-title">Dashboard</div><div class="pg-bc" id="pg-bc">Sky Eduworld &rsaquo; Overview</div></div>
@@ -614,7 +617,8 @@ function populateDistricts(){
   el.innerHTML='<option value="">Select district</option>'+rows.map(function(d){return '<option>'+escH(d)+'</option>';}).join('');
   if(rows.includes(cur))el.value=cur;
 }
-function toggleSidebar(){document.querySelector('.sidebar').classList.toggle('open');}
+function toggleSidebar(){var isOpen=document.querySelector('.sidebar').classList.toggle('open');var bd=document.getElementById('sidebar-backdrop');if(bd)bd.classList.toggle('open',isOpen);}
+function closeSidebar(){document.querySelector('.sidebar').classList.remove('open');var bd=document.getElementById('sidebar-backdrop');if(bd)bd.classList.remove('open');}
 function currentTabId(){var p=document.querySelector('.tab-panel.active');return p?p.id:'tp';}
 function updateStudentButtons(){
   var last=currentTabId()==='ti', save=document.getElementById('s-save-btn'), next=document.getElementById('s-next-btn');
@@ -687,7 +691,7 @@ const TITLES={dashboard:'Dashboard',students:'Students',unregistered:'Unregister
 const VIEW_ALIAS={associates:'incentive',references:'incentive','docs-issued':'documents','docs-uploaded':'documents'};
 let docViewMode='issued';
 function nav(id,btn){
-  if(window.innerWidth<=900){document.querySelector('.sidebar').classList.remove('open');}
+  if(window.innerWidth<=900){document.querySelector('.sidebar').classList.remove('open');var bd=document.getElementById('sidebar-backdrop');if(bd)bd.classList.remove('open');}
   if(id==='tenants'&&!isSA()){toast('Tenant Management sirf Sky Eduworld owner ke liye hai','er');id='dashboard';btn=document.querySelector('.nv');}
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+(VIEW_ALIAS[id]||id)).classList.add('active');
