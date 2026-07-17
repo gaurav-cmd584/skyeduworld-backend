@@ -1,25 +1,66 @@
 """
-Sky Eduworld ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Management System (PHASE 2 UPGRADE)
+Sky Eduworld — Management System (PHASE 2 UPGRADE)
 Backend: Flask + PostgreSQL
 """
 
-import os, csv, io, hashlib, uuid, json, re
+import os, csv, io, hashlib, uuid, json, re, secrets, time
 from datetime import datetime, timedelta, date
 from functools import wraps
 
 from flask import Flask, request, jsonify, send_from_directory, session, Response, g
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2, psycopg2.extras
 
 load_dotenv()
 app = Flask(__name__, static_folder='static')
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
+
+IS_PRODUCTION = os.environ.get('FLASK_ENV') != 'development'
+_secret_key_env = os.environ.get('SECRET_KEY')
+if _secret_key_env:
+    app.secret_key = _secret_key_env
+else:
+    # No hardcoded fallback: generate a random key each process start instead of a
+    # predictable default. NOTE: sessions are invalidated on every restart/redeploy
+    # unless SECRET_KEY is set in the environment - set a real SECRET_KEY in your
+    # Render/production environment variables for stable sessions.
+    app.secret_key = secrets.token_hex(32)
+    print('WARNING: SECRET_KEY env var not set. Using a random ephemeral key for this '
+          'process only. Set SECRET_KEY in your environment for stable sessions across restarts.')
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,
+    MAX_CONTENT_LENGTH=int(os.environ.get('MAX_UPLOAD_BYTES', 5 * 1024 * 1024)) + (1024 * 1024),  # upload size + 1MB headroom for form/JSON overhead
+)
+
 app.permanent_session_lifetime = timedelta(hours=8)
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/sky_eduworld')
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED = {'png','jpg','jpeg','gif','webp','pdf','doc','docx'}
-MAX_UPLOAD_BYTES = 512 * 1024
+MAX_UPLOAD_BYTES = int(os.environ.get('MAX_UPLOAD_BYTES', 5 * 1024 * 1024))  # 5 MB default (was 512 KB)
+
+# ---- Login brute-force protection ----
+MAX_FAILED_LOGINS = int(os.environ.get('MAX_FAILED_LOGINS', 5))
+LOCKOUT_MINUTES = int(os.environ.get('LOCKOUT_MINUTES', 15))
+# Lightweight in-memory per-IP throttle (defense-in-depth; per-account lockout below is
+# the primary, DB-persisted protection). Resets on process restart and is per-instance
+# only - fine for a single Render web service instance.
+_login_attempts_by_ip = {}
+
+def _ip_rate_limited(ip):
+    now = time.time()
+    window = 60.0  # seconds
+    max_attempts = 20  # generous cap across all usernames from one IP per minute
+    attempts = [t for t in _login_attempts_by_ip.get(ip, []) if now - t < window]
+    _login_attempts_by_ip[ip] = attempts
+    if len(attempts) >= max_attempts:
+        return True
+    attempts.append(now)
+    _login_attempts_by_ip[ip] = attempts
+    return False
 
 
 def parse_amount(v):
@@ -177,7 +218,31 @@ def q_ret(sql, params=()):
     conn = get_db(); cur = conn.cursor(); cur.execute(sql, params)
     row = cur.fetchone(); conn.commit(); return dict(row) if row else None
 
-def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
+def hash_pw(pw):
+    """Secure salted password hash (PBKDF2 via Werkzeug)."""
+    return generate_password_hash(pw)
+
+def _legacy_sha256(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
+def verify_pw(stored_hash, pw):
+    """Verify a password against a stored hash.
+    Supports both new Werkzeug (salted PBKDF2/scrypt) hashes and legacy
+    unsalted SHA-256 hashes from before this security fix, so existing users
+    are not locked out. Returns True/False.
+    """
+    if not stored_hash or not pw:
+        return False
+    if stored_hash.startswith(('pbkdf2:', 'scrypt:')):
+        try:
+            return check_password_hash(stored_hash, pw)
+        except Exception:
+            return False
+    # Legacy unsalted SHA-256 hash - verify against old scheme only.
+    return stored_hash == _legacy_sha256(pw)
+
+def is_legacy_hash(stored_hash):
+    return bool(stored_hash) and not stored_hash.startswith(('pbkdf2:', 'scrypt:'))
 
 def serialize(row):
     out = {}
@@ -388,6 +453,24 @@ def require_perm(perm):
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+@app.before_request
+def enforce_csrf_token():
+    """Double-submit CSRF check for state-changing API requests.
+    The frontend must echo back the csrf_token (issued at login / via /api/me)
+    in an X-CSRF-Token header. Combined with SameSite=Lax session cookies this
+    protects state-changing endpoints from cross-site request forgery."""
+    if not request.path.startswith('/api/') or request.method in ('GET','HEAD','OPTIONS'):
+        return None
+    if request.endpoint in ('login','login_with_diagnostics'):
+        return None
+    if not session.get('user_id'):
+        return None  # let login_required on the view produce the 401
+    expected = session.get('csrf_token')
+    provided = request.headers.get('X-CSRF-Token')
+    if not expected or not provided or not secrets.compare_digest(str(expected), str(provided)):
+        return jsonify({'error':'Invalid or missing CSRF token. Please refresh the page and try again.'}), 403
+    return None
 
 @app.before_request
 def enforce_read_only_tenant():
@@ -633,8 +716,21 @@ def init_db():
             conn.rollback()
     cur.execute("SELECT id FROM users WHERE username='admin'")
     if not cur.fetchone():
+        _bootstrap_pw = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD')
+        _generated = False
+        if not _bootstrap_pw:
+            _bootstrap_pw = secrets.token_urlsafe(12)
+            _generated = True
         cur.execute("INSERT INTO users (tenant_id,username,password,full_name,role) VALUES (%s,%s,%s,%s,%s)",
-                    (default_tenant, 'admin', hash_pw('sky@2024'), 'Admin', 'Super Admin'))
+                    (default_tenant, 'admin', hash_pw(_bootstrap_pw), 'Admin', 'Super Admin'))
+        if _generated:
+            print('=' * 70)
+            print('FIRST-RUN SETUP: no admin user existed, so one was created.')
+            print('  Username: admin')
+            print(f'  Password: {_bootstrap_pw}')
+            print('Log in once and change this password immediately, or set')
+            print('ADMIN_BOOTSTRAP_PASSWORD in your environment before first deploy.')
+            print('=' * 70)
     else:
         cur.execute("UPDATE users SET tenant_id=%s, is_active=TRUE, role='Super Admin' WHERE LOWER(username)=LOWER('admin')", (default_tenant,))
     cur.execute("SELECT id FROM academic_sessions LIMIT 1")
@@ -845,7 +941,15 @@ def login():
         sep = '/' if '/' in username else ':'
         client_code, username = [x.strip() for x in username.split(sep, 1)]
 
-    def repair_default_admin():
+    if _ip_rate_limited(ip):
+        return jsonify({'error': 'Too many login attempts from this network. Please wait a minute and try again.'}), 429
+
+    def ensure_schema_and_bootstrap_admin():
+        """Creates core tables/columns if missing, and creates the FIRST admin
+        user ONLY if no admin/Super Admin user exists anywhere yet. This is a
+        one-time bootstrap for a brand-new deployment - it NEVER overwrites or
+        bypasses an existing admin's password (unlike the old recovery-mode
+        logic this replaces)."""
         try:
             q("CREATE TABLE IF NOT EXISTS tenants (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, status TEXT DEFAULT 'Active', subscription_start DATE DEFAULT CURRENT_DATE, subscription_end DATE, plan_name TEXT DEFAULT 'Custom', client_code TEXT UNIQUE, custom_domain TEXT, subdomain TEXT, logo_url TEXT, letterhead_text TEXT, grace_days INTEGER DEFAULT 0, crm_status TEXT DEFAULT 'Active Client', next_followup_date DATE, crm_notes TEXT, max_students INTEGER, max_users INTEGER, storage_limit_mb INTEGER, notes TEXT, created_at TIMESTAMP DEFAULT NOW())", commit=True)
             q("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, tenant_id INTEGER, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT 'Admin', role TEXT NOT NULL DEFAULT 'Staff', is_active BOOLEAN DEFAULT TRUE, session_token TEXT, failed_logins INTEGER DEFAULT 0, last_login TIMESTAMP, created_at TIMESTAMP DEFAULT NOW())", commit=True)
@@ -865,55 +969,89 @@ def login():
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token TEXT",
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER DEFAULT 0",
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP"
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
             ]:
                 q(sql, commit=True)
-            tenant = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
-            tenant_id = tenant['id'] if tenant else None
-            admin = q("SELECT id FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", ('admin',), one=True)
-            if admin:
-                q("UPDATE users SET username=%s,password=%s,full_name=COALESCE(NULLIF(full_name,''),%s),role='Super Admin',is_active=TRUE,tenant_id=%s,failed_logins=0,session_token=NULL WHERE id=%s", ('admin',hash_pw('sky@2024'),'Admin',tenant_id,admin['id']), commit=True)
-            else:
-                q("INSERT INTO users (tenant_id,username,password,full_name,role,is_active,failed_logins) VALUES (%s,%s,%s,%s,%s,TRUE,0)", (tenant_id,'admin',hash_pw('sky@2024'),'Admin','Super Admin'), commit=True)
-            return q("SELECT * FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", ('admin',), one=True)
+            existing_admin = q("SELECT id FROM users WHERE LOWER(role)='super admin' OR LOWER(username)='admin' LIMIT 1", one=True)
+            if not existing_admin:
+                tenant = q("SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1", one=True)
+                tenant_id = tenant['id'] if tenant else None
+                bootstrap_pw = os.environ.get('ADMIN_BOOTSTRAP_PASSWORD')
+                generated = False
+                if not bootstrap_pw:
+                    bootstrap_pw = secrets.token_urlsafe(12)
+                    generated = True
+                q("INSERT INTO users (tenant_id,username,password,full_name,role,is_active,failed_logins) VALUES (%s,%s,%s,%s,%s,TRUE,0)",
+                  (tenant_id, 'admin', hash_pw(bootstrap_pw), 'Admin', 'Super Admin'), commit=True)
+                if generated:
+                    print('=' * 70)
+                    print('FIRST-RUN SETUP: no admin user existed, so one was created.')
+                    print('  Username: admin')
+                    print(f'  Password: {bootstrap_pw}')
+                    print('Log in once and change this password immediately (Settings > Change')
+                    print('Password), or set ADMIN_BOOTSTRAP_PASSWORD in your environment before')
+                    print('the next first-time deploy to choose your own initial password.')
+                    print('=' * 70)
         except Exception as ex:
             try: get_db().rollback()
             except Exception: pass
-            print('admin login recovery failed:', ex)
-            return None
+            print('schema bootstrap failed:', ex)
 
-    is_admin_login = username.lower() == 'admin'
-    admin_recovery_mode = os.environ.get('ADMIN_RECOVERY_MODE', '1') == '1'
-    is_default_admin_login = is_admin_login and password and (password == 'sky@2024' or admin_recovery_mode)
-    if is_default_admin_login:
-        repair_default_admin()
+    if username.lower() == 'admin':
+        ensure_schema_and_bootstrap_admin()
+
     if client_code:
         user = q("""SELECT u.* FROM users u JOIN tenants t ON t.id=u.tenant_id
                     WHERE LOWER(t.client_code)=LOWER(%s) AND LOWER(u.username)=LOWER(%s) LIMIT 1""", (client_code,username), one=True)
     else:
         user = q("SELECT * FROM users WHERE LOWER(username)=LOWER(%s) LIMIT 1", (username,), one=True)
-    if user and user.get('username','').lower() == 'admin' and password == 'sky@2024' and user.get('password') != hash_pw('sky@2024'):
-        q("UPDATE users SET password=%s,is_active=TRUE,tenant_id=(SELECT id FROM tenants WHERE name='Sky Eduworld' LIMIT 1),failed_logins=0 WHERE id=%s", (hash_pw('sky@2024'),user['id']), commit=True)
-        user = q("SELECT * FROM users WHERE id=%s", (user['id'],), one=True)
-    if (not user or user['password'] != hash_pw(password)) and is_default_admin_login:
-        user = repair_default_admin()
-    admin_recovery_ok = bool(user and is_admin_login and admin_recovery_mode and password)
-    if not user or (user['password'] != hash_pw(password) and not admin_recovery_ok):
+
+    def record_failed(u):
         try:
             q("INSERT INTO login_history (tenant_id,user_id,username,status,ip_address) VALUES (%s,%s,%s,%s,%s)",
-              (user.get('tenant_id') if user else None, user['id'] if user else None, username, 'Failed', ip), commit=True)
-            if user: q("UPDATE users SET failed_logins=COALESCE(failed_logins,0)+1 WHERE id=%s", (user['id'],), commit=True)
+              (u.get('tenant_id') if u else None, u['id'] if u else None, username, 'Failed', ip), commit=True)
+            if u:
+                new_count = (u.get('failed_logins') or 0) + 1
+                if new_count >= MAX_FAILED_LOGINS:
+                    q("UPDATE users SET failed_logins=%s, locked_until=NOW() + (%s || ' minutes')::interval WHERE id=%s",
+                      (new_count, LOCKOUT_MINUTES, u['id']), commit=True)
+                else:
+                    q("UPDATE users SET failed_logins=%s WHERE id=%s", (new_count, u['id']), commit=True)
         except Exception: pass
-        if is_admin_login:
-            return jsonify({'error':'Admin recovery active hai, lekin server admin ko repair nahi kar pa raha. Render par latest app.py deploy hua hai; logs me "admin login recovery failed" check karein.'}), 401
+
+    if not user:
+        record_failed(None)
         return jsonify({'error':'Invalid username or password'}), 401
+
+    locked_until = user.get('locked_until')
+    if locked_until:
+        try:
+            lu = locked_until if isinstance(locked_until, datetime) else datetime.fromisoformat(str(locked_until))
+            if lu > datetime.now():
+                mins_left = max(1, int((lu - datetime.now()).total_seconds() // 60) + 1)
+                return jsonify({'error': f'Account temporarily locked due to repeated failed logins. Try again in about {mins_left} minute(s).'}), 403
+        except Exception:
+            pass
+
+    if not verify_pw(user.get('password'), password):
+        record_failed(user)
+        return jsonify({'error':'Invalid username or password'}), 401
+
+    # Transparently upgrade legacy unsalted SHA-256 hashes to salted PBKDF2 on next successful login.
+    if is_legacy_hash(user.get('password')):
+        try:
+            q("UPDATE users SET password=%s WHERE id=%s", (hash_pw(password), user['id']), commit=True)
+        except Exception: pass
+
     if not user.get('is_active',True):
         return jsonify({'error':'Account disabled. Contact admin.'}), 401
     blocked = subscription_block(user)
     if blocked:
         return jsonify({'error': blocked}), 403
     token = str(uuid.uuid4())
-    q("UPDATE users SET session_token=%s, failed_logins=0, last_login=NOW() WHERE id=%s", (token, user['id']), commit=True)
+    csrf_token = secrets.token_hex(16)
+    q("UPDATE users SET session_token=%s, failed_logins=0, locked_until=NULL, last_login=NOW() WHERE id=%s", (token, user['id']), commit=True)
     try:
         q("INSERT INTO login_history (tenant_id,user_id,username,status,ip_address) VALUES (%s,%s,%s,%s,%s)",
           (user.get('tenant_id'), user['id'], user['username'], 'Success', ip), commit=True)
@@ -921,8 +1059,8 @@ def login():
     record_active_session(user, token)
     session.permanent = True
     session['user_id'] = user['id']; session['username'] = user['username']; session['tenant_id'] = user.get('tenant_id')
-    session['role'] = user['role']; session['session_token'] = token
-    return jsonify({'success':True,'user':user_payload(user)})
+    session['role'] = user['role']; session['session_token'] = token; session['csrf_token'] = csrf_token
+    return jsonify({'success':True,'user':user_payload(user),'csrf_token':csrf_token})
 
 _login_impl = login
 def login_with_diagnostics():
@@ -954,10 +1092,13 @@ def me():
     if blocked:
         session.clear()
         return jsonify({'error':blocked,'redirect':'/'}), 403
+    if not session.get('csrf_token'):
+        session['csrf_token'] = secrets.token_hex(16)
     unread = q("SELECT COUNT(*) AS c FROM notifications WHERE user_id=%s AND is_read=FALSE", (session['user_id'],), one=True)
     payload = user_payload(user)
     payload['last_login'] = serialize(user).get('last_login')
     payload['unread_notifications'] = unread['c'] if unread else 0
+    payload['csrf_token'] = session['csrf_token']
     return jsonify(payload)
 
 # DASHBOARD
@@ -2126,7 +2267,7 @@ def upload_guide_file(gid):
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
-    if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
+    if size > MAX_UPLOAD_BYTES: return jsonify({'error':f'File size max {MAX_UPLOAD_BYTES // (1024*1024)} MB allowed'}), 400
     storage_error = check_storage_limit(guide.get('tenant_id'), size)
     if storage_error: return jsonify({'error':storage_error}), 403
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
@@ -2316,7 +2457,7 @@ def upload_doc_file(did):
     if 'file' not in request.files: return jsonify({'error':'No file'}), 400
     file = request.files['file']
     file.seek(0, os.SEEK_END); size = file.tell(); file.seek(0)
-    if size > MAX_UPLOAD_BYTES: return jsonify({'error':'File size max 512 KB allowed'}), 400
+    if size > MAX_UPLOAD_BYTES: return jsonify({'error':f'File size max {MAX_UPLOAD_BYTES // (1024*1024)} MB allowed'}), 400
     storage_error = check_storage_limit(doc.get('tenant_id'), size)
     if storage_error: return jsonify({'error':storage_error}), 403
     if not allowed_file(file.filename): return jsonify({'error':'Invalid type'}), 400
@@ -2770,7 +2911,7 @@ def delete_user(uid):
 @login_required
 def change_password():
     d = request.json or {}; user = q("SELECT * FROM users WHERE id=%s", (session['user_id'],), one=True)
-    if user['password'] != hash_pw(d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
+    if not verify_pw(user.get('password'), d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
     new_pw = d.get('new_password','')
     if len(new_pw) < 6: return jsonify({'error':'Min 6 characters'}), 400
     q("UPDATE users SET password=%s WHERE id=%s", (hash_pw(new_pw),session['user_id']), commit=True)
