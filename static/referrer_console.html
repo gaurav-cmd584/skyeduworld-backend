@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Referred Students Console</title>
+<style>
+:root{--sky:#1A6CF6;--sky-lt:#eaf2ff;--ink:#0f172a;--slate:#64748b;--bd:#e2e8f0;--ok:#10B981;--warn:#f59e0b;--err:#e11d48}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f4f7fc;color:var(--ink)}
+.wrap{max-width:980px;margin:0 auto;padding:26px 16px 60px}
+h1{font-size:19px;margin:0 0 4px}
+.sub{color:var(--slate);font-size:13px;margin-bottom:16px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(15,23,42,.05);margin-bottom:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px;border-bottom:2px solid var(--bd);color:var(--slate);font-size:11px;text-transform:uppercase}
+td{padding:9px 8px;border-bottom:1px solid var(--bd)}
+.badge{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:99px}
+.b-associate{background:#eef2ff;color:#4338ca}
+.b-reference{background:#fef3c7;color:#92400e}
+.b-unassigned{background:#fee2e2;color:#b91c1c}
+button{cursor:pointer;font-family:inherit}
+.btn{padding:6px 10px;border-radius:7px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:700;margin-right:4px}
+.btn.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
+.modal{background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:85vh;overflow:auto}
+.modal h2{font-size:15px;margin:0 0 12px}
+label{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin:10px 0 4px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;font-family:inherit}
+.stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.msg{margin-top:10px;padding:8px 10px;border-radius:7px;font-size:12.5px;display:none}
+.msg.err{background:#fef2f2;color:var(--err);display:block}
+.msg.ok{background:#ecfdf5;color:#047857;display:block}
+.empty{padding:20px;text-align:center;color:var(--slate);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Referred Students Console</h1>
+    <div class="sub">Yeh page aapki maujooda staff/admin login session use karta hai. Yahan sirf woh students dikhte hain jinhone khud register kiya aur reference email se aapko (Associate/Reference/Consultant) ya Admin ko assign hue hain.</div>
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Referred Via</th><th>Stage</th><th>Actions</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty hidden" id="empty">Koi referred student nahi mila.</div>
+  </div>
+
+  <div class="card" id="unassignedCard" style="display:none">
+    <h1>Unassigned Registrations (Super Admin)</h1>
+    <div class="sub">Inka reference email kisi bhi Associate/Reference se match nahi hua — manually assign karein.</div>
+    <table>
+      <thead><tr><th>Name</th><th>Phone</th><th>Ref Email</th><th>Tenant</th><th>Assign</th></tr></thead>
+      <tbody id="unassignedRows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-bg" id="stageModalBg">
+  <div class="modal">
+    <h2>PhD Progress — <span id="sm-name"></span></h2>
+    <div id="sm-stages"></div>
+    <div class="msg" id="sm-msg"></div>
+    <div style="margin-top:12px;text-align:right"><button class="btn" onclick="closeModal('stageModalBg')">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="feeModalBg">
+  <div class="modal">
+    <h2>Referral Fee Entry — <span id="fm-name"></span></h2>
+    <label>Total Fee (optional update)</label><input id="fm-total" type="number" step="0.01">
+    <label>Payment Amount</label><input id="fm-amount" type="number" step="0.01">
+    <label>Fee Type</label><input id="fm-type" value="Tuition Fee">
+    <label>Pay Mode</label>
+    <select id="fm-mode"><option>Cash</option><option>Online</option><option>Cheque</option><option>UPI</option></select>
+    <label>Ref No. / UTR</label><input id="fm-ref">
+    <label>Pay Date</label><input id="fm-date" type="date">
+    <label>Remarks</label><input id="fm-remarks">
+    <div class="msg" id="fm-msg"></div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="closeModal('feeModalBg')">Cancel</button>
+      <button class="btn primary" onclick="saveFee()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentStudentId = null;
+async function api(method, url, body){
+  const opt = {method, headers:{'Content-Type':'application/json'}, credentials:'same-origin'};
+  if(body !== undefined) opt.body = JSON.stringify(body);
+  const r = await fetch(url, opt);
+  let data = {};
+  try{ data = await r.json(); }catch(e){}
+  if(!r.ok){ throw new Error(data.error || ('Error '+r.status)); }
+  return data;
+}
+function openModal(id){ document.getElementById(id).style.display='flex'; }
+function closeModal(id){ document.getElementById(id).style.display='none'; }
+
+async function loadRows(){
+  const rows = await api('GET','/api/referred-students');
+  const tbody = document.getElementById('rows');
+  tbody.innerHTML = '';
+  document.getElementById('empty').classList.toggle('hidden', rows.length>0);
+  rows.forEach(s=>{
+    const tr = document.createElement('tr');
+    const badgeClass = s.referred_type==='associate' ? 'b-associate' : (s.referred_type==='reference' ? 'b-reference' : 'b-unassigned');
+    tr.innerHTML = `<td>${s.name||''}</td><td>${s.mobile||''}</td><td>${s.email||''}</td>
+      <td><span class="badge ${badgeClass}">${s.referred_type||'—'}</span></td>
+      <td>${s.registration_stage||''}</td>
+      <td>
+        <button class="btn" onclick='openStages(${s.id}, ${JSON.stringify(s.name)})'>PhD Stages</button>
+        <button class="btn primary" onclick='openFee(${s.id}, ${JSON.stringify(s.name)})'>Fee Entry</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadUnassigned(){
+  try{
+    const rows = await api('GET','/api/unassigned-students');
+    document.getElementById('unassignedCard').style.display = '';
+    const tbody = document.getElementById('unassignedRows');
+    tbody.innerHTML = '';
+    rows.forEach(s=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${s.name||''}</td><td>${s.mobile||''}</td><td>${s.ref_email||''}</td><td>${s.tenant_name||''}</td>
+        <td>
+          <select id="assign-type-${s.id}"><option value="associate">Associate</option><option value="reference">Reference/Consultant</option></select>
+          <input id="assign-id-${s.id}" placeholder="ID" style="width:70px;display:inline-block">
+          <button class="btn primary" onclick="assignStudent(${s.id})">Assign</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }catch(e){ /* not super admin — hide silently */ }
+}
+async function assignStudent(sid){
+  const rtype = document.getElementById('assign-type-'+sid).value;
+  const rid = document.getElementById('assign-id-'+sid).value;
+  try{
+    await api('POST', `/api/unassigned-students/${sid}/assign`, {referred_type: rtype, referred_id: parseInt(rid)});
+    await loadUnassigned(); await loadRows();
+  }catch(e){ alert(e.message); }
+}
+
+async function openStages(sid, name){
+  currentStudentId = sid;
+  document.getElementById('sm-name').textContent = name;
+  document.getElementById('sm-msg').className='msg';
+  const stages = await api('GET', `/api/students/${sid}/phd-stages`);
+  const box = document.getElementById('sm-stages');
+  box.innerHTML = '';
+  stages.forEach(st=>{
+    const row = document.createElement('div'); row.className='stage-row';
+    row.innerHTML = `<div style="flex:1;font-weight:700;font-size:13px">${st.stage_order}. ${st.stage_name}</div>
+      <select id="stage-status-${st.id}">
+        <option ${st.status==='Pending'?'selected':''}>Pending</option>
+        <option ${st.status==='In Progress'?'selected':''}>In Progress</option>
+        <option ${st.status==='Completed'?'selected':''}>Completed</option>
+      </select>
+      <button class="btn" onclick="saveStage(${sid}, ${st.id})">Save</button>`;
+    box.appendChild(row);
+  });
+  openModal('stageModalBg');
+}
+async function saveStage(sid, stageId){
+  try{
+    const status = document.getElementById('stage-status-'+stageId).value;
+    await api('PUT', `/api/students/${sid}/phd-stages/${stageId}`, {status});
+    document.getElementById('sm-msg').className='msg ok'; document.getElementById('sm-msg').textContent='Saved!';
+  }catch(e){
+    document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
+  }
+}
+
+function openFee(sid, name){
+  currentStudentId = sid;
+  document.getElementById('fm-name').textContent = name;
+  ['fm-total','fm-amount','fm-ref','fm-remarks'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fm-msg').className='msg';
+  openModal('feeModalBg');
+}
+async function saveFee(){
+  try{
+    const payload = {
+      total_fee: document.getElementById('fm-total').value || null,
+      amount: document.getElementById('fm-amount').value || 0,
+      fee_type: document.getElementById('fm-type').value,
+      pay_mode: document.getElementById('fm-mode').value,
+      ref_no: document.getElementById('fm-ref').value,
+      pay_date: document.getElementById('fm-date').value || null,
+      remarks: document.getElementById('fm-remarks').value,
+    };
+    await api('POST', `/api/students/${currentStudentId}/referral-fee`, payload);
+    document.getElementById('fm-msg').className='msg ok'; document.getElementById('fm-msg').textContent='Fee saved!';
+    await loadRows();
+  }catch(e){
+    document.getElementById('fm-msg').className='msg err'; document.getElementById('fm-msg').textContent=e.message;
+  }
+}
+
+(async function init(){
+  try{ await loadRows(); }catch(e){ alert('Login required. Pehle main console mein staff/admin login karein, phir yeh page kholein.'); }
+  await loadUnassigned();
+})();
+</script>
+</body>
+</html>

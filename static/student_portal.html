@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Portal — PhD Progress</title>
+<style>
+:root{--sky:#1A6CF6;--sky-lt:#eaf2ff;--ink:#0f172a;--slate:#64748b;--bd:#e2e8f0;--ok:#10B981;--warn:#f59e0b;--err:#e11d48}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f4f7fc;color:var(--ink)}
+.wrap{max-width:640px;margin:0 auto;padding:28px 16px 60px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:22px;box-shadow:0 10px 30px rgba(15,23,42,.05);margin-bottom:16px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--slate);font-size:13px;margin-bottom:18px}
+.tabs{display:flex;gap:8px;margin-bottom:18px}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;border:1px solid var(--bd);background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--slate)}
+.tab.active{background:var(--sky);color:#fff;border-color:var(--sky)}
+label{display:block;font-size:12px;font-weight:700;color:var(--slate);margin:12px 0 5px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font-size:14px;font-family:inherit}
+button.primary{width:100%;margin-top:18px;padding:12px;border:none;border-radius:10px;background:var(--sky);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+button.primary:disabled{opacity:.6;cursor:not-allowed}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:13px;display:none}
+.msg.err{background:#fef2f2;color:var(--err);display:block}
+.msg.ok{background:#ecfdf5;color:#047857;display:block}
+.hidden{display:none !important}
+.stepper{list-style:none;margin:0;padding:0}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bd)}
+.step:last-child{border-bottom:none}
+.dot{width:26px;height:26px;border-radius:50%;flex:0 0 26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.dot.Completed{background:var(--ok)}
+.dot.\32In{background:var(--warn)}
+.dot.In-Progress{background:var(--warn)}
+.dot.Pending{background:#cbd5e1;color:#475569}
+.step-name{font-weight:700;font-size:13.5px}
+.step-status{font-size:11.5px;color:var(--slate);margin-top:2px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--sky-lt);color:var(--sky)}
+.linkbtn{background:none;border:none;color:var(--sky);font-weight:700;font-size:13px;cursor:pointer;padding:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="authScreen">
+    <div class="card">
+      <h1>🎓 Student Portal</h1>
+      <div class="sub">PhD progress dekhne / register karne ke liye yahan login karein</div>
+      <div class="tabs">
+        <div class="tab active" id="tabReg" onclick="switchTab('reg')">New Registration</div>
+        <div class="tab" id="tabLogin" onclick="switchTab('login')">Login</div>
+      </div>
+
+      <div id="regForm">
+        <label>Full Name *</label>
+        <input id="r-name" placeholder="Apna poora naam likhein">
+        <label>Phone Number *</label>
+        <input id="r-phone" placeholder="10-digit mobile number">
+        <label>Email ID *</label>
+        <input id="r-email" type="email" placeholder="you@example.com">
+        <label>Reference Email ID *</label>
+        <input id="r-ref" type="email" placeholder="Aapke associate/reference/consultant ki email">
+        <div class="sub" style="margin-top:6px">Institute Code (agar diya gaya ho)</div>
+        <input id="r-code" placeholder="Optional — CLIENT code">
+        <button class="primary" id="r-btn" onclick="doRegister()">Register &#8594;</button>
+        <div class="msg" id="r-msg"></div>
+      </div>
+
+      <div id="loginForm" class="hidden">
+        <label>Phone Number or Email</label>
+        <input id="l-id" placeholder="Registered phone ya email">
+        <label>Password</label>
+        <input id="l-pass" type="password" placeholder="Password (default = aapka phone number)">
+        <button class="primary" id="l-btn" onclick="doLogin()">Login &#8594;</button>
+        <div class="msg" id="l-msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dashScreen" class="hidden">
+    <div class="card">
+      <div class="topbar">
+        <h1 id="d-name">—</h1>
+        <button class="linkbtn" onclick="doLogout()">Logout</button>
+      </div>
+      <div class="sub">Student Code: <b id="d-code">—</b> &nbsp;·&nbsp; <span class="badge" id="d-stage">—</span></div>
+    </div>
+
+    <div class="card" id="profileCard">
+      <h1 style="font-size:16px">Complete Your Profile</h1>
+      <div class="sub">PhD progress track karne ke liye apni poori details bhar dein</div>
+      <div class="grid2">
+        <div><label>Father's Name *</label><input id="p-father"></div>
+        <div><label>Mother's Name</label><input id="p-mother"></div>
+        <div><label>Date of Birth *</label><input id="p-dob" type="date"></div>
+        <div><label>Gender *</label><select id="p-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+        <div><label>Aadhar No.</label><input id="p-aadhar"></div>
+        <div><label>State</label><input id="p-state"></div>
+        <div><label>District</label><input id="p-district"></div>
+        <div><label>Pincode</label><input id="p-pincode"></div>
+        <div><label>Course *</label><input id="p-course" placeholder="e.g. PhD"></div>
+        <div><label>Subject</label><input id="p-subject"></div>
+        <div><label>University *</label><input id="p-university"></div>
+        <div><label>Batch</label><input id="p-batch"></div>
+        <div><label>Enrollment No.</label><input id="p-enroll"></div>
+        <div><label>Roll No.</label><input id="p-roll"></div>
+      </div>
+      <label>Address *</label>
+      <textarea id="p-address" rows="2"></textarea>
+      <button class="primary" id="p-btn" onclick="submitProfile()">Save Profile &#8594;</button>
+      <div class="msg" id="p-msg"></div>
+    </div>
+
+    <div class="card">
+      <h1 style="font-size:16px">PhD Progress</h1>
+      <ul class="stepper" id="stepList"></ul>
+    </div>
+
+    <div class="card">
+      <h1 style="font-size:16px">Change Password</h1>
+      <label>Current Password</label><input id="c-old" type="password">
+      <label>New Password</label><input id="c-new" type="password">
+      <button class="primary" id="c-btn" onclick="changePassword()">Update Password</button>
+      <div class="msg" id="c-msg"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function api(method, url, body){
+  const opt = {method, headers:{'Content-Type':'application/json'}, credentials:'same-origin'};
+  if(body !== undefined) opt.body = JSON.stringify(body);
+  const r = await fetch(url, opt);
+  let data = {};
+  try{ data = await r.json(); }catch(e){}
+  if(!r.ok){ throw new Error(data.error || ('Error '+r.status)); }
+  return data;
+}
+function showMsg(id, text, ok){
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = 'msg ' + (ok ? 'ok':'err');
+}
+function switchTab(t){
+  document.getElementById('tabReg').classList.toggle('active', t==='reg');
+  document.getElementById('tabLogin').classList.toggle('active', t==='login');
+  document.getElementById('regForm').classList.toggle('hidden', t!=='reg');
+  document.getElementById('loginForm').classList.toggle('hidden', t!=='login');
+}
+async function doRegister(){
+  const btn=document.getElementById('r-btn'); btn.disabled=true;
+  try{
+    const payload = {
+      name: document.getElementById('r-name').value.trim(),
+      phone: document.getElementById('r-phone').value.trim(),
+      email: document.getElementById('r-email').value.trim(),
+      ref_email: document.getElementById('r-ref').value.trim(),
+      client_code: document.getElementById('r-code').value.trim(),
+    };
+    const res = await api('POST','/api/public/student-register', payload);
+    showMsg('r-msg', res.message + (res.student_code ? (' Student Code: '+res.student_code) : ''), true);
+    switchTab('login');
+    document.getElementById('l-id').value = payload.phone;
+  }catch(e){ showMsg('r-msg', e.message, false); }
+  btn.disabled=false;
+}
+async function doLogin(){
+  const btn=document.getElementById('l-btn'); btn.disabled=true;
+  try{
+    const payload = { identifier: document.getElementById('l-id').value.trim(), password: document.getElementById('l-pass').value };
+    await api('POST','/api/public/student-login', payload);
+    await loadDashboard();
+  }catch(e){ showMsg('l-msg', e.message, false); }
+  btn.disabled=false;
+}
+async function doLogout(){
+  await api('POST','/api/student/logout');
+  document.getElementById('dashScreen').classList.add('hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
+}
+async function loadDashboard(){
+  const me = await api('GET','/api/student/me');
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('dashScreen').classList.remove('hidden');
+  document.getElementById('d-name').textContent = me.name;
+  document.getElementById('d-code').textContent = me.student_code || '—';
+  document.getElementById('d-stage').textContent = me.registration_stage;
+  document.getElementById('profileCard').classList.toggle('hidden', me.profile_complete);
+  const list = document.getElementById('stepList');
+  list.innerHTML = '';
+  (me.phd_progress||[]).forEach(s=>{
+    const li = document.createElement('li'); li.className='step';
+    const dotClass = s.status === 'Completed' ? 'Completed' : (s.status === 'In Progress' ? 'In-Progress' : 'Pending');
+    li.innerHTML = `<div class="dot ${dotClass}">${s.stage_order}</div>
+      <div><div class="step-name">${s.stage_name}</div><div class="step-status">${s.status}${s.remarks? ' — '+s.remarks:''}</div></div>`;
+    list.appendChild(li);
+  });
+}
+async function submitProfile(){
+  const btn=document.getElementById('p-btn'); btn.disabled=true;
+  try{
+    const payload = {
+      father: document.getElementById('p-father').value.trim(),
+      mother: document.getElementById('p-mother').value.trim(),
+      dob: document.getElementById('p-dob').value,
+      gender: document.getElementById('p-gender').value,
+      aadhar: document.getElementById('p-aadhar').value.trim(),
+      address: document.getElementById('p-address').value.trim(),
+      state: document.getElementById('p-state').value.trim(),
+      district: document.getElementById('p-district').value.trim(),
+      pincode: document.getElementById('p-pincode').value.trim(),
+      course: document.getElementById('p-course').value.trim(),
+      subject: document.getElementById('p-subject').value.trim(),
+      university: document.getElementById('p-university').value.trim(),
+      batch: document.getElementById('p-batch').value.trim(),
+      enroll_no: document.getElementById('p-enroll').value.trim(),
+      roll_no: document.getElementById('p-roll').value.trim(),
+    };
+    await api('POST','/api/student/complete-profile', payload);
+    showMsg('p-msg','Profile saved!', true);
+    await loadDashboard();
+  }catch(e){ showMsg('p-msg', e.message, false); }
+  btn.disabled=false;
+}
+async function changePassword(){
+  const btn=document.getElementById('c-btn'); btn.disabled=true;
+  try{
+    await api('POST','/api/student/change-password', {
+      old_password: document.getElementById('c-old').value,
+      new_password: document.getElementById('c-new').value,
+    });
+    showMsg('c-msg','Password updated!', true);
+    document.getElementById('c-old').value=''; document.getElementById('c-new').value='';
+  }catch(e){ showMsg('c-msg', e.message, false); }
+  btn.disabled=false;
+}
+(async function init(){
+  try{ await loadDashboard(); }catch(e){ /* not logged in, show auth screen */ }
+})();
+</script>
+</body>
+</html>
