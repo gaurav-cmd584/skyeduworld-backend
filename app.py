@@ -919,6 +919,13 @@ with app.app_context():
         print(f"Init DB error: {e}")
 
 # STATIC
+
+try:
+    from student_portal import student_bp
+    app.register_blueprint(student_bp)
+except Exception as _sp_ex:
+    print('student_portal blueprint not loaded:', _sp_ex)
+
 @app.route('/')
 def index(): return send_from_directory('static','index.html')
 
@@ -3058,7 +3065,7 @@ def balance_overview():
 # REPORTS
 def csv_response(rows, headers, filename):
     buf = io.StringIO(); w = csv.writer(buf); w.writerow(headers); w.writerows(rows)
-    return Response('\ufeff'+buf.getvalue(), mimetype='text/csv; charset=utf-8-sig',
+    return Response('﻿'+buf.getvalue(), mimetype='text/csv; charset=utf-8-sig',
                     headers={'Content-Disposition':f'attachment; filename={filename}'})
 
 @app.route('/api/reports/students')
@@ -3150,7 +3157,7 @@ def expenses_api():
     if request.method == 'POST':
         if not (is_super_admin() or get_user_perms(session['user_id']).get('can_manage_accounts')): return jsonify({'error':'Permission denied: can_manage_accounts'}), 403
         d=request.json or {}; uid=session['user_id']
-        
+
         try: amount_val=float(d.get('amount',0) or 0)
         except (TypeError, ValueError): amount_val=0
         if not d.get('category') or not d.get('paid_to') or amount_val <= 0: return jsonify({'error':'Category, Paid To aur valid amount zaroori hai'}), 400
@@ -3659,7 +3666,7 @@ def import_students():
             student_total=parse_amount(d.get('total_fee'))
             legacy_paid=parse_amount(d.get('paid'))
             univ_fee=parse_amount(d.get('univ_fee'))
-            row=q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE AND tenant_id=%s LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (tid,uid,tid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
+            row=q_ret("""INSERT INTO students (tenant_id,created_by,session_id,name,father,mother,dob,gender,mobile,email,aadhar,address,course,subject,university,batch,enroll_no,roll_no,adm_date,remarks,total_fee,paid,univ_fee,pay_mode,utr,doc_notes,status) VALUES (%s,%s,(SELECT id FROM academic_sessions WHERE is_active=TRUE AND tenant_id=%s LIMIT 1),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (tid,uid,tid,d.get('name'),d.get('father'),d.get('mother'),parse_date_value(d.get('dob')),d.get('gender'),d.get('mobile'),d.get('email'),d.get('aadhar'),d.get('address'),d.get('course'),d.get('subject'),d.get('university'),d.get('batch'),d.get('enroll_no'),d.get('roll_no'),parse_date_value(d.get('adm_date')),d.get('remarks') or d.get('student_remarks'),student_total,legacy_paid,univ_fee,d.get('pay_mode'),d.get('utr'),d.get('doc_notes'),'Active'))
             sid=row['id']
             assign_student_code(sid)
             student_payments=collect_numbered_payments(d,'pay',5,d.get('fee_type') or 'Initial Payment',d.get('pay_mode') or 'Cash') or parse_payment_entries(d.get('student_payments') or d.get('fee_payments'), d.get('fee_type') or 'Initial Payment', d.get('pay_mode') or 'Cash')
