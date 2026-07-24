@@ -5,52 +5,123 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Portal — PhD Progress</title>
 <style>
-:root{--sky:#1A6CF6;--sky-lt:#eaf2ff;--ink:#0f172a;--slate:#64748b;--bd:#e2e8f0;--ok:#10B981;--warn:#f59e0b;--err:#e11d48}
+:root{--sky:#1A6CF6;--sky-dk:#0F44B5;--sky-lt:#eaf2ff;--ink:#0f172a;--ink2:#334155;--slate:#64748b;--bd:#e2e8f0;--ok:#10B981;--ok-lt:#ecfdf5;--warn:#f59e0b;--warn-lt:#fffbeb;--err:#e11d48;--err-lt:#fef2f2;--card:#fff;--bg:#f2f5fb}
 *{box-sizing:border-box}
-body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f4f7fc;color:var(--ink)}
-.wrap{max-width:640px;margin:0 auto;padding:28px 16px 60px}
-.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:22px;box-shadow:0 10px 30px rgba(15,23,42,.05);margin-bottom:16px}
-h1{font-size:20px;margin:0 0 4px}
-.sub{color:var(--slate);font-size:13px;margin-bottom:18px}
-.tabs{display:flex;gap:8px;margin-bottom:18px}
-.tab{flex:1;text-align:center;padding:10px;border-radius:10px;border:1px solid var(--bd);background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--slate)}
-.tab.active{background:var(--sky);color:#fff;border-color:var(--sky)}
-label{display:block;font-size:12px;font-weight:700;color:var(--slate);margin:12px 0 5px}
-input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;font-size:14px;font-family:inherit}
-button.primary{width:100%;margin-top:18px;padding:12px;border:none;border-radius:10px;background:var(--sky);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
-button.primary:disabled{opacity:.6;cursor:not-allowed}
-.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:13px;display:none}
-.msg.err{background:#fef2f2;color:var(--err);display:block}
-.msg.ok{background:#ecfdf5;color:#047857;display:block}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
 .hidden{display:none !important}
+a,button{font-family:inherit}
+
+/* ---------- Auth screen ---------- */
+#authScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at top left,#2563EB 0%,#0F172A 45%,#020617 100%)}
+.auth-box{width:100%;max-width:420px;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(2,6,23,.45);overflow:hidden}
+.auth-hd{padding:28px 28px 0}
+.auth-hd .em{width:52px;height:52px;border-radius:14px;background:var(--sky);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px}
+.auth-hd h1{font-size:21px;margin:0 0 4px;letter-spacing:-.3px}
+.auth-hd .sub{color:var(--slate);font-size:13px;margin-bottom:18px}
+.tabs{display:flex;gap:6px;padding:0 28px;margin-bottom:8px}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;border:1px solid var(--bd);background:#fff;cursor:pointer;font-weight:700;font-size:12.5px;color:var(--slate);transition:all .15s}
+.tab.active{background:var(--sky);color:#fff;border-color:var(--sky);box-shadow:0 8px 18px rgba(26,108,246,.28)}
+.auth-body{padding:20px 28px 28px}
+label{display:block;font-size:11.5px;font-weight:700;color:var(--ink2);margin:12px 0 5px;letter-spacing:.2px}
+input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--bd);border-radius:9px;font-size:14px;font-family:inherit;outline:none;color:var(--ink);background:#fff;transition:border .13s,box-shadow .13s}
+input:focus,select:focus,textarea:focus{border-color:var(--sky);box-shadow:0 0 0 3px rgba(26,108,246,.12)}
+button.primary{width:100%;margin-top:20px;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--sky),var(--sky-dk));color:#fff;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 12px 26px rgba(26,108,246,.28);transition:filter .13s}
+button.primary:hover{filter:brightness(1.05)}
+button.primary:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12.5px;display:none;font-weight:600}
+.msg.err{background:var(--err-lt);color:var(--err);display:block}
+.msg.ok{background:var(--ok-lt);color:#047857;display:block}
+.hint{font-size:11px;color:var(--slate);margin-top:14px;text-align:center}
+
+/* ---------- Dashboard shell ---------- */
+#dashScreen{min-height:100vh}
+.topbar{background:linear-gradient(120deg,#0F172A,#1A6CF6);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30;box-shadow:0 4px 18px rgba(15,23,42,.15)}
+.avatar{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0}
+.tb-info{flex:1;min-width:0}
+.tb-info .nm{font-size:15.5px;font-weight:800;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-info .meta{font-size:11.5px;color:rgba(255,255,255,.72);margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff}
+.badge.ok{background:rgba(16,185,129,.25);color:#bbf7d0}
+.badge.warn{background:rgba(245,158,11,.25);color:#fde68a}
+.logout-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-weight:700;font-size:12px;cursor:pointer;padding:8px 14px;border-radius:9px;flex-shrink:0}
+.logout-btn:hover{background:rgba(255,255,255,.22)}
+
+.dash-layout{max-width:1080px;margin:0 auto;padding:20px 18px 60px;display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+.side-nav{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px;position:sticky;top:88px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--slate);border:none;background:none;width:100%;text-align:left;transition:all .12s;font-family:inherit}
+.nav-item .ic{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.nav-item:hover{background:var(--sky-lt);color:var(--sky-dk)}
+.nav-item.active{background:var(--sky);color:#fff}
+.nav-item .dot-warn{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+
+.content{min-width:0}
+.tab-panel{display:none;animation:fadeIn .18s ease}
+.tab-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;box-shadow:0 8px 24px rgba(15,23,42,.04);margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 3px;letter-spacing:-.2px}
+.card .sub{color:var(--slate);font-size:12.5px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media(max-width:520px){.grid2{grid-template-columns:1fr}}
+
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:640px){.stat-row{grid-template-columns:1fr 1fr}}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--sky)}
+.stat.green::before{background:var(--ok)}
+.stat.amber::before{background:var(--warn)}
+.stat .lbl{font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat .val{font-size:19px;font-weight:800;letter-spacing:-.4px}
+
+.pbar-wrap{background:var(--bd);border-radius:99px;height:8px;overflow:hidden;margin-top:6px}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--sky),var(--ok));border-radius:99px;transition:width .3s ease}
+
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 16px;font-size:12.5px}
+.summary-grid .k{color:var(--slate);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.summary-grid .v{font-weight:600;color:var(--ink)}
+
 .stepper{list-style:none;margin:0;padding:0}
-.step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bd)}
+.step{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--bd);position:relative}
 .step:last-child{border-bottom:none}
-.dot{width:26px;height:26px;border-radius:50%;flex:0 0 26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.dot{width:28px;height:28px;border-radius:50%;flex:0 0 28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
 .dot.Completed{background:var(--ok)}
-.dot.\32In{background:var(--warn)}
-.dot.In-Progress{background:var(--warn)}
+.dot.InProgress{background:var(--warn)}
 .dot.Pending{background:#cbd5e1;color:#475569}
 .step-name{font-weight:700;font-size:13.5px}
 .step-status{font-size:11.5px;color:var(--slate);margin-top:2px}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--sky-lt);color:var(--sky)}
-.linkbtn{background:none;border:none;color:var(--sky);font-weight:700;font-size:13px;cursor:pointer;padding:0}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.step-status.Completed{color:#047857}
+.step-status.InProgress{color:#b45309}
+
+.linkbtn{background:none;border:none;color:var(--sky);font-weight:700;font-size:12.5px;cursor:pointer;padding:0}
+button.primary.sm{width:auto;padding:9px 16px;margin-top:0;font-size:12.5px}
+.edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+button.secondary{background:none;border:1.5px solid var(--bd);color:var(--slate);font-weight:700;padding:9px 16px;border-radius:9px;cursor:pointer;font-size:12.5px}
+button.secondary:hover{background:var(--bg);color:var(--ink)}
+
+/* Mobile: sidebar becomes a horizontal scroll row */
+@media(max-width:760px){
+  .dash-layout{grid-template-columns:1fr;padding:14px 12px 50px}
+  .side-nav{position:sticky;top:70px;flex-direction:row;overflow-x:auto;gap:6px;z-index:20}
+  .nav-item{flex:0 0 auto;white-space:nowrap}
+  .nav-item .dot-warn{margin-left:5px}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <div id="authScreen">
-    <div class="card">
-      <h1>🎓 Student Portal</h1>
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-hd">
+      <div class="em">🎓</div>
+      <h1>Student Portal</h1>
       <div class="sub">PhD progress dekhne / register karne ke liye yahan login karein</div>
-      <div class="tabs">
-        <div class="tab active" id="tabReg" onclick="switchTab('reg')">New Registration</div>
-        <div class="tab" id="tabLogin" onclick="switchTab('login')">Login</div>
-      </div>
-
+    </div>
+    <div class="tabs">
+      <div class="tab active" id="tabReg" onclick="switchTab('reg')">New Registration</div>
+      <div class="tab" id="tabLogin" onclick="switchTab('login')">Login</div>
+    </div>
+    <div class="auth-body">
       <div id="regForm">
         <label>Full Name *</label>
         <input id="r-name" placeholder="Apna poora naam likhein">
@@ -60,7 +131,7 @@ button.primary:disabled{opacity:.6;cursor:not-allowed}
         <input id="r-email" type="email" placeholder="you@example.com">
         <label>Reference Email ID *</label>
         <input id="r-ref" type="email" placeholder="Aapke associate/reference/consultant ki email">
-        <div class="sub" style="margin-top:6px">Institute Code (agar diya gaya ho)</div>
+        <label>Institute Code (agar diya gaya ho)</label>
         <input id="r-code" placeholder="Optional — CLIENT code">
         <button class="primary" id="r-btn" onclick="doRegister()">Register &#8594;</button>
         <div class="msg" id="r-msg"></div>
@@ -73,58 +144,124 @@ button.primary:disabled{opacity:.6;cursor:not-allowed}
         <input id="l-pass" type="password" placeholder="Password (default = aapka phone number)">
         <button class="primary" id="l-btn" onclick="doLogin()">Login &#8594;</button>
         <div class="msg" id="l-msg"></div>
+        <div class="hint">Pehli baar login karte waqt password aapka registered phone number hota hai.</div>
       </div>
     </div>
   </div>
+</div>
 
-  <div id="dashScreen" class="hidden">
-    <div class="card">
-      <div class="topbar">
-        <h1 id="d-name">—</h1>
-        <button class="linkbtn" onclick="doLogout()">Logout</button>
+<div id="dashScreen" class="hidden">
+  <div class="topbar">
+    <div class="avatar" id="d-avatar">--</div>
+    <div class="tb-info">
+      <div class="nm" id="d-name">—</div>
+      <div class="meta">
+        <span>Code: <b id="d-code">—</b></span>
+        <span class="badge" id="d-stage">—</span>
       </div>
-      <div class="sub">Student Code: <b id="d-code">—</b> &nbsp;·&nbsp; <span class="badge" id="d-stage">—</span></div>
     </div>
-
-    <div class="card" id="profileCard">
-      <h1 style="font-size:16px">Complete Your Profile</h1>
-      <div class="sub">PhD progress track karne ke liye apni poori details bhar dein</div>
-      <div class="grid2">
-        <div><label>Father's Name *</label><input id="p-father"></div>
-        <div><label>Mother's Name</label><input id="p-mother"></div>
-        <div><label>Date of Birth *</label><input id="p-dob" type="date"></div>
-        <div><label>Gender *</label><select id="p-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-        <div><label>Aadhar No.</label><input id="p-aadhar"></div>
-        <div><label>State</label><input id="p-state"></div>
-        <div><label>District</label><input id="p-district"></div>
-        <div><label>Pincode</label><input id="p-pincode"></div>
-        <div><label>Course *</label><input id="p-course" placeholder="e.g. PhD"></div>
-        <div><label>Subject</label><input id="p-subject"></div>
-        <div><label>University *</label><input id="p-university"></div>
-        <div><label>Batch</label><input id="p-batch"></div>
-        <div><label>Enrollment No.</label><input id="p-enroll"></div>
-        <div><label>Roll No.</label><input id="p-roll"></div>
-      </div>
-      <label>Address *</label>
-      <textarea id="p-address" rows="2"></textarea>
-      <button class="primary" id="p-btn" onclick="submitProfile()">Save Profile &#8594;</button>
-      <div class="msg" id="p-msg"></div>
-    </div>
-
-    <div class="card">
-      <h1 style="font-size:16px">PhD Progress</h1>
-      <ul class="stepper" id="stepList"></ul>
-    </div>
-
-    <div class="card">
-      <h1 style="font-size:16px">Change Password</h1>
-      <label>Current Password</label><input id="c-old" type="password">
-      <label>New Password</label><input id="c-new" type="password">
-      <button class="primary" id="c-btn" onclick="changePassword()">Update Password</button>
-      <div class="msg" id="c-msg"></div>
-    </div>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
   </div>
 
+  <div class="dash-layout">
+    <div class="side-nav" id="sideNav">
+      <button class="nav-item active" data-tab="overview" onclick="switchDashTab('overview')"><span class="ic">🏠</span>Overview</button>
+      <button class="nav-item" data-tab="profile" onclick="switchDashTab('profile')"><span class="ic">📝</span>My Profile<span class="dot-warn hidden" id="profileWarnDot"></span></button>
+      <button class="nav-item" data-tab="progress" onclick="switchDashTab('progress')"><span class="ic">📊</span>PhD Progress</button>
+      <button class="nav-item" data-tab="security" onclick="switchDashTab('security')"><span class="ic">🔒</span>Security</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Overview -->
+      <div class="tab-panel active" id="tab-overview">
+        <div class="stat-row">
+          <div class="stat" id="stat-code-box">
+            <div class="lbl">Student Code</div>
+            <div class="val" id="ov-code">—</div>
+          </div>
+          <div class="stat amber" id="stat-stage-box">
+            <div class="lbl">Registration Stage</div>
+            <div class="val" id="ov-stage">—</div>
+          </div>
+          <div class="stat green" id="stat-progress-box">
+            <div class="lbl">Profile Completion</div>
+            <div class="val" id="ov-pct">0%</div>
+            <div class="pbar-wrap"><div class="pbar-fill" id="ov-pbar" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="card" id="ov-incomplete-card">
+          <h2>Profile abhi incomplete hai</h2>
+          <div class="sub">PhD progress track karne ke liye pehle apni poori details bhar dein.</div>
+          <button class="primary sm" onclick="switchDashTab('profile')">Complete Profile &#8594;</button>
+        </div>
+        <div class="card">
+          <h2>Quick Look — PhD Progress</h2>
+          <div class="sub">Latest stage status</div>
+          <ul class="stepper" id="stepListMini"></ul>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div class="tab-panel" id="tab-profile">
+        <div class="card hidden" id="profileSummaryCard">
+          <h2>Your Profile</h2>
+          <div class="sub">Aapki saved details</div>
+          <div class="summary-grid" id="profileSummaryGrid"></div>
+          <div class="edit-actions"><button class="secondary" onclick="toggleProfileEdit(true)">Edit Details</button></div>
+        </div>
+        <div class="card" id="profileCard">
+          <h2>Complete Your Profile</h2>
+          <div class="sub">PhD progress track karne ke liye apni poori details bhar dein</div>
+          <div class="grid2">
+            <div><label>Father's Name *</label><input id="p-father"></div>
+            <div><label>Mother's Name</label><input id="p-mother"></div>
+            <div><label>Date of Birth *</label><input id="p-dob" type="date"></div>
+            <div><label>Gender *</label><select id="p-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div><label>Aadhar No.</label><input id="p-aadhar"></div>
+            <div><label>State</label><input id="p-state"></div>
+            <div><label>District</label><input id="p-district"></div>
+            <div><label>Pincode</label><input id="p-pincode"></div>
+            <div><label>Course *</label><input id="p-course" placeholder="e.g. PhD"></div>
+            <div><label>Subject</label><input id="p-subject"></div>
+            <div><label>University *</label><input id="p-university"></div>
+            <div><label>Batch</label><input id="p-batch"></div>
+            <div><label>Enrollment No.</label><input id="p-enroll"></div>
+            <div><label>Roll No.</label><input id="p-roll"></div>
+          </div>
+          <label>Address *</label>
+          <textarea id="p-address" rows="2"></textarea>
+          <div class="edit-actions">
+            <button class="secondary hidden" id="p-cancel-btn" onclick="toggleProfileEdit(false)">Cancel</button>
+            <button class="primary sm" id="p-btn" onclick="submitProfile()">Save Profile &#8594;</button>
+          </div>
+          <div class="msg" id="p-msg"></div>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="tab-panel" id="tab-progress">
+        <div class="card">
+          <h2>PhD Progress</h2>
+          <div class="sub">Aapke PhD journey ka current status</div>
+          <ul class="stepper" id="stepList"></ul>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="tab-panel" id="tab-security">
+        <div class="card">
+          <h2>Change Password</h2>
+          <div class="sub">Apna account password update karein</div>
+          <label>Current Password</label><input id="c-old" type="password">
+          <label>New Password</label><input id="c-new" type="password">
+          <button class="primary sm" id="c-btn" onclick="changePassword()" style="margin-top:16px">Update Password</button>
+          <div class="msg" id="c-msg"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
@@ -146,6 +283,10 @@ function switchTab(t){
   document.getElementById('tabLogin').classList.toggle('active', t==='login');
   document.getElementById('regForm').classList.toggle('hidden', t!=='reg');
   document.getElementById('loginForm').classList.toggle('hidden', t!=='login');
+}
+function switchDashTab(t){
+  document.querySelectorAll('#sideNav .nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.tab===t); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-'+t); });
 }
 async function doRegister(){
   const btn=document.getElementById('r-btn'); btn.disabled=true;
@@ -178,23 +319,94 @@ async function doLogout(){
   document.getElementById('dashScreen').classList.add('hidden');
   document.getElementById('authScreen').classList.remove('hidden');
 }
+function initials(name){
+  return (name||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase() || 'ST';
+}
+function stageBadgeClass(stage){
+  var s=(stage||'').toLowerCase();
+  if(s.indexOf('complete')>-1 || s.indexOf('active')>-1) return 'badge ok';
+  if(s.indexOf('pending')>-1 || s.indexOf('review')>-1) return 'badge warn';
+  return 'badge';
+}
+var PROFILE_FIELDS = [
+  ['father','Father\'s Name'],['mother','Mother\'s Name'],['dob','Date of Birth'],['gender','Gender'],
+  ['aadhar','Aadhar No.'],['state','State'],['district','District'],['pincode','Pincode'],
+  ['course','Course'],['subject','Subject'],['university','University'],['batch','Batch'],
+  ['enroll_no','Enrollment No.'],['roll_no','Roll No.'],['address','Address']
+];
+function renderProfileSummary(me){
+  var p = me.profile || me;
+  var grid = document.getElementById('profileSummaryGrid');
+  grid.innerHTML = PROFILE_FIELDS.map(function(f){
+    var v = p[f[0]];
+    return '<div><div class="k">'+f[1]+'</div><div class="v">'+(v ? String(v) : '—')+'</div></div>';
+  }).join('');
+}
+function prefillProfileForm(me){
+  var p = me.profile || me;
+  var map = {father:'p-father',mother:'p-mother',dob:'p-dob',gender:'p-gender',aadhar:'p-aadhar',state:'p-state',
+    district:'p-district',pincode:'p-pincode',course:'p-course',subject:'p-subject',university:'p-university',
+    batch:'p-batch',enroll_no:'p-enroll',roll_no:'p-roll',address:'p-address'};
+  Object.keys(map).forEach(function(k){
+    var el = document.getElementById(map[k]);
+    if(el && p[k] !== undefined && p[k] !== null) el.value = p[k];
+  });
+}
+function toggleProfileEdit(showForm){
+  document.getElementById('profileCard').classList.toggle('hidden', !showForm);
+  document.getElementById('profileSummaryCard').classList.toggle('hidden', showForm);
+  document.getElementById('p-cancel-btn').classList.toggle('hidden', !showForm);
+}
+function renderStepList(targetId, steps){
+  var list = document.getElementById(targetId);
+  list.innerHTML = '';
+  (steps||[]).forEach(function(s){
+    var li = document.createElement('li'); li.className='step';
+    var dotClass = s.status === 'Completed' ? 'Completed' : (s.status === 'In Progress' ? 'InProgress' : 'Pending');
+    li.innerHTML = '<div class="dot '+dotClass+'">'+s.stage_order+'</div>'+
+      '<div><div class="step-name">'+s.stage_name+'</div><div class="step-status '+dotClass+'">'+s.status+(s.remarks? ' — '+s.remarks:'')+'</div></div>';
+    list.appendChild(li);
+  });
+  if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
+}
 async function loadDashboard(){
   const me = await api('GET','/api/student/me');
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('dashScreen').classList.remove('hidden');
+
+  document.getElementById('d-avatar').textContent = initials(me.name);
   document.getElementById('d-name').textContent = me.name;
   document.getElementById('d-code').textContent = me.student_code || '—';
-  document.getElementById('d-stage').textContent = me.registration_stage;
-  document.getElementById('profileCard').classList.toggle('hidden', me.profile_complete);
-  const list = document.getElementById('stepList');
-  list.innerHTML = '';
-  (me.phd_progress||[]).forEach(s=>{
-    const li = document.createElement('li'); li.className='step';
-    const dotClass = s.status === 'Completed' ? 'Completed' : (s.status === 'In Progress' ? 'In-Progress' : 'Pending');
-    li.innerHTML = `<div class="dot ${dotClass}">${s.stage_order}</div>
-      <div><div class="step-name">${s.stage_name}</div><div class="step-status">${s.status}${s.remarks? ' — '+s.remarks:''}</div></div>`;
-    list.appendChild(li);
-  });
+  var stageEl = document.getElementById('d-stage');
+  stageEl.textContent = me.registration_stage;
+  stageEl.className = stageBadgeClass(me.registration_stage);
+
+  document.getElementById('ov-code').textContent = me.student_code || '—';
+  document.getElementById('ov-stage').textContent = me.registration_stage || '—';
+
+  var steps = me.phd_progress || [];
+  var doneCount = steps.filter(function(s){ return s.status === 'Completed'; }).length;
+  var pct = me.profile_complete ? 100 : 0;
+  if(!me.profile_complete){
+    var filled = PROFILE_FIELDS.filter(function(f){ var v=(me.profile||me)[f[0]]; return v!==undefined && v!==null && String(v).trim()!==''; }).length;
+    pct = Math.round((filled / PROFILE_FIELDS.length) * 100);
+  }
+  document.getElementById('ov-pct').textContent = pct + '%';
+  document.getElementById('ov-pbar').style.width = pct + '%';
+
+  document.getElementById('ov-incomplete-card').classList.toggle('hidden', !!me.profile_complete);
+  document.getElementById('profileWarnDot').classList.toggle('hidden', !!me.profile_complete);
+
+  if(me.profile_complete){
+    renderProfileSummary(me);
+    toggleProfileEdit(false);
+  } else {
+    prefillProfileForm(me);
+    toggleProfileEdit(true);
+  }
+
+  renderStepList('stepList', steps);
+  renderStepList('stepListMini', steps.slice(0,4));
 }
 async function submitProfile(){
   const btn=document.getElementById('p-btn'); btn.disabled=true;
