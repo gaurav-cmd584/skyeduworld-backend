@@ -473,21 +473,25 @@ function renderStepList(targetId, steps){
   list.innerHTML = '';
   (steps||[]).forEach(function(s){
     var li = document.createElement('li'); li.className='step';
-    var dotClass = s.status === 'Completed' ? 'Completed' : (s.status === 'In Progress' ? 'InProgress' : 'Pending');
+    var dotClass = (s.status === 'Completed' || s.status === 'Approved') ? 'Completed' : ((s.status === 'In Progress' || s.status === 'Requested') ? 'InProgress' : 'Pending');
+    var actionHtml = '';
+    if(s.isExtension && (!s.status || s.status === 'Not Requested')){
+      actionHtml = ' <button class="secondary" style="padding:4px 10px;font-size:11px;margin-left:8px" onclick="requestExtension()">Apply for Extension</button>';
+    }
     li.innerHTML = '<div class="dot '+dotClass+'">'+s.stage_order+'</div>'+
-      '<div><div class="step-name">'+s.stage_name+'</div><div class="step-status '+dotClass+'">'+s.status+(s.remarks? ' — '+s.remarks:'')+'</div></div>';
+      '<div><div class="step-name">'+s.stage_name+'</div><div class="step-status '+dotClass+'">'+s.status+(s.remarks? ' — '+s.remarks:'')+actionHtml+'</div></div>';
     list.appendChild(li);
   });
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
 function buildCombinedProgressItems(me){
-  // Single PhD Progress list = real backend stages (Course Work, Exam, DRC,
-  // Pre-Submission, Final Submission, Viva, Degree Award) with the
-  // six-monthly "Progress Report 1-4" checkpoints inserted right after DRC.
-  // Extension only appears once the main console has approved it for this
-  // student (me.extension_approved === true from the backend). Ideally the
-  // backend also sends a "progress_reports" array on /api/student/me for
-  // real statuses; until then Progress Report 1-4 default to "Pending".
+  // Real backend stages (e.g. Course Work, Exam, RRC/DRC Proposal Approval,
+  // Synopsis Submission, Pre-Submission Seminar, Thesis Submission,
+  // Viva-Voce, Degree Awarded) stay in their original order. Right after
+  // the RRC/DRC stage we insert: Progress Report 1-4 (minimum 4 six-monthly
+  // reports required), then "Request for Extension" (student applies here;
+  // once the Super Admin approves it from the main console, the student
+  // gets 6 extra months) — then the remaining real stages continue as-is.
   var steps = (me.phd_progress || []).slice();
   var reports = me.progress_reports || [];
   var reportLabels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4'];
@@ -495,15 +499,35 @@ function buildCombinedProgressItems(me){
     var r = reports[i];
     return { stage_name: label, status: r ? r.status : 'Pending', remarks: r ? r.remarks : '' };
   });
-  if(me.extension_approved){
-    reportItems.push({ stage_name:'Extension', status: me.extension_status || 'In Progress', remarks: me.extension_remarks || 'Main console se approve ho chuka hai' });
-  }
-  var drcIndex = steps.findIndex(function(s){ return (s.stage_name||'').toLowerCase().indexOf('drc') > -1; });
+
+  var extStatus = me.extension_status || 'Not Requested';
+  var extensionItem = {
+    stage_name: 'Request for Extension',
+    status: extStatus,
+    remarks: extStatus === 'Approved' ? 'Approved — 6 mahine extra mil gaye hain' : (extStatus === 'Requested' ? 'Super Admin approval ka wait hai' : ''),
+    isExtension: true
+  };
+
+  var drcIndex = steps.findIndex(function(s){
+    var n = (s.stage_name||'').toLowerCase();
+    return n.indexOf('drc') > -1 || n.indexOf('rrc') > -1;
+  });
+  var insertItems = reportItems.concat([extensionItem]);
   var combined = drcIndex > -1
-    ? steps.slice(0, drcIndex+1).concat(reportItems).concat(steps.slice(drcIndex+1))
-    : steps.concat(reportItems);
+    ? steps.slice(0, drcIndex+1).concat(insertItems).concat(steps.slice(drcIndex+1))
+    : steps.concat(insertItems);
+
   combined.forEach(function(item, i){ item.stage_order = i+1; });
   return combined;
+}
+async function requestExtension(){
+  try{
+    await api('POST', '/api/student/request-extension', {});
+    showMsg('progress-msg', 'Extension request Super Admin ko bhej diya gaya hai, approval ka wait karein.', true);
+    await loadDashboard();
+  }catch(e){
+    showMsg('progress-msg', e.message, false);
+  }
 }
 function switchProfileTab(t){
   ['personal','academic','documents'].forEach(function(k){
