@@ -293,6 +293,7 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
           <h2>PhD Progress</h2>
           <div class="sub">Aapke PhD journey ka current status</div>
           <ul class="stepper" id="stepList"></ul>
+          <div class="msg" id="progress-msg" style="margin-top:10px"></div>
         </div>
       </div>
 
@@ -591,22 +592,28 @@ async function loadDashboard(){
   var secCode = document.getElementById('sec-code'); if(secCode) secCode.textContent = me.student_code || me.name || '—';
 
   var steps = me.phd_progress || [];
-  var pct = me.profile_complete ? 100 : 0;
-  if(!me.profile_complete){
-    var filled = PROFILE_FIELDS.filter(function(f){ var v=(me.profile||me)[f[0]]; return v!==undefined && v!==null && String(v).trim()!==''; }).length;
-    pct = Math.round((filled / PROFILE_FIELDS.length) * 100);
-  }
+  // Compute completion % from the actual field values every time, instead of
+  // trusting the backend's profile_complete flag blindly — that flag can be
+  // true (e.g. only required fields were checked server-side) even when the
+  // form still shows blanks, which is confusing. This way "100%" only shows
+  // when every field genuinely has a value.
+  var filled = PROFILE_FIELDS.filter(function(f){ var v=(me.profile||me)[f[0]]; return v!==undefined && v!==null && String(v).trim()!==''; }).length;
+  var pct = Math.round((filled / PROFILE_FIELDS.length) * 100);
+  var reallyComplete = pct === 100;
   document.getElementById('ov-pct').textContent = pct + '%';
   document.getElementById('ov-pbar').style.width = pct + '%';
 
-  document.getElementById('ov-incomplete-card').classList.toggle('hidden', !!me.profile_complete);
-  document.getElementById('profileWarnDot').classList.toggle('hidden', !!me.profile_complete);
+  document.getElementById('ov-incomplete-card').classList.toggle('hidden', reallyComplete);
+  document.getElementById('profileWarnDot').classList.toggle('hidden', reallyComplete);
 
-  if(me.profile_complete){
+  // Always prefill the edit form with whatever the backend has, whether or
+  // not the profile is "complete" — this way clicking "Edit Details" later
+  // shows the saved values instead of blank fields.
+  prefillProfileForm(me);
+  if(reallyComplete){
     renderProfileSummary(me);
     toggleProfileEdit(false);
   } else {
-    prefillProfileForm(me);
     toggleProfileEdit(true);
   }
 
