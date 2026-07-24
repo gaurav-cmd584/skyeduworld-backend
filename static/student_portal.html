@@ -36,7 +36,15 @@ button.primary:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
 /* ---------- Dashboard shell ---------- */
 #dashScreen{min-height:100vh}
 .topbar{background:linear-gradient(120deg,#0F172A,#1A6CF6);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:30;box-shadow:0 4px 18px rgba(15,23,42,.15)}
-.avatar{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0}
+.avatar{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pic-row{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+.pic-round{width:84px;height:84px;border-radius:50%;background:var(--sky-lt);border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px;color:var(--sky-dk);flex-shrink:0;overflow:hidden;position:relative}
+.pic-round img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pic-upload label.pic-btn{display:inline-block;margin:0;font-size:12px;font-weight:700;color:var(--sky);cursor:pointer;padding:7px 12px;border:1.5px solid var(--sky);border-radius:9px}
+.pic-upload label.pic-btn:hover{background:var(--sky-lt)}
+.pic-upload input[type=file]{display:none}
+.pic-hint{font-size:11px;color:var(--slate);margin-top:6px}
 .tb-info{flex:1;min-width:0}
 .tb-info .nm{font-size:15.5px;font-weight:800;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb-info .meta{font-size:11.5px;color:rgba(255,255,255,.72);margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -153,7 +161,7 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
 <div id="dashScreen" class="hidden">
   <div class="topbar">
     <div class="avatar" id="d-avatar">--</div>
-    <div class="tb-info">
+    <div class="tb-info" style="flex:1">
       <div class="nm" id="d-name">—</div>
       <div class="meta">
         <span>Code: <b id="d-code">—</b></span>
@@ -168,6 +176,10 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
       <button class="nav-item active" data-tab="overview" onclick="switchDashTab('overview')"><span class="ic">🏠</span>Overview</button>
       <button class="nav-item" data-tab="profile" onclick="switchDashTab('profile')"><span class="ic">📝</span>My Profile<span class="dot-warn hidden" id="profileWarnDot"></span></button>
       <button class="nav-item" data-tab="progress" onclick="switchDashTab('progress')"><span class="ic">📊</span>PhD Progress</button>
+      <button class="nav-item" data-tab="fees" onclick="switchDashTab('fees')"><span class="ic">💰</span>Fee / Payments</button>
+      <button class="nav-item" data-tab="documents" onclick="switchDashTab('documents')"><span class="ic">📄</span>Documents</button>
+      <button class="nav-item" data-tab="guide" onclick="switchDashTab('guide')"><span class="ic">🎓</span>Guide / University</button>
+      <button class="nav-item" data-tab="notifications" onclick="switchDashTab('notifications')"><span class="ic">🔔</span>Notifications<span class="dot-warn hidden" id="notifWarnDot"></span></button>
       <button class="nav-item" data-tab="security" onclick="switchDashTab('security')"><span class="ic">🔒</span>Security</button>
     </div>
 
@@ -207,12 +219,30 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
         <div class="card hidden" id="profileSummaryCard">
           <h2>Your Profile</h2>
           <div class="sub">Aapki saved details</div>
+          <div class="pic-row">
+            <div class="pic-round" id="sum-pic-round">ST</div>
+            <div class="pic-upload">
+              <label class="pic-btn" for="sum-photo-input">Change Photo</label>
+              <input type="file" id="sum-photo-input" accept="image/*" onchange="onPhotoSelected(this)">
+              <div class="pic-hint">JPG/PNG, gol (round) profile picture ke liye</div>
+              <div class="msg" id="pic-msg-sum" style="margin-top:8px"></div>
+            </div>
+          </div>
           <div class="summary-grid" id="profileSummaryGrid"></div>
           <div class="edit-actions"><button class="secondary" onclick="toggleProfileEdit(true)">Edit Details</button></div>
         </div>
         <div class="card" id="profileCard">
           <h2>Complete Your Profile</h2>
           <div class="sub">PhD progress track karne ke liye apni poori details bhar dein</div>
+          <div class="pic-row">
+            <div class="pic-round" id="p-pic-round">ST</div>
+            <div class="pic-upload">
+              <label class="pic-btn" for="p-photo-input">Upload Photo</label>
+              <input type="file" id="p-photo-input" accept="image/*" onchange="onPhotoSelected(this)">
+              <div class="pic-hint">JPG/PNG, gol (round) profile picture ke liye</div>
+              <div class="msg" id="pic-msg" style="margin-top:8px"></div>
+            </div>
+          </div>
           <div class="grid2">
             <div><label>Father's Name *</label><input id="p-father"></div>
             <div><label>Mother's Name</label><input id="p-mother"></div>
@@ -242,17 +272,64 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
       <!-- Progress -->
       <div class="tab-panel" id="tab-progress">
         <div class="card">
+          <h2>Tentative Timeline — Thesis Submission Tak</h2>
+          <div class="sub">Har 6 mahine ka checkpoint (approximate, admission date ke hisaab se)</div>
+          <div id="timeline-note" class="sub" style="margin-bottom:10px"></div>
+          <ul class="stepper" id="timeline6mo"></ul>
+        </div>
+        <div class="card">
           <h2>PhD Progress</h2>
           <div class="sub">Aapke PhD journey ka current status</div>
           <ul class="stepper" id="stepList"></ul>
         </div>
       </div>
 
+      <!-- Fee / Payments -->
+      <div class="tab-panel" id="tab-fees">
+        <div class="stat-row" id="fee-stats" style="display:none">
+          <div class="stat"><div class="lbl">Total Fee</div><div class="val" id="fee-total">—</div></div>
+          <div class="stat green"><div class="lbl">Paid</div><div class="val" id="fee-paid">—</div></div>
+          <div class="stat amber"><div class="lbl">Balance</div><div class="val" id="fee-balance">—</div></div>
+        </div>
+        <div class="card">
+          <h2>Payment History</h2>
+          <div class="sub">Aapki fee payments ka record</div>
+          <div id="fee-body"><div class="sub">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div class="tab-panel" id="tab-documents">
+        <div class="card">
+          <h2>My Documents</h2>
+          <div class="sub">Issued certificates / marksheets / letters</div>
+          <div id="doc-body"><div class="sub">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Guide / University -->
+      <div class="tab-panel" id="tab-guide">
+        <div class="card">
+          <h2>Guide / University Info</h2>
+          <div class="sub">Assigned supervisor aur university details</div>
+          <div class="summary-grid" id="guide-body"></div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="tab-panel" id="tab-notifications">
+        <div class="card">
+          <h2>Notifications</h2>
+          <div class="sub">Announcements aur account updates</div>
+          <div id="notif-body"><div class="sub">Loading…</div></div>
+        </div>
+      </div>
+
       <!-- Security -->
       <div class="tab-panel" id="tab-security">
         <div class="card">
-          <h2>Change Password</h2>
-          <div class="sub">Apna account password update karein</div>
+          <h2>Change Password — Student Account</h2>
+          <div class="sub">Yeh sirf aapke <b>Student</b> login (<span id="sec-code">—</span>) ka password change karega. Update hone ke baad, agar yeh account kahin aur (kisi doosre phone/browser) pehle se login hai, wahan se automatically logout ho jayega.</div>
           <label>Current Password</label><input id="c-old" type="password">
           <label>New Password</label><input id="c-new" type="password">
           <button class="primary sm" id="c-btn" onclick="changePassword()" style="margin-top:16px">Update Password</button>
@@ -322,6 +399,42 @@ async function doLogout(){
 function initials(name){
   return (name||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase() || 'ST';
 }
+function renderAvatar(me){
+  var init = initials(me.name);
+  var src = me.photo_url || (me.photo_path ? '/uploads/'+me.photo_path : '');
+  var topbar = document.getElementById('d-avatar');
+  var profileRound = document.getElementById('p-pic-round');
+  var sumRound = document.getElementById('sum-pic-round');
+  if(src){
+    var img = '<img src="'+src+'" alt="profile">';
+    topbar.innerHTML = img; profileRound.innerHTML = img; sumRound.innerHTML = img;
+  } else {
+    topbar.textContent = init; profileRound.textContent = init; sumRound.textContent = init;
+  }
+}
+async function onPhotoSelected(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  var msgId = input.id === 'sum-photo-input' ? 'pic-msg-sum' : 'pic-msg';
+  // Instant local preview while the upload goes through
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = '<img src="'+e.target.result+'" alt="preview">';
+    document.getElementById('d-avatar').innerHTML = img;
+    document.getElementById('p-pic-round').innerHTML = img;
+    document.getElementById('sum-pic-round').innerHTML = img;
+  };
+  reader.readAsDataURL(file);
+  try{
+    var fd = new FormData(); fd.append('photo', file);
+    var r = await fetch('/api/student/photo', { method:'POST', body: fd, credentials:'same-origin' });
+    var data = {}; try{ data = await r.json(); }catch(e){}
+    if(!r.ok) throw new Error(data.error || 'Upload failed');
+    showMsg(msgId, 'Photo updated!', true);
+  }catch(e){
+    showMsg(msgId, e.message, false);
+  }
+}
 function stageBadgeClass(stage){
   var s=(stage||'').toLowerCase();
   if(s.indexOf('complete')>-1 || s.indexOf('active')>-1) return 'badge ok';
@@ -369,12 +482,89 @@ function renderStepList(targetId, steps){
   });
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
+function fmtMoney(v){ v = Number(v||0); return '₹' + v.toLocaleString('en-IN'); }
+function renderSixMonthTimeline(me){
+  var note = document.getElementById('timeline-note');
+  var list = document.getElementById('timeline6mo');
+  var admStr = me.admission_date || me.adm_date || (me.profile && me.profile.adm_date);
+  var totalYears = 5; // typical tentative PhD duration assumption when exact target date isn't known
+  var periods = totalYears * 2;
+  var admDate = admStr ? new Date(admStr) : null;
+  var steps = me.phd_progress || [];
+  var doneCount = steps.filter(function(s){ return s.status === 'Completed'; }).length;
+  var totalStages = steps.length || 1;
+  var items = [];
+  if(admDate && !isNaN(admDate.getTime())){
+    note.textContent = 'Admission date ('+admDate.toISOString().slice(0,10)+') ke hisaab se tentative 6-monthly checkpoints (approx '+totalYears+' saal ka typical PhD duration maan kar — actual submission aapki university/guide ki approval par depend karega).';
+    var now = new Date();
+    for(var i=1;i<=periods;i++){
+      var cp = new Date(admDate); cp.setMonth(cp.getMonth() + i*6);
+      var status = cp <= now ? 'Completed' : 'Pending';
+      var priorCp = new Date(admDate); priorCp.setMonth(priorCp.getMonth() + (i-1)*6);
+      if(priorCp <= now && now < cp) status = 'In Progress';
+      items.push({ stage_order:i, stage_name:'Half-Year '+i+' ('+cp.toISOString().slice(0,10)+')', status:status, remarks: i===periods ? 'Tentative thesis submission window' : '' });
+    }
+  } else {
+    note.textContent = 'Aapki admission date backend se abhi nahi mil rahi, isliye yeh sirf aapke stage-completion % ke hisaab se ek approximate estimate hai. Accurate dates ke liye "admission_date" field /api/student/me me add karni hogi.';
+    var completedPeriods = Math.round((doneCount/totalStages)*periods);
+    for(var i=1;i<=periods;i++){
+      items.push({ stage_order:i, stage_name:'Half-Year '+i, status: i<=completedPeriods ? 'Completed' : (i===completedPeriods+1 ? 'In Progress' : 'Pending'), remarks: i===periods ? 'Tentative thesis submission window' : '' });
+    }
+  }
+  renderStepList('timeline6mo', items);
+}
+function renderGuideInfo(me){
+  var g = me.guide || {};
+  var p = me.profile || me;
+  var body = document.getElementById('guide-body');
+  var fields = [ ['University', p.university], ['Subject', p.subject], ['Course', p.course],
+    ['Guide Name', g.name], ['Guide Email', g.email], ['Guide Phone', g.phone], ['Department', g.department] ];
+  body.innerHTML = fields.map(function(f){ return '<div><div class="k">'+f[0]+'</div><div class="v">'+(f[1] ? f[1] : '—')+'</div></div>'; }).join('');
+}
+async function loadFees(){
+  var body = document.getElementById('fee-body');
+  try{
+    var data = await api('GET','/api/student/fees');
+    document.getElementById('fee-stats').style.display='';
+    document.getElementById('fee-total').textContent = fmtMoney(data.total_fee);
+    document.getElementById('fee-paid').textContent = fmtMoney(data.paid);
+    document.getElementById('fee-balance').textContent = fmtMoney((data.total_fee||0)-(data.paid||0));
+    var rows = data.payments || [];
+    body.innerHTML = rows.length ? ('<div class="tw"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="text-align:left;color:var(--slate);font-size:10.5px;text-transform:uppercase"><th style="padding:6px 0">Date</th><th>Amount</th><th>Mode</th><th>Ref</th><th>Remarks</th></tr></thead><tbody>'+rows.map(function(r){ return '<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 0">'+(r.date||'-')+'</td><td>'+fmtMoney(r.amount)+'</td><td>'+(r.mode||'-')+'</td><td>'+(r.ref||'-')+'</td><td>'+(r.remarks||'-')+'</td></tr>'; }).join('')+'</tbody></table></div>') : '<div class="sub">Abhi koi payment record nahi hai.</div>';
+  }catch(e){
+    body.innerHTML = '<div class="sub">Fee details abhi available nahi hain (backend endpoint <code>/api/student/fees</code> add karni hogi).</div>';
+  }
+}
+async function loadDocuments(){
+  var body = document.getElementById('doc-body');
+  try{
+    var rows = await api('GET','/api/student/documents');
+    body.innerHTML = (rows && rows.length) ? rows.map(function(d){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd)"><div><div style="font-weight:700;font-size:13px">'+(d.name||d.type||'Document')+'</div><div class="sub" style="margin:0">'+(d.status||'')+(d.issued_date?' · '+d.issued_date:'')+'</div></div>'+(d.url?'<a href="'+d.url+'" target="_blank" class="linkbtn">Download</a>':'')+'</div>';
+    }).join('') : '<div class="sub">Abhi koi document issue nahi hua.</div>';
+  }catch(e){
+    body.innerHTML = '<div class="sub">Documents abhi available nahi hain (backend endpoint <code>/api/student/documents</code> add karni hogi).</div>';
+  }
+}
+async function loadNotifications(){
+  var body = document.getElementById('notif-body');
+  try{
+    var rows = await api('GET','/api/student/notifications');
+    var unread = (rows||[]).filter(function(n){ return !n.read; }).length;
+    document.getElementById('notifWarnDot').classList.toggle('hidden', unread===0);
+    body.innerHTML = (rows && rows.length) ? rows.map(function(n){
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--bd)"><div style="font-weight:700;font-size:13px">'+(n.title||'Update')+'</div><div class="sub" style="margin:2px 0 0">'+(n.message||'')+'</div><div class="sub" style="margin:2px 0 0;font-size:10.5px">'+(n.created_at||'')+'</div></div>';
+    }).join('') : '<div class="sub">Koi naya notification nahi hai.</div>';
+  }catch(e){
+    body.innerHTML = '<div class="sub">Notifications abhi available nahi hain (backend endpoint <code>/api/student/notifications</code> add karni hogi).</div>';
+  }
+}
 async function loadDashboard(){
   const me = await api('GET','/api/student/me');
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('dashScreen').classList.remove('hidden');
 
-  document.getElementById('d-avatar').textContent = initials(me.name);
+  renderAvatar(me);
   document.getElementById('d-name').textContent = me.name;
   document.getElementById('d-code').textContent = me.student_code || '—';
   var stageEl = document.getElementById('d-stage');
@@ -383,6 +573,7 @@ async function loadDashboard(){
 
   document.getElementById('ov-code').textContent = me.student_code || '—';
   document.getElementById('ov-stage').textContent = me.registration_stage || '—';
+  var secCode = document.getElementById('sec-code'); if(secCode) secCode.textContent = me.student_code || me.name || '—';
 
   var steps = me.phd_progress || [];
   var doneCount = steps.filter(function(s){ return s.status === 'Completed'; }).length;
@@ -407,6 +598,11 @@ async function loadDashboard(){
 
   renderStepList('stepList', steps);
   renderStepList('stepListMini', steps.slice(0,4));
+  renderSixMonthTimeline(me);
+  renderGuideInfo(me);
+  loadFees();
+  loadDocuments();
+  loadNotifications();
 }
 async function submitProfile(){
   const btn=document.getElementById('p-btn'); btn.disabled=true;
@@ -437,11 +633,11 @@ async function submitProfile(){
 async function changePassword(){
   const btn=document.getElementById('c-btn'); btn.disabled=true;
   try{
-    await api('POST','/api/student/change-password', {
+    const res = await api('POST','/api/student/change-password', {
       old_password: document.getElementById('c-old').value,
       new_password: document.getElementById('c-new').value,
     });
-    showMsg('c-msg','Password updated!', true);
+    showMsg('c-msg', res.message || 'Password updated! Aap yahan logged-in rahenge, baaki sab jagah se logout ho gaye.', true);
     document.getElementById('c-old').value=''; document.getElementById('c-new').value='';
   }catch(e){ showMsg('c-msg', e.message, false); }
   btn.disabled=false;
