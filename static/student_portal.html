@@ -242,24 +242,43 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
               <div class="msg" id="pic-msg" style="margin-top:8px"></div>
             </div>
           </div>
-          <div class="grid2">
-            <div><label>Father's Name *</label><input id="p-father"></div>
-            <div><label>Mother's Name</label><input id="p-mother"></div>
-            <div><label>Date of Birth *</label><input id="p-dob" type="date"></div>
-            <div><label>Gender *</label><select id="p-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-            <div><label>Aadhar No.</label><input id="p-aadhar"></div>
-            <div><label>State</label><input id="p-state"></div>
-            <div><label>District</label><input id="p-district"></div>
-            <div><label>Pincode</label><input id="p-pincode"></div>
-            <div><label>Course *</label><input id="p-course" placeholder="e.g. PhD"></div>
-            <div><label>Subject</label><input id="p-subject"></div>
-            <div><label>University *</label><input id="p-university"></div>
-            <div><label>Batch</label><input id="p-batch"></div>
-            <div><label>Enrollment No.</label><input id="p-enroll"></div>
-            <div><label>Roll No.</label><input id="p-roll"></div>
+          <div class="tabs" style="padding:0;margin-bottom:14px">
+            <div class="tab active" id="ptabPersonal" onclick="switchProfileTab('personal')">Personal</div>
+            <div class="tab" id="ptabAcademic" onclick="switchProfileTab('academic')">Academic</div>
+            <div class="tab" id="ptabDocuments" onclick="switchProfileTab('documents')">Documents</div>
           </div>
-          <label>Address *</label>
-          <textarea id="p-address" rows="2"></textarea>
+
+          <div id="ptab-personal">
+            <div class="grid2">
+              <div><label>Father's Name *</label><input id="p-father"></div>
+              <div><label>Mother's Name</label><input id="p-mother"></div>
+              <div><label>Date of Birth *</label><input id="p-dob" type="date"></div>
+              <div><label>Gender *</label><select id="p-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+              <div><label>Aadhar No.</label><input id="p-aadhar"></div>
+              <div><label>State</label><input id="p-state"></div>
+              <div><label>District</label><input id="p-district"></div>
+              <div><label>Pincode</label><input id="p-pincode"></div>
+            </div>
+            <label>Address *</label>
+            <textarea id="p-address" rows="2"></textarea>
+          </div>
+
+          <div id="ptab-academic" class="hidden">
+            <div class="grid2">
+              <div><label>Course *</label><input id="p-course" placeholder="e.g. PhD"></div>
+              <div><label>Subject</label><input id="p-subject"></div>
+              <div><label>University *</label><input id="p-university"></div>
+              <div><label>Batch</label><input id="p-batch"></div>
+              <div><label>Enrollment No.</label><input id="p-enroll"></div>
+              <div><label>Roll No.</label><input id="p-roll"></div>
+            </div>
+          </div>
+
+          <div id="ptab-documents" class="hidden">
+            <div class="sub">Neeche diye gaye documents upload karein (jo bhi ready hain, baaki baad me bhi upload kar sakte hain)</div>
+            <div id="profile-doc-list"></div>
+          </div>
+
           <div class="edit-actions">
             <button class="secondary hidden" id="p-cancel-btn" onclick="toggleProfileEdit(false)">Cancel</button>
             <button class="primary sm" id="p-btn" onclick="submitProfile()">Save Profile &#8594;</button>
@@ -460,15 +479,68 @@ function renderStepList(targetId, steps){
   });
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
-function renderProgressReport(me){
-  var steps = me.phd_progress || [];
-  var labels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4','Extension'];
-  var items = labels.map(function(label, i){
-    var s = steps[i];
-    return { stage_order: i+1, stage_name: label, status: s ? s.status : 'Pending', remarks: s ? s.remarks : '' };
+function buildCombinedProgressItems(me){
+  // Single PhD Progress list = real backend stages (Course Work, Exam, DRC,
+  // Pre-Submission, Final Submission, Viva, Degree Award) with the
+  // six-monthly "Progress Report 1-4" checkpoints inserted right after DRC.
+  // Extension only appears once the main console has approved it for this
+  // student (me.extension_approved === true from the backend). Ideally the
+  // backend also sends a "progress_reports" array on /api/student/me for
+  // real statuses; until then Progress Report 1-4 default to "Pending".
+  var steps = (me.phd_progress || []).slice();
+  var reports = me.progress_reports || [];
+  var reportLabels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4'];
+  var reportItems = reportLabels.map(function(label, i){
+    var r = reports[i];
+    return { stage_name: label, status: r ? r.status : 'Pending', remarks: r ? r.remarks : '' };
   });
-  renderStepList('stepList', items);
-  renderStepList('stepListMini', items.slice(0,4));
+  if(me.extension_approved){
+    reportItems.push({ stage_name:'Extension', status: me.extension_status || 'In Progress', remarks: me.extension_remarks || 'Main console se approve ho chuka hai' });
+  }
+  var drcIndex = steps.findIndex(function(s){ return (s.stage_name||'').toLowerCase().indexOf('drc') > -1; });
+  var combined = drcIndex > -1
+    ? steps.slice(0, drcIndex+1).concat(reportItems).concat(steps.slice(drcIndex+1))
+    : steps.concat(reportItems);
+  combined.forEach(function(item, i){ item.stage_order = i+1; });
+  return combined;
+}
+function switchProfileTab(t){
+  ['personal','academic','documents'].forEach(function(k){
+    document.getElementById('ptab-'+k).classList.toggle('hidden', k!==t);
+  });
+  document.getElementById('ptabPersonal').classList.toggle('active', t==='personal');
+  document.getElementById('ptabAcademic').classList.toggle('active', t==='academic');
+  document.getElementById('ptabDocuments').classList.toggle('active', t==='documents');
+}
+var PROFILE_DOC_TYPES = ['Aadhar Card','10th Marksheet','12th Marksheet','Graduation Certificate','Passport Photo','Admission Letter','Course Work Certificate','Provisional Certificate'];
+function renderProfileDocList(){
+  var box = document.getElementById('profile-doc-list');
+  if(!box) return;
+  box.innerHTML = PROFILE_DOC_TYPES.map(function(t, i){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap">'
+      + '<div style="flex:1;min-width:140px;font-size:12.5px;font-weight:600">'+t+'</div>'
+      + '<input type="file" id="pdoc-file-'+i+'" style="max-width:200px;font-size:11px">'
+      + '<button class="secondary" style="padding:6px 10px;font-size:11px" onclick="uploadProfileDoc('+i+')">Upload</button>'
+      + '</div>'
+      + '<div class="msg" id="pdoc-msg-'+i+'" style="margin:2px 0 6px"></div>';
+  }).join('');
+}
+async function uploadProfileDoc(i){
+  var docType = PROFILE_DOC_TYPES[i];
+  var input = document.getElementById('pdoc-file-'+i);
+  var file = input.files && input.files[0];
+  var msgId = 'pdoc-msg-'+i;
+  if(!file){ showMsg(msgId, 'Pehle file select karein', false); return; }
+  try{
+    var fd = new FormData(); fd.append('doc_type', docType); fd.append('file', file);
+    var r = await fetch('/api/student/documents', { method:'POST', body: fd, credentials:'same-origin' });
+    var data = {}; try{ data = await r.json(); }catch(e){}
+    if(!r.ok) throw new Error(data.error || 'Upload failed');
+    showMsg(msgId, docType+' uploaded!', true);
+    loadDocuments();
+  }catch(e){
+    showMsg(msgId, e.message, false);
+  }
 }
 function renderGuideInfo(me){
   var g = me.guide || {};
@@ -538,8 +610,11 @@ async function loadDashboard(){
     toggleProfileEdit(true);
   }
 
-  renderProgressReport(me);
+  var combinedSteps = buildCombinedProgressItems(me);
+  renderStepList('stepList', combinedSteps);
+  renderStepList('stepListMini', combinedSteps.slice(0,4));
   renderGuideInfo(me);
+  renderProfileDocList();
   loadDocuments();
   loadNotifications();
 }
