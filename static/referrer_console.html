@@ -8,7 +8,7 @@
 :root{--sky:#1A6CF6;--sky-lt:#eaf2ff;--ink:#0f172a;--slate:#64748b;--bd:#e2e8f0;--ok:#10B981;--warn:#f59e0b;--err:#e11d48}
 *{box-sizing:border-box}
 body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f4f7fc;color:var(--ink)}
-.wrap{max-width:980px;margin:0 auto;padding:26px 16px 60px}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px 60px}
 h1{font-size:19px;margin:0 0 4px}
 .sub{color:var(--slate);font-size:13px;margin-bottom:16px}
 .card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(15,23,42,.05);margin-bottom:18px}
@@ -32,13 +32,30 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
 .msg.err{background:#fef2f2;color:var(--err);display:block}
 .msg.ok{background:#ecfdf5;color:#047857;display:block}
 .empty{padding:20px;text-align:center;color:var(--slate);font-size:13px}
+.hidden{display:none !important}
+
+/* ---------- Top bar with logout ---------- */
+.topbar{background:linear-gradient(120deg,#0F172A,#1A6CF6);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.topbar .tb-l{display:flex;flex-direction:column}
+.topbar .tb-l b{font-size:15px}
+.topbar .tb-l span{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px}
+.logout-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-weight:700;font-size:12px;cursor:pointer;padding:8px 16px;border-radius:9px}
+.logout-btn:hover{background:rgba(255,255,255,.22)}
 </style>
 </head>
 <body>
+
+<div class="topbar">
+  <div class="tb-l">
+    <b>Referred Students Console</b>
+    <span id="tb-whoami">Loading account info…</span>
+  </div>
+  <button class="logout-btn" onclick="doLogout()">Logout</button>
+</div>
+
 <div class="wrap">
   <div class="card">
-    <h1>Referred Students Console</h1>
-    <div class="sub">Yeh page aapki maujooda staff/admin login session use karta hai. Yahan sirf woh students dikhte hain jinhone khud register kiya aur reference email se aapko (Associate/Reference/Consultant) ya Admin ko assign hue hain.</div>
+    <div class="sub">Yeh page aapki maujooda staff/admin login session use karta hai. Yahan sirf woh students dikhte hain jinhone khud register kiya aur reference email se aapko (Associate/Reference/Consultant) ya Admin ko assign hue hain. Logout karne se aap dono jagah (yeh console + main app) se sign out ho jayenge.</div>
     <table>
       <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Referred Via</th><th>Stage</th><th>Actions</th></tr></thead>
       <tbody id="rows"></tbody>
@@ -97,6 +114,22 @@ async function api(method, url, body){
 }
 function openModal(id){ document.getElementById(id).style.display='flex'; }
 function closeModal(id){ document.getElementById(id).style.display='none'; }
+
+async function loadWhoAmI(){
+  const el = document.getElementById('tb-whoami');
+  try{
+    const me = await api('GET','/api/me');
+    el.textContent = (me.full_name || me.username || 'Account') + ' · ' + (me.role || '');
+  }catch(e){
+    el.textContent = 'Not logged in';
+  }
+}
+async function doLogout(){
+  try{ await api('POST','/api/logout'); }catch(e){ /* ignore */ }
+  // This console rides on the main CRM's session — send the user back to the
+  // main login screen after logging out, same as the main app's logout button.
+  window.location.href = '/';
+}
 
 async function loadRows(){
   const rows = await api('GET','/api/referred-students');
@@ -201,6 +234,7 @@ async function saveFee(){
 }
 
 (async function init(){
+  await loadWhoAmI();
   try{ await loadRows(); }catch(e){ alert('Login required. Pehle main console mein staff/admin login karein, phir yeh page kholein.'); }
   await loadUnassigned();
 })();
