@@ -2918,11 +2918,31 @@ def delete_user(uid):
 @login_required
 def change_password():
     d = request.json or {}; user = q("SELECT * FROM users WHERE id=%s", (session['user_id'],), one=True)
+    if not user: return jsonify({'error':'Account not found'}), 404
     if not verify_pw(user.get('password'), d.get('old_password','')): return jsonify({'error':'Current password is wrong'}), 400
     new_pw = d.get('new_password','')
     if len(new_pw) < 6: return jsonify({'error':'Min 6 characters'}), 400
-    q("UPDATE users SET password=%s WHERE id=%s", (hash_pw(new_pw),session['user_id']), commit=True)
-    return jsonify({'success':True})
+
+    # Rotate the session token on password change so every OTHER device/browser
+    # this account is currently logged in on gets signed out immediately. Only
+    # the session making this request (this browser) is kept alive, with a
+    # freshly issued token, so the user isn't logged out of their own change.
+    new_token = str(uuid.uuid4())
+    q("UPDATE users SET password=%s, session_token=%s WHERE id=%s", (hash_pw(new_pw), new_token, user['id']), commit=True)
+    q("UPDATE active_sessions SET is_active=FALSE, revoked_at=NOW(), revoked_by=%s WHERE user_id=%s AND is_active=TRUE",
+      (user['id'], user['id']), commit=True)
+    record_active_session(user, new_token)
+    session['session_token'] = new_token
+
+    who = f"{user.get('full_name') or user.get('username')} ({user.get('role')})"
+    log_action('Change Password', 'Auth', user['id'], f"{who} changed their own password - all other active sessions for this account were logged out")
+    return jsonify({
+        'success': True,
+        'account': user.get('username'),
+        'full_name': user.get('full_name'),
+        'role': user.get('role'),
+        'message': f"Password updated for {who}. You have been logged out on every other device/browser where this account was signed in."
+    })
 
 # AUDIT LOGS
 @app.route('/api/audit-logs')
