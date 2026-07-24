@@ -176,7 +176,6 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
       <button class="nav-item active" data-tab="overview" onclick="switchDashTab('overview')"><span class="ic">🏠</span>Overview</button>
       <button class="nav-item" data-tab="profile" onclick="switchDashTab('profile')"><span class="ic">📝</span>My Profile<span class="dot-warn hidden" id="profileWarnDot"></span></button>
       <button class="nav-item" data-tab="progress" onclick="switchDashTab('progress')"><span class="ic">📊</span>PhD Progress</button>
-      <button class="nav-item" data-tab="fees" onclick="switchDashTab('fees')"><span class="ic">💰</span>Fee / Payments</button>
       <button class="nav-item" data-tab="documents" onclick="switchDashTab('documents')"><span class="ic">📄</span>Documents</button>
       <button class="nav-item" data-tab="guide" onclick="switchDashTab('guide')"><span class="ic">🎓</span>Guide / University</button>
       <button class="nav-item" data-tab="notifications" onclick="switchDashTab('notifications')"><span class="ic">🔔</span>Notifications<span class="dot-warn hidden" id="notifWarnDot"></span></button>
@@ -272,29 +271,9 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
       <!-- Progress -->
       <div class="tab-panel" id="tab-progress">
         <div class="card">
-          <h2>Tentative Timeline — Thesis Submission Tak</h2>
-          <div class="sub">Har 6 mahine ka checkpoint (approximate, admission date ke hisaab se)</div>
-          <div id="timeline-note" class="sub" style="margin-bottom:10px"></div>
-          <ul class="stepper" id="timeline6mo"></ul>
-        </div>
-        <div class="card">
           <h2>PhD Progress</h2>
           <div class="sub">Aapke PhD journey ka current status</div>
           <ul class="stepper" id="stepList"></ul>
-        </div>
-      </div>
-
-      <!-- Fee / Payments -->
-      <div class="tab-panel" id="tab-fees">
-        <div class="stat-row" id="fee-stats" style="display:none">
-          <div class="stat"><div class="lbl">Total Fee</div><div class="val" id="fee-total">—</div></div>
-          <div class="stat green"><div class="lbl">Paid</div><div class="val" id="fee-paid">—</div></div>
-          <div class="stat amber"><div class="lbl">Balance</div><div class="val" id="fee-balance">—</div></div>
-        </div>
-        <div class="card">
-          <h2>Payment History</h2>
-          <div class="sub">Aapki fee payments ka record</div>
-          <div id="fee-body"><div class="sub">Loading…</div></div>
         </div>
       </div>
 
@@ -302,7 +281,6 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
       <div class="tab-panel" id="tab-documents">
         <div class="card">
           <h2>My Documents</h2>
-          <div class="sub">Issued certificates / marksheets / letters</div>
           <div id="doc-body"><div class="sub">Loading…</div></div>
         </div>
       </div>
@@ -482,36 +460,15 @@ function renderStepList(targetId, steps){
   });
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
-function fmtMoney(v){ v = Number(v||0); return '₹' + v.toLocaleString('en-IN'); }
-function renderSixMonthTimeline(me){
-  var note = document.getElementById('timeline-note');
-  var list = document.getElementById('timeline6mo');
-  var admStr = me.admission_date || me.adm_date || (me.profile && me.profile.adm_date);
-  var totalYears = 5; // typical tentative PhD duration assumption when exact target date isn't known
-  var periods = totalYears * 2;
-  var admDate = admStr ? new Date(admStr) : null;
+function renderProgressReport(me){
   var steps = me.phd_progress || [];
-  var doneCount = steps.filter(function(s){ return s.status === 'Completed'; }).length;
-  var totalStages = steps.length || 1;
-  var items = [];
-  if(admDate && !isNaN(admDate.getTime())){
-    note.textContent = 'Admission date ('+admDate.toISOString().slice(0,10)+') ke hisaab se tentative 6-monthly checkpoints (approx '+totalYears+' saal ka typical PhD duration maan kar — actual submission aapki university/guide ki approval par depend karega).';
-    var now = new Date();
-    for(var i=1;i<=periods;i++){
-      var cp = new Date(admDate); cp.setMonth(cp.getMonth() + i*6);
-      var status = cp <= now ? 'Completed' : 'Pending';
-      var priorCp = new Date(admDate); priorCp.setMonth(priorCp.getMonth() + (i-1)*6);
-      if(priorCp <= now && now < cp) status = 'In Progress';
-      items.push({ stage_order:i, stage_name:'Half-Year '+i+' ('+cp.toISOString().slice(0,10)+')', status:status, remarks: i===periods ? 'Tentative thesis submission window' : '' });
-    }
-  } else {
-    note.textContent = 'Aapki admission date backend se abhi nahi mil rahi, isliye yeh sirf aapke stage-completion % ke hisaab se ek approximate estimate hai. Accurate dates ke liye "admission_date" field /api/student/me me add karni hogi.';
-    var completedPeriods = Math.round((doneCount/totalStages)*periods);
-    for(var i=1;i<=periods;i++){
-      items.push({ stage_order:i, stage_name:'Half-Year '+i, status: i<=completedPeriods ? 'Completed' : (i===completedPeriods+1 ? 'In Progress' : 'Pending'), remarks: i===periods ? 'Tentative thesis submission window' : '' });
-    }
-  }
-  renderStepList('timeline6mo', items);
+  var labels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4','Extension'];
+  var items = labels.map(function(label, i){
+    var s = steps[i];
+    return { stage_order: i+1, stage_name: label, status: s ? s.status : 'Pending', remarks: s ? s.remarks : '' };
+  });
+  renderStepList('stepList', items);
+  renderStepList('stepListMini', items.slice(0,4));
 }
 function renderGuideInfo(me){
   var g = me.guide || {};
@@ -520,20 +477,6 @@ function renderGuideInfo(me){
   var fields = [ ['University', p.university], ['Subject', p.subject], ['Course', p.course],
     ['Guide Name', g.name], ['Guide Email', g.email], ['Guide Phone', g.phone], ['Department', g.department] ];
   body.innerHTML = fields.map(function(f){ return '<div><div class="k">'+f[0]+'</div><div class="v">'+(f[1] ? f[1] : '—')+'</div></div>'; }).join('');
-}
-async function loadFees(){
-  var body = document.getElementById('fee-body');
-  try{
-    var data = await api('GET','/api/student/fees');
-    document.getElementById('fee-stats').style.display='';
-    document.getElementById('fee-total').textContent = fmtMoney(data.total_fee);
-    document.getElementById('fee-paid').textContent = fmtMoney(data.paid);
-    document.getElementById('fee-balance').textContent = fmtMoney((data.total_fee||0)-(data.paid||0));
-    var rows = data.payments || [];
-    body.innerHTML = rows.length ? ('<div class="tw"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="text-align:left;color:var(--slate);font-size:10.5px;text-transform:uppercase"><th style="padding:6px 0">Date</th><th>Amount</th><th>Mode</th><th>Ref</th><th>Remarks</th></tr></thead><tbody>'+rows.map(function(r){ return '<tr style="border-top:1px solid var(--bd)"><td style="padding:6px 0">'+(r.date||'-')+'</td><td>'+fmtMoney(r.amount)+'</td><td>'+(r.mode||'-')+'</td><td>'+(r.ref||'-')+'</td><td>'+(r.remarks||'-')+'</td></tr>'; }).join('')+'</tbody></table></div>') : '<div class="sub">Abhi koi payment record nahi hai.</div>';
-  }catch(e){
-    body.innerHTML = '<div class="sub">Fee details abhi available nahi hain (backend endpoint <code>/api/student/fees</code> add karni hogi).</div>';
-  }
 }
 async function loadDocuments(){
   var body = document.getElementById('doc-body');
@@ -576,7 +519,6 @@ async function loadDashboard(){
   var secCode = document.getElementById('sec-code'); if(secCode) secCode.textContent = me.student_code || me.name || '—';
 
   var steps = me.phd_progress || [];
-  var doneCount = steps.filter(function(s){ return s.status === 'Completed'; }).length;
   var pct = me.profile_complete ? 100 : 0;
   if(!me.profile_complete){
     var filled = PROFILE_FIELDS.filter(function(f){ var v=(me.profile||me)[f[0]]; return v!==undefined && v!==null && String(v).trim()!==''; }).length;
@@ -596,11 +538,8 @@ async function loadDashboard(){
     toggleProfileEdit(true);
   }
 
-  renderStepList('stepList', steps);
-  renderStepList('stepListMini', steps.slice(0,4));
-  renderSixMonthTimeline(me);
+  renderProgressReport(me);
   renderGuideInfo(me);
-  loadFees();
   loadDocuments();
   loadNotifications();
 }
