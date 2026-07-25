@@ -22,12 +22,17 @@ td{padding:9px 8px;border-bottom:1px solid var(--bd)}
 button{cursor:pointer;font-family:inherit}
 .btn{padding:6px 10px;border-radius:7px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:700;margin-right:4px}
 .btn.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.err{background:var(--err);border-color:var(--err);color:#fff}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
 .modal{background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:85vh;overflow:auto}
 .modal h2{font-size:15px;margin:0 0 12px}
+.modal h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--slate);margin:18px 0 8px;padding-top:12px;border-top:1px solid #f1f5f9}
 label{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin:10px 0 4px}
 input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;font-family:inherit}
 .stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.ext-box{padding:10px;border-radius:9px;background:#f8fafc;border:1px solid var(--bd);font-size:12.5px}
+.ext-status{font-weight:800;margin-bottom:6px}
 .msg{margin-top:10px;padding:8px 10px;border-radius:7px;font-size:12.5px;display:none}
 .msg.err{background:#fef2f2;color:var(--err);display:block}
 .msg.ok{background:#ecfdf5;color:#047857;display:block}
@@ -68,9 +73,9 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
 
   <div class="card" id="unassignedCard" style="display:none">
     <h1>Unassigned Registrations (Super Admin)</h1>
-    <div class="sub">Inka reference email kisi bhi Associate/Reference se match nahi hua — manually assign karein.</div>
+    <div class="sub">Inka reference email kisi bhi Associate/Reference se match nahi hua — manually assign karein. Agar baad mein pata chale ki student galat institute/tenant ke under register hua tha, pehle sahi Institute select karein — Associate/Reference list usi institute ke hisaab se reload ho jayegi.</div>
     <table>
-      <thead><tr><th>Name</th><th>Phone</th><th>Ref Email</th><th>Tenant</th><th>Assign</th></tr></thead>
+      <thead><tr><th>Name</th><th>Phone</th><th>Ref Email</th><th>Institute (Tenant)</th><th>Assign To</th></tr></thead>
       <tbody id="unassignedRows"></tbody>
     </table>
   </div>
@@ -80,6 +85,13 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
   <div class="modal">
     <h2>PhD Progress — <span id="sm-name"></span></h2>
     <div id="sm-stages"></div>
+
+    <h3>Progress Reports (1–4)</h3>
+    <div id="sm-reports"></div>
+
+    <h3>Extension Request</h3>
+    <div id="sm-extension"></div>
+
     <div class="msg" id="sm-msg"></div>
     <div style="margin-top:12px;text-align:right"><button class="btn" onclick="closeModal('stageModalBg')">Close</button></div>
   </div>
@@ -106,8 +118,11 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
 
 <script>
 let currentStudentId = null;
+let csrfToken = null;
 async function api(method, url, body){
-  const opt = {method, headers:{'Content-Type':'application/json'}, credentials:'same-origin'};
+  const headers = {'Content-Type':'application/json'};
+  if(method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  const opt = {method, headers, credentials:'same-origin'};
   if(body !== undefined) opt.body = JSON.stringify(body);
   const r = await fetch(url, opt);
   let data = {};
@@ -122,6 +137,7 @@ async function loadWhoAmI(){
   const el = document.getElementById('tb-whoami');
   try{
     const me = await api('GET','/api/me');
+    if(me.csrf_token) csrfToken = me.csrf_token;
     el.textContent = (me.full_name || me.username || 'Account') + ' · ' + (me.role || '');
   }catch(e){
     el.textContent = 'Not logged in';
@@ -153,29 +169,58 @@ async function loadRows(){
   });
 }
 
+let allTenants = [];
 async function loadUnassigned(){
   try{
     const rows = await api('GET','/api/unassigned-students');
+    allTenants = await api('GET','/api/tenants').catch(()=>[]);
     document.getElementById('unassignedCard').style.display = '';
     const tbody = document.getElementById('unassignedRows');
     tbody.innerHTML = '';
+    const tenantOptions = allTenants.map(t=>`<option value="${t.id}">${t.name||('Tenant #'+t.id)}</option>`).join('');
     rows.forEach(s=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${s.name||''}</td><td>${s.mobile||''}</td><td>${s.ref_email||''}</td><td>${s.tenant_name||''}</td>
+      tr.innerHTML = `<td>${s.name||''}</td><td>${s.mobile||''}</td><td>${s.ref_email||''}</td>
         <td>
-          <select id="assign-type-${s.id}"><option value="associate">Associate</option><option value="reference">Reference/Consultant</option></select>
-          <input id="assign-id-${s.id}" placeholder="ID" style="width:70px;display:inline-block">
+          <select id="assign-tenant-${s.id}" onchange="loadCandidatesForRow(${s.id})">${tenantOptions}</select>
+        </td>
+        <td>
+          <select id="assign-type-${s.id}" onchange="loadCandidatesForRow(${s.id})" style="margin-bottom:4px">
+            <option value="associate">Associate</option>
+            <option value="reference">Reference/Consultant</option>
+          </select>
+          <select id="assign-id-${s.id}" style="margin-bottom:4px"><option value="">Loading…</option></select>
           <button class="btn primary" onclick="assignStudent(${s.id})">Assign</button>
         </td>`;
       tbody.appendChild(tr);
+      const tenantSel = document.getElementById(`assign-tenant-${s.id}`);
+      if(tenantSel && s.tenant_id) tenantSel.value = s.tenant_id;
+      loadCandidatesForRow(s.id);
     });
   }catch(e){ /* not super admin — hide silently */ }
+}
+async function loadCandidatesForRow(sid){
+  const tid = document.getElementById(`assign-tenant-${sid}`).value;
+  const rtype = document.getElementById(`assign-type-${sid}`).value;
+  const idSel = document.getElementById(`assign-id-${sid}`);
+  idSel.innerHTML = '<option value="">Loading…</option>';
+  try{
+    const data = await api('GET', `/api/unassigned-students/candidates?tenant_id=${tid}`);
+    const list = rtype === 'associate' ? data.associates : data.references;
+    idSel.innerHTML = list.length
+      ? list.map(x=>`<option value="${x.id}">${x.name||('#'+x.id)}${x.phone?' — '+x.phone:''}</option>`).join('')
+      : '<option value="">Is institute mein koi nahi mila</option>';
+  }catch(e){
+    idSel.innerHTML = '<option value="">Load fail</option>';
+  }
 }
 async function assignStudent(sid){
   const rtype = document.getElementById('assign-type-'+sid).value;
   const rid = document.getElementById('assign-id-'+sid).value;
+  const tid = document.getElementById('assign-tenant-'+sid).value;
+  if(!rid){ alert('Pehle Associate/Reference select karein'); return; }
   try{
-    await api('POST', `/api/unassigned-students/${sid}/assign`, {referred_type: rtype, referred_id: parseInt(rid)});
+    await api('POST', `/api/unassigned-students/${sid}/assign`, {referred_type: rtype, referred_id: parseInt(rid), tenant_id: parseInt(tid)});
     await loadUnassigned(); await loadRows();
   }catch(e){ alert(e.message); }
 }
@@ -184,6 +229,7 @@ async function openStages(sid, name){
   currentStudentId = sid;
   document.getElementById('sm-name').textContent = name;
   document.getElementById('sm-msg').className='msg';
+
   const stages = await api('GET', `/api/students/${sid}/phd-stages`);
   const box = document.getElementById('sm-stages');
   box.innerHTML = '';
@@ -198,6 +244,10 @@ async function openStages(sid, name){
       <button class="btn" onclick="saveStage(${sid}, ${st.id})">Save</button>`;
     box.appendChild(row);
   });
+
+  await loadProgressReports(sid);
+  await loadExtension(sid);
+
   openModal('stageModalBg');
 }
 async function saveStage(sid, stageId){
@@ -205,6 +255,79 @@ async function saveStage(sid, stageId){
     const status = document.getElementById('stage-status-'+stageId).value;
     await api('PUT', `/api/students/${sid}/phd-stages/${stageId}`, {status});
     document.getElementById('sm-msg').className='msg ok'; document.getElementById('sm-msg').textContent='Saved!';
+  }catch(e){
+    document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
+  }
+}
+
+async function loadProgressReports(sid){
+  const box = document.getElementById('sm-reports');
+  box.innerHTML = '<div class="sub">Loading…</div>';
+  try{
+    const reports = await api('GET', `/api/students/${sid}/progress-reports`);
+    box.innerHTML = '';
+    reports.forEach(r=>{
+      const row = document.createElement('div'); row.className='stage-row';
+      row.innerHTML = `<div style="flex:1;font-weight:700;font-size:13px">Progress Report ${r.report_no}</div>
+        <select id="report-status-${r.id}">
+          <option ${r.status==='Pending'?'selected':''}>Pending</option>
+          <option ${r.status==='In Progress'?'selected':''}>In Progress</option>
+          <option ${r.status==='Completed'?'selected':''}>Completed</option>
+        </select>
+        <button class="btn" onclick="saveReport(${sid}, ${r.id})">Save</button>`;
+      box.appendChild(row);
+    });
+    if(!reports.length){ box.innerHTML = '<div class="sub" style="margin:0">Koi progress report record nahi mila.</div>'; }
+  }catch(e){
+    box.innerHTML = '<div class="sub" style="margin:0">Progress reports load nahi ho paye: '+e.message+'</div>';
+  }
+}
+async function saveReport(sid, reportId){
+  try{
+    const status = document.getElementById('report-status-'+reportId).value;
+    await api('PUT', `/api/students/${sid}/progress-reports/${reportId}`, {status});
+    document.getElementById('sm-msg').className='msg ok'; document.getElementById('sm-msg').textContent='Saved!';
+  }catch(e){
+    document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
+  }
+}
+
+async function loadExtension(sid){
+  const box = document.getElementById('sm-extension');
+  box.innerHTML = '<div class="sub">Loading…</div>';
+  try{
+    const s = await api('GET', `/api/students/${sid}`);
+    const status = s.extension_status || 'Not Requested';
+    let actions = '';
+    if(status === 'Requested'){
+      actions = `<div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn ok" onclick="decideExtension(${sid},'Approved')">Approve</button>
+        <button class="btn err" onclick="decideExtension(${sid},'Rejected')">Reject</button>
+      </div>`;
+    }
+    let details = '';
+    if(status !== 'Not Requested'){
+      details += s.extension_duration_months ? '<div class="sub" style="margin:4px 0 0"><b>Duration requested:</b> '+s.extension_duration_months+' month(s)</div>' : '';
+      details += s.extension_reason ? '<div class="sub" style="margin:4px 0 0"><b>Reason:</b> '+s.extension_reason+'</div>' : '';
+      details += s.extension_document_path ? '<div style="margin:6px 0 0"><a class="btn" style="display:inline-block" href="/api/student/extension-document/'+sid+'" target="_blank">Download supporting document'+(s.extension_document_name ? ' — '+s.extension_document_name : '')+'</a></div>' : '<div class="sub" style="margin:4px 0 0">Koi document attach nahi ki gayi.</div>';
+    }
+    box.innerHTML = `<div class="ext-box">
+      <div class="ext-status">${status}</div>
+      ${details}
+      ${s.extension_remarks ? '<div class="sub" style="margin:6px 0 0">'+s.extension_remarks+'</div>' : ''}
+      ${actions}
+    </div>`;
+  }catch(e){
+    box.innerHTML = '<div class="sub" style="margin:0">Extension status load nahi ho paya: '+e.message+'</div>';
+  }
+}
+async function decideExtension(sid, decision){
+  try{
+    await api('PUT', `/api/students/${sid}/extension`, {status: decision});
+    document.getElementById('sm-msg').className='msg ok';
+    document.getElementById('sm-msg').textContent = 'Extension ' + decision.toLowerCase() + ' kar di gayi!';
+    await loadExtension(sid);
+    await loadRows();
   }catch(e){
     document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
   }
