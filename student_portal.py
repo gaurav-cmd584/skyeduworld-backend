@@ -257,7 +257,10 @@ def student_public_payload(s):
         'student_code': s.get('student_code'), 'registration_stage': s.get('registration_stage'),
         'course': s.get('course'), 'university': s.get('university'),
         'photo_path': s.get('photo_path'),
-        'photo_url': (f"/uploads/{s.get('photo_path')}" if s.get('photo_path') else None),
+        # Uses our own /api/student/photo/<id> route, not /uploads/<file>,
+        # because /uploads/ requires a staff session and would 401/redirect
+        # for a student-only session — see get_student_photo() below.
+        'photo_url': (f"/api/student/photo/{s['id']}" if s.get('photo_path') else None),
     }
     # Full profile sub-object (used by the frontend's completion % + summary
     # view). Previously these fields were missing entirely from this
@@ -497,7 +500,7 @@ def student_upload_photo():
     core.q_ret("INSERT INTO student_photos (tenant_id,student_id,file_path,file_name,uploaded_by) VALUES (%s,%s,%s,%s,%s) RETURNING id",
                (s.get('tenant_id'), s['id'], filename, file.filename, None))
     core.log_action('Upload', 'Student Photo', s['id'], 'Self-uploaded via student portal')
-    return jsonify({'success': True, 'filename': filename, 'url': f'/uploads/{filename}'})
+    return jsonify({'success': True, 'filename': filename, 'url': f"/api/student/photo/{s['id']}"})
 
 
 @student_bp.route('/api/student/request-extension', methods=['POST'])
@@ -572,6 +575,31 @@ def get_extension_document(sid):
             return jsonify({'error': 'Access denied'}), 403
 
     return send_from_directory(core.UPLOAD_FOLDER, student['extension_document_path'])
+
+
+@student_bp.route('/api/student/photo/<int:sid>')
+def get_student_photo(sid):
+    """Serves a student's profile photo to either the student themselves or
+    staff of the same tenant. The generic /uploads/<filename> route in
+    app.py requires a staff session (session['user_id']), so a student-only
+    session can never load it — that was causing the uploaded photo to
+    disappear again after logging back in (browser could show it once from
+    the instant local preview, but never again from the real /uploads/ URL).
+    This route mirrors get_extension_document()'s dual-auth check instead."""
+    student = core.q("SELECT id,tenant_id,photo_path FROM students WHERE id=%s", (sid,), one=True)
+    if not student or not student.get('photo_path'):
+        return jsonify({'error': 'Not found'}), 404
+
+    is_owner_student = session.get('is_student') and session.get('student_id') == sid
+    is_staff = 'user_id' in session
+    if not is_owner_student and not is_staff:
+        return jsonify({'error': 'Login required'}), 401
+    if is_staff and not is_owner_student and not core.is_super_admin():
+        tid = core.current_tenant_id()
+        if tid and student.get('tenant_id') != tid:
+            return jsonify({'error': 'Access denied'}), 403
+
+    return send_from_directory(core.UPLOAD_FOLDER, student['photo_path'])
 
 
 # --------------------------------------------------------------------------
