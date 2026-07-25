@@ -295,6 +295,27 @@ button.secondary:hover{background:var(--bg);color:var(--ink)}
           <ul class="stepper" id="stepList"></ul>
           <div class="msg" id="progress-msg" style="margin-top:10px"></div>
         </div>
+
+        <div class="card hidden" id="extensionCard">
+          <h2>Request for Extension</h2>
+          <div class="sub" id="ext-sub">Kam se kam 4 Progress Reports ke baad, agar aapko extra time chahiye to yahan se request bhejein.</div>
+
+          <div id="ext-form-wrap">
+            <label>Reason *</label>
+            <textarea id="ext-reason" rows="3" placeholder="Extension ki wajah likhein (e.g. lab access delay, health issue, data collection mein deri, etc.)"></textarea>
+            <label>Kitne mahine ki extension chahiye? *</label>
+            <input id="ext-months" type="number" min="1" max="24" placeholder="e.g. 6">
+            <label>Supporting Document (optional — medical certificate, guide letter, etc.)</label>
+            <input id="ext-doc" type="file">
+            <button class="primary sm" id="ext-btn" onclick="requestExtension()" style="margin-top:14px">Submit Extension Request &#8594;</button>
+          </div>
+
+          <div id="ext-status-wrap" class="hidden">
+            <div class="summary-grid" id="ext-status-grid"></div>
+          </div>
+
+          <div class="msg" id="ext-msg" style="margin-top:10px"></div>
+        </div>
       </div>
 
       <!-- Documents -->
@@ -474,24 +495,28 @@ function renderStepList(targetId, steps){
   (steps||[]).forEach(function(s){
     var li = document.createElement('li'); li.className='step';
     var dotClass = (s.status === 'Completed' || s.status === 'Approved') ? 'Completed' : ((s.status === 'In Progress' || s.status === 'Requested') ? 'InProgress' : 'Pending');
-    var actionHtml = '';
-    if(s.isExtension && (!s.status || s.status === 'Not Requested')){
-      actionHtml = ' <button class="secondary" style="padding:4px 10px;font-size:11px;margin-left:8px" onclick="requestExtension()">Apply for Extension</button>';
-    }
+    // Extension request itself is handled by the dedicated "Request for
+    // Extension" card below the stepper (reason + duration + document) —
+    // this step item is just a status readout, no inline action button.
     li.innerHTML = '<div class="dot '+dotClass+'">'+s.stage_order+'</div>'+
-      '<div><div class="step-name">'+s.stage_name+'</div><div class="step-status '+dotClass+'">'+s.status+(s.remarks? ' — '+s.remarks:'')+actionHtml+'</div></div>';
+      '<div><div class="step-name">'+s.stage_name+'</div><div class="step-status '+dotClass+'">'+s.status+(s.remarks? ' — '+s.remarks:'')+'</div></div>';
     list.appendChild(li);
   });
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
 function buildCombinedProgressItems(me){
-  // Real backend stages (e.g. Course Work, Exam, RRC/DRC Proposal Approval,
+  // Real backend stages (Registration, Coursework, RRC/Proposal Approval,
   // Synopsis Submission, Pre-Submission Seminar, Thesis Submission,
-  // Viva-Voce, Degree Awarded) stay in their original order. Right after
-  // the RRC/DRC stage we insert: Progress Report 1-4 (minimum 4 six-monthly
-  // reports required), then "Request for Extension" (student applies here;
-  // once the Super Admin approves it from the main console, the student
-  // gets 6 extra months) — then the remaining real stages continue as-is.
+  // Viva-Voce, Degree Awarded) stay in their original order. Right AFTER
+  // "Synopsis Submission" we insert: Progress Report 1-4 (minimum 4
+  // six-monthly reports required), then "Request for Extension" (student
+  // applies here; once the Super Admin approves it from the main console,
+  // the student gets 6 extra months) — then the remaining real stages
+  // (Pre-Submission Seminar onward) continue as-is.
+  //
+  // NOTE: this used to insert right after the RRC/DRC stage, which put
+  // "Progress Report 1" BEFORE "Synopsis Submission" in the list — wrong
+  // order. Synopsis Submission must appear before the Progress Reports.
   var steps = (me.phd_progress || []).slice();
   var reports = me.progress_reports || [];
   var reportLabels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4'];
@@ -504,30 +529,98 @@ function buildCombinedProgressItems(me){
   var extensionItem = {
     stage_name: 'Request for Extension',
     status: extStatus,
-    remarks: extStatus === 'Approved' ? 'Approved — 6 mahine extra mil gaye hain' : (extStatus === 'Requested' ? 'Super Admin approval ka wait hai' : ''),
+    remarks: extStatus === 'Approved' ? 'Approved — 6 mahine extra mil gaye hain' : (extStatus === 'Requested' ? 'Super Admin approval ka wait hai' : (extStatus === 'Rejected' ? 'Reject ho gaya hai' : '')),
     isExtension: true
   };
 
-  var drcIndex = steps.findIndex(function(s){
+  var synopsisIndex = steps.findIndex(function(s){
     var n = (s.stage_name||'').toLowerCase();
-    return n.indexOf('drc') > -1 || n.indexOf('rrc') > -1;
+    return n.indexOf('synopsis') > -1;
   });
   var insertItems = reportItems.concat([extensionItem]);
-  var combined = drcIndex > -1
-    ? steps.slice(0, drcIndex+1).concat(insertItems).concat(steps.slice(drcIndex+1))
-    : steps.concat(insertItems);
+  var combined;
+  if(synopsisIndex > -1){
+    combined = steps.slice(0, synopsisIndex+1).concat(insertItems).concat(steps.slice(synopsisIndex+1));
+  } else {
+    // Fallback if "Synopsis Submission" stage isn't found for some reason —
+    // insert after RRC/DRC (old behavior) so it never silently disappears.
+    var drcIndex = steps.findIndex(function(s){
+      var n = (s.stage_name||'').toLowerCase();
+      return n.indexOf('drc') > -1 || n.indexOf('rrc') > -1;
+    });
+    combined = drcIndex > -1
+      ? steps.slice(0, drcIndex+1).concat(insertItems).concat(steps.slice(drcIndex+1))
+      : steps.concat(insertItems);
+  }
 
   combined.forEach(function(item, i){ item.stage_order = i+1; });
   return combined;
 }
+function renderExtensionCard(me){
+  var card = document.getElementById('extensionCard');
+  var status = me.extension_status || 'Not Requested';
+  var formWrap = document.getElementById('ext-form-wrap');
+  var statusWrap = document.getElementById('ext-status-wrap');
+
+  // Only offer the extension option once the student has genuinely started
+  // the reports stage (avoids an empty request from a brand-new student) —
+  // but still show it once anything beyond "Not Requested" exists so they
+  // can see their past request's outcome.
+  var reports = me.progress_reports || [];
+  var anyReportStarted = reports.some(function(r){ return r.status && r.status !== 'Pending'; });
+  var shouldShow = status !== 'Not Requested' || anyReportStarted || (me.phd_progress||[]).length > 0;
+  card.classList.toggle('hidden', !shouldShow);
+  if(!shouldShow) return;
+
+  if(status === 'Not Requested'){
+    formWrap.classList.remove('hidden');
+    statusWrap.classList.add('hidden');
+  } else {
+    formWrap.classList.add('hidden');
+    statusWrap.classList.remove('hidden');
+    var rows = [
+      ['Status', status],
+      ['Duration Requested', me.extension_duration_months ? (me.extension_duration_months+' month(s)') : '—'],
+      ['Reason', me.extension_reason || '—'],
+    ];
+    var grid = document.getElementById('ext-status-grid');
+    grid.innerHTML = rows.map(function(f){
+      return '<div><div class="k">'+f[0]+'</div><div class="v">'+f[1]+'</div></div>';
+    }).join('') + (me.extension_document_url
+      ? '<div><div class="k">Document</div><div class="v"><a class="linkbtn" href="'+me.extension_document_url+'" target="_blank">'+(me.extension_document_name||'View')+'</a></div></div>'
+      : '<div><div class="k">Document</div><div class="v">—</div></div>')
+      + (me.extension_remarks ? '<div><div class="k">Remarks</div><div class="v">'+me.extension_remarks+'</div></div>' : '');
+  }
+}
 async function requestExtension(){
+  var btn = document.getElementById('ext-btn'); btn.disabled = true;
   try{
-    await api('POST', '/api/student/request-extension', {});
-    showMsg('progress-msg', 'Extension request Super Admin ko bhej diya gaya hai, approval ka wait karein.', true);
+    var reason = document.getElementById('ext-reason').value.trim();
+    var months = document.getElementById('ext-months').value;
+    var fileInput = document.getElementById('ext-doc');
+    var file = fileInput.files && fileInput.files[0];
+
+    if(!reason){ throw new Error('Extension ki wajah likhein'); }
+    if(!months || Number(months) < 1 || Number(months) > 24){ throw new Error('Kitne mahine chahiye — 1 se 24 ke beech daalein'); }
+
+    var fd = new FormData();
+    fd.append('reason', reason);
+    fd.append('duration_months', months);
+    if(file) fd.append('document', file);
+
+    var r = await fetch('/api/student/request-extension', { method:'POST', body: fd, credentials:'same-origin' });
+    var data = {}; try{ data = await r.json(); }catch(e){}
+    if(!r.ok) throw new Error(data.error || 'Request fail ho gayi');
+
+    showMsg('ext-msg', 'Extension request Super Admin ko bhej diya gaya hai, approval ka wait karein.', true);
+    document.getElementById('ext-reason').value = '';
+    document.getElementById('ext-months').value = '';
+    fileInput.value = '';
     await loadDashboard();
   }catch(e){
-    showMsg('progress-msg', e.message, false);
+    showMsg('ext-msg', e.message, false);
   }
+  btn.disabled = false;
 }
 function switchProfileTab(t){
   ['personal','academic','documents'].forEach(function(k){
@@ -644,6 +737,7 @@ async function loadDashboard(){
   var combinedSteps = buildCombinedProgressItems(me);
   renderStepList('stepList', combinedSteps);
   renderStepList('stepListMini', combinedSteps.slice(0,4));
+  renderExtensionCard(me);
   renderGuideInfo(me);
   renderProfileDocList();
   loadDocuments();
