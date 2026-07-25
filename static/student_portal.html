@@ -485,13 +485,18 @@ function renderStepList(targetId, steps){
   if(!(steps||[]).length){ list.innerHTML = '<div style="color:var(--slate);font-size:12.5px;padding:6px 0">Abhi koi progress record nahi hai</div>'; }
 }
 function buildCombinedProgressItems(me){
-  // Real backend stages (e.g. Course Work, Exam, RRC/DRC Proposal Approval,
+  // Real backend stages (Registration, Coursework, RRC/Proposal Approval,
   // Synopsis Submission, Pre-Submission Seminar, Thesis Submission,
-  // Viva-Voce, Degree Awarded) stay in their original order. Right after
-  // the RRC/DRC stage we insert: Progress Report 1-4 (minimum 4 six-monthly
-  // reports required), then "Request for Extension" (student applies here;
-  // once the Super Admin approves it from the main console, the student
-  // gets 6 extra months) — then the remaining real stages continue as-is.
+  // Viva-Voce, Degree Awarded) stay in their original order. Right AFTER
+  // "Synopsis Submission" we insert: Progress Report 1-4 (minimum 4
+  // six-monthly reports required), then "Request for Extension" (student
+  // applies here; once the Super Admin approves it from the main console,
+  // the student gets 6 extra months) — then the remaining real stages
+  // (Pre-Submission Seminar onward) continue as-is.
+  //
+  // NOTE: this used to insert right after the RRC/DRC stage, which put
+  // "Progress Report 1" BEFORE "Synopsis Submission" in the list — wrong
+  // order. Synopsis Submission must appear before the Progress Reports.
   var steps = (me.phd_progress || []).slice();
   var reports = me.progress_reports || [];
   var reportLabels = ['Progress Report 1','Progress Report 2','Progress Report 3','Progress Report 4'];
@@ -504,18 +509,29 @@ function buildCombinedProgressItems(me){
   var extensionItem = {
     stage_name: 'Request for Extension',
     status: extStatus,
-    remarks: extStatus === 'Approved' ? 'Approved — 6 mahine extra mil gaye hain' : (extStatus === 'Requested' ? 'Super Admin approval ka wait hai' : ''),
+    remarks: extStatus === 'Approved' ? 'Approved — 6 mahine extra mil gaye hain' : (extStatus === 'Requested' ? 'Super Admin approval ka wait hai' : (extStatus === 'Rejected' ? 'Reject ho gaya hai' : '')),
     isExtension: true
   };
 
-  var drcIndex = steps.findIndex(function(s){
+  var synopsisIndex = steps.findIndex(function(s){
     var n = (s.stage_name||'').toLowerCase();
-    return n.indexOf('drc') > -1 || n.indexOf('rrc') > -1;
+    return n.indexOf('synopsis') > -1;
   });
   var insertItems = reportItems.concat([extensionItem]);
-  var combined = drcIndex > -1
-    ? steps.slice(0, drcIndex+1).concat(insertItems).concat(steps.slice(drcIndex+1))
-    : steps.concat(insertItems);
+  var combined;
+  if(synopsisIndex > -1){
+    combined = steps.slice(0, synopsisIndex+1).concat(insertItems).concat(steps.slice(synopsisIndex+1));
+  } else {
+    // Fallback if "Synopsis Submission" stage isn't found for some reason —
+    // insert after RRC/DRC (old behavior) so it never silently disappears.
+    var drcIndex = steps.findIndex(function(s){
+      var n = (s.stage_name||'').toLowerCase();
+      return n.indexOf('drc') > -1 || n.indexOf('rrc') > -1;
+    });
+    combined = drcIndex > -1
+      ? steps.slice(0, drcIndex+1).concat(insertItems).concat(steps.slice(drcIndex+1))
+      : steps.concat(insertItems);
+  }
 
   combined.forEach(function(item, i){ item.stage_order = i+1; });
   return combined;
