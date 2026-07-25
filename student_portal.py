@@ -256,6 +256,8 @@ def student_public_payload(s):
         'id': s['id'], 'name': s.get('name'), 'mobile': s.get('mobile'), 'email': s.get('email'),
         'student_code': s.get('student_code'), 'registration_stage': s.get('registration_stage'),
         'course': s.get('course'), 'university': s.get('university'),
+        'photo_path': s.get('photo_path'),
+        'photo_url': (f"/uploads/{s.get('photo_path')}" if s.get('photo_path') else None),
     }
     # Full profile sub-object (used by the frontend's completion % + summary
     # view). Previously these fields were missing entirely from this
@@ -465,6 +467,37 @@ def student_change_password():
         return jsonify({'error': 'Naya password kam se kam 4 characters ka ho'}), 400
     core.q("UPDATE students SET student_password=%s WHERE id=%s", (core.hash_pw(new), s['id']), commit=True)
     return jsonify({'success': True})
+
+
+@student_bp.route('/api/student/photo', methods=['POST'])
+@student_login_required
+def student_upload_photo():
+    """Student self-service profile photo upload. Mirrors app.py's staff-side
+    /api/students/<sid>/photo route (same students.photo_path column and
+    student_photos history table) so photos uploaded here also show up in
+    the main admin console's student detail view."""
+    s = g.student
+    if 'photo' not in request.files:
+        return jsonify({'error': 'No photo file uploaded'}), 400
+    file = request.files['photo']
+    if not file or not file.filename:
+        return jsonify({'error': 'No photo file uploaded'}), 400
+    if not core.allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type — JPG/PNG/GIF/WEBP allowed'}), 400
+    file.seek(0, 2); size = file.tell(); file.seek(0)
+    if size > core.MAX_UPLOAD_BYTES:
+        return jsonify({'error': f'File size max {core.MAX_UPLOAD_BYTES // (1024*1024)} MB allowed'}), 400
+    storage_error = core.check_storage_limit(s.get('tenant_id'), size)
+    if storage_error:
+        return jsonify({'error': storage_error}), 403
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"student_{s['id']}_photo_{uuid.uuid4().hex[:8]}.{ext}"
+    file.save(os.path.join(core.UPLOAD_FOLDER, filename))
+    core.q("UPDATE students SET photo_path=%s WHERE id=%s", (filename, s['id']), commit=True)
+    core.q_ret("INSERT INTO student_photos (tenant_id,student_id,file_path,file_name,uploaded_by) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+               (s.get('tenant_id'), s['id'], filename, file.filename, None))
+    core.log_action('Upload', 'Student Photo', s['id'], 'Self-uploaded via student portal')
+    return jsonify({'success': True, 'filename': filename, 'url': f'/uploads/{filename}'})
 
 
 @student_bp.route('/api/student/request-extension', methods=['POST'])
