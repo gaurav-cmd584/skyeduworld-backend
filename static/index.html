@@ -279,6 +279,7 @@ tr.s-row:hover{background:var(--sky-lt)}
       <div class="sb-sec">Academics</div>
       <button class="nv" onclick="nav('universities',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><line x1="9" y1="18" x2="15" y2="18"/></svg></span>Universities</button>
       <button class="nv" onclick="nav('guides',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></span>Guides</button>
+      <button class="nv" onclick="nav('phdext',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>PhD Extensions<span class="nb" id="nb-phdext" style="background:var(--rose)">0</span></button>
       <button class="nv" onclick="nav('docs-issued',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>Issued Documents</button>
       <button class="nv" onclick="nav('docs-uploaded',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>Uploaded Documents</button>
       <button class="nv" onclick="nav('masters',this)"><span class="ni"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>Masters</button>
@@ -378,6 +379,11 @@ tr.s-row:hover{background:var(--sky-lt)}
       <div class="view" id="view-guides">
         <div class="card"><div class="card-hd"><div><div class="card-title">Guide Registration</div><div class="card-sub">University, subject aur student name wise Ph.D guides</div></div><div class="card-acts"><input class="fi" id="guide-search" placeholder="Search guide/student..." style="width:210px;padding:6px 9px" oninput="renderGuidePage()"><button class="btn btn-p btn-sm" onclick="openGuideRegistration()">+ Add Guide</button></div></div><div class="tw"><table><thead><tr><th>Guide</th><th>University</th><th>Subject</th><th>Students</th><th>Capacity</th><th>Document</th><th>Actions</th></tr></thead><tbody id="guide-table"></tbody></table></div></div>
       </div>
+      <div class="view" id="view-phdext">
+        <div class="card"><div class="card-hd"><div><div class="card-title">PhD Extension Requests</div><div class="card-sub">Self-registered PhD students ki extension requests &mdash; reason, duration aur supporting document ke saath. Approve/Reject seedha yahan se karein.</div></div><div class="card-acts"><button class="btn btn-g btn-sm" onclick="loadExtensionRequests()">Refresh</button></div></div>
+          <div class="tw"><table><thead><tr><th>Student</th><th>Mobile</th><th>Status</th><th>Duration</th><th>Reason</th><th>Document</th><th>Requested On</th><th>Actions</th></tr></thead><tbody id="phdext-table"><tr><td colspan="99" style="text-align:center;color:var(--slate);padding:22px">Loading&#8230;</td></tr></tbody></table></div>
+        </div>
+      </div>
       <div class="view" id="view-documents">
         <div class="card"><div class="card-hd"><div><div class="card-title" id="doc-view-title">Issued Documents</div><div class="card-sub" id="doc-view-sub">Documents issued/delivered to students</div></div><div class="card-acts"><button class="btn btn-p btn-sm" onclick="openM('m-doc')">+ Issue / Upload</button></div></div><div class="tw"><table><thead><tr><th>Student</th><th>Document Type</th><th>University</th><th>Date</th><th>Status</th><th>Delivered To</th><th>File</th><th>Actions</th></tr></thead><tbody id="doc-table"></tbody></table></div></div>
 
@@ -415,7 +421,7 @@ tr.s-row:hover{background:var(--sky-lt)}
       </div>
       <div class="view" id="view-settings">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div class="card"><div class="card-hd"><div><div class="card-title">Change Password</div><div class="card-sub" id="cp-whoami">Aap kis account ka password badal rahe hain, yeh yahan dikhega.</div></div></div><div style="padding:18px"><div class="info-box blue" style="margin-bottom:12px"><div><h4>Yeh sirf iss account ka password badlega</h4><p>Password update hote hi is account ke saare doosre active sessions (kisi bhi doosre device/browser par login) turant logout ho jayenge — sirf yeh current session chalu rahega.</p></div></div><div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div><div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div><div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div><button class="btn btn-p" onclick="changePassword()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Update Password</button></div></div>
+          <div class="card"><div class="card-hd"><div><div class="card-title">Change Password</div><div class="card-sub" id="cp-whoami">Aap kis account ka password badal rahe hain, yeh yahan dikhega.</div></div></div><div style="padding:18px"><div class="info-box blue" style="margin-bottom:12px"><div><h4>Yeh sirf iss account ka password badlega</h4><p>Password update hote hi is account ke saare doosre active sessions (kisi bhi doosre device/browser par login) turant logout ho jayenge &mdash; sirf yeh current session chalu rahega.</p></div></div><div class="fg" style="margin-bottom:11px"><label class="fl">Current Password</label><input class="fi" type="password" id="cp-old" placeholder="Current password"></div><div class="fg" style="margin-bottom:11px"><label class="fl">New Password</label><input class="fi" type="password" id="cp-new" placeholder="Min 6 characters"></div><div class="fg" style="margin-bottom:16px"><label class="fl">Confirm New Password</label><input class="fi" type="password" id="cp-cf" placeholder="Repeat new password"></div><button class="btn btn-p" onclick="changePassword()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Update Password</button></div></div>
           <div class="card"><div class="card-hd"><div><div class="card-title">Current Tenant User Accounts</div><div class="card-sub">Yahan sirf current client ke users dikhte hain</div></div><button class="btn btn-p btn-sm" onclick="openM('m-user')">+ Add User</button></div><div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Client</th><th></th></tr></thead><tbody id="users-table"></tbody></table></div></div><div class="card" id="backup-card"><div class="card-hd"><div><div class="card-title">Data Backup</div><div class="card-sub">Client-wise separated backup</div></div></div><div style="padding:18px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="downloadBackup('mine')">Download My Backup</button><button class="btn btn-g" id="system-backup-btn" onclick="downloadBackup('system')">Download Tenant Backup</button></div></div>
         </div>
       </div>
@@ -513,7 +519,7 @@ async function apiUpload(path,formData){
 }const AVCOLS=['#3B82F6','#10B981','#F5A623','#F43F5E','#8B5CF6','#06B6D4','#EF4444','#84CC16'];
 function avCol(n){let h=0;for(let c of(n||''))h=c.charCodeAt(0)+h*31;return AVCOLS[Math.abs(h)%AVCOLS.length];}
 function ini(n){return(n||'').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase();}
-function fmt(n){return '\u20b9'+(Math.round(n)||0).toLocaleString('en-IN');}
+function fmt(n){return '₹'+(Math.round(n)||0).toLocaleString('en-IN');}
 function stag(s){
   if(s==='Active'||s==='Paid'||s==='Delivered')return'<span class="tag tgr">'+s+'</span>';
   if(s==='Pending')return'<span class="tag ta">'+s+'</span>';
@@ -676,6 +682,7 @@ async function initApp(){
   allStudents=await api('GET','/students')||[];
   const nbS=document.getElementById('nb-s');if(nbS)nbS.textContent=allStudents.length;
   await loadUnregisteredCount();
+  try{await loadExtensionCount();}catch(e){}
   populateDropdowns();
   try{await loadSessionInfo();}catch(e){}
   try{loadNotifications();setInterval(loadNotifications,60000);}catch(e){}
@@ -688,7 +695,7 @@ async function initApp(){
 }
 async function loadUniversities(){allUnivs=await api('GET','/universities')||[];populateDropdowns();}
 async function loadGuides(){allGuides=await api('GET','/guides')||[];populateDropdowns();}
-const TITLES={dashboard:'Dashboard',students:'Students',unregistered:'Unregistered Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',associates:'Associates',references:'References',universities:'Partner Universities',guides:'Guide Registration',documents:'Documents','docs-issued':'Issued Documents','docs-uploaded':'Uploaded Documents',sessions:'Academic Sessions',accounts:'Accounts',expenses:'Expenses',wallets:'Wallets',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
+const TITLES={dashboard:'Dashboard',students:'Students',unregistered:'Unregistered Students',addstudent:'Add New Student',fees:'Fee Management',feereceive:'Receive Fee',overdue:'Overdue Installments',leads:'Leads',followups:'Follow-ups',incentive:'Associate & Reference',associates:'Associates',references:'References',universities:'Partner Universities',guides:'Guide Registration',phdext:'PhD Extension Requests',documents:'Documents','docs-issued':'Issued Documents','docs-uploaded':'Uploaded Documents',sessions:'Academic Sessions',accounts:'Accounts',expenses:'Expenses',wallets:'Wallets',masters:'Masters',reports:'Reports',audit:'Audit Logs',loginhist:'Activity History',tenants:'Tenant Management',settings:'Settings'};
 const VIEW_ALIAS={associates:'incentive',references:'incentive','docs-issued':'documents','docs-uploaded':'documents'};
 let docViewMode='issued';
 function nav(id,btn){
@@ -711,6 +718,7 @@ function nav(id,btn){
   else if(id==='references'){incTab='reference';loadIncTab();loadIncStats();}
   else if(id==='universities')renderUnivGrid();
   else if(id==='guides'){loadGuides().then(renderGuidePage);}
+  else if(id==='phdext')loadExtensionRequests();
   else if(id==='documents')loadDocs();
   else if(id==='docs-issued'){docViewMode='issued';loadDocs();}
   else if(id==='docs-uploaded'){docViewMode='uploaded';loadDocs();}
@@ -729,6 +737,47 @@ function nav(id,btn){
   else if(id==='audit')loadAuditLogs();
   else if(id==='reports')ensureReportBuilder();
   else if(id==='loginhist')loadLoginHistory();
+}
+async function loadExtensionRequests(){
+  const tbody=document.getElementById('phdext-table');if(!tbody)return;
+  tbody.innerHTML='<tr><td colspan="99" style="text-align:center;color:var(--slate);padding:22px">Loading…</td></tr>';
+  try{
+    const rows=await api('GET','/referred-students')||[];
+    const withExt=rows.filter(s=>s.extension_status && s.extension_status!=='Not Requested');
+    document.getElementById('nb-phdext').textContent=withExt.filter(s=>s.extension_status==='Requested').length;
+    if(!withExt.length){tbody.innerHTML='<tr><td colspan="99" style="text-align:center;color:var(--slate);padding:22px">Abhi koi extension request nahi hai.</td></tr>';return;}
+    // Requested pehle, phir baaki
+    withExt.sort((a,b)=>(a.extension_status==='Requested'?-1:1)-(b.extension_status==='Requested'?-1:1));
+    tbody.innerHTML=withExt.map(function(s){
+      const badgeCls=s.extension_status==='Approved'?'tgr':(s.extension_status==='Requested'?'ta':'tr');
+      const doc=s.extension_document_path?('<a class="btn btn-g btn-sm" href="/api/student/extension-document/'+s.id+'" target="_blank">View</a>'):'<span class="cm">&mdash;</span>';
+      const actions=s.extension_status==='Requested'
+        ?('<button class="btn btn-p btn-sm" onclick="decideExtensionRequest('+s.id+',\'Approved\')">Approve</button> <button class="btn btn-r btn-sm" onclick="decideExtensionRequest('+s.id+',\'Rejected\')">Reject</button>')
+        :'<span class="cm">'+(s.extension_remarks||'&mdash;')+'</span>';
+      return '<tr><td>'+(s.name||'')+'</td><td>'+(s.mobile||'')+'</td><td><span class="tag '+badgeCls+'">'+s.extension_status+'</span></td>'
+        +'<td>'+(s.extension_duration_months?s.extension_duration_months+' month(s)':'&mdash;')+'</td>'
+        +'<td style="max-width:220px">'+(s.extension_reason||'&mdash;')+'</td>'
+        +'<td>'+doc+'</td>'
+        +'<td>'+((s.extension_requested_at||'').slice(0,10)||'&mdash;')+'</td>'
+        +'<td>'+actions+'</td></tr>';
+    }).join('');
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="99" style="text-align:center;color:var(--rose);padding:22px">Load fail: '+(e.message||e)+'</td></tr>';
+  }
+}
+async function loadExtensionCount(){
+  try{
+    const rows=await api('GET','/referred-students')||[];
+    const pending=rows.filter(s=>s.extension_status==='Requested').length;
+    const nb=document.getElementById('nb-phdext');if(nb)nb.textContent=pending;
+  }catch(e){}
+}
+async function decideExtensionRequest(sid,decision){
+  try{
+    await api('PUT','/students/'+sid+'/extension',{status:decision});
+    toast('Extension '+decision.toLowerCase()+' kar di gayi','ok');
+    loadExtensionRequests();
+  }catch(e){toast(e.message||'Fail ho gaya','er');}
 }
 async function reloadDashboard(){const d=await api('GET','/dashboard');if(d)renderDashboard(d);}
 function renderDashboard(d){
@@ -1605,7 +1654,6 @@ function msAll(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-l
 function msClear(id){Array.prototype.forEach.call(document.querySelectorAll('#ms-list-'+id+' input'),function(c){c.checked=false;});_mslbl(id);}
 function _mslbl(id){var sel=getMS(id);var lbl=document.getElementById('ms-lbl-'+id);var wrap=document.getElementById('ms-'+id);var ph=wrap?wrap.getAttribute('data-ph'):'All';if(!lbl)return;if(sel.length===0){lbl.textContent=ph;lbl.style.color='var(--slate)';lbl.style.fontWeight='';}else if(sel.length===1){lbl.textContent=sel[0];lbl.style.color='var(--ink)';lbl.style.fontWeight='';}else{lbl.textContent=sel.length+' selected';lbl.style.color='var(--sky)';lbl.style.fontWeight='700';}}
 document.addEventListener('click',function(e){if(!e.target.closest('.ms-wrap')){document.querySelectorAll('.ms-dropdown.open').forEach(function(d){d.classList.remove('open');});}});
-// ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ REPORT SYSTEM ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 let currentRpt=null,rptFmt='csv';
 function v(id){const el=document.getElementById(id);return el?el.value:'';}
 function escH(val){return String(val||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -1707,11 +1755,9 @@ const RPT_CFG={
   }
 };
 
-// ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
 // IMPORT / EXPORT FUNCTIONS
-// ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
 
-// Column mapping: Excel header ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ DB field
+// Column mapping: Excel header -> DB field
 var IMPORT_COLS = [
   {h:'Student Name', f:'name', req:true},
   {h:'Amount', f:'amount', req:true},
@@ -1906,7 +1952,7 @@ function parseAndPreview(raw){
   _importPayload=null; resetImportProgress();
 
   // Update preview modal
-  document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â preview check karo';
+  document.getElementById('import-preview-sub').textContent='File mein '+raw.length+' rows mili — preview check karo';
   document.getElementById('imp-total').textContent=raw.length;
   document.getElementById('imp-valid').textContent=validRows.length;
   document.getElementById('imp-errors').textContent=errorRows.length;
@@ -1918,7 +1964,7 @@ function parseAndPreview(raw){
   if(errorRows.length>10)errHtml+='<div>...aur '+(errorRows.length-10)+' errors hain</div>';
   document.getElementById('imp-error-list').innerHTML=errHtml;
 
-  // Preview table ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â show first 50 valid rows
+  // Preview table — show first 50 valid rows
   var showCols=['name','amount','payment_date','payment_mode','ref_no','remarks','university_paid','university_payable'];
   var thead='<tr>'+['#','Student','Amount','Date','Mode','Ref','Remarks','Univ Paid','Univ Payable'].map(function(h){return'<th style="padding:7px 10px;background:var(--slate-lt);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px;font-weight:600;color:var(--slate);letter-spacing:.5px;text-transform:uppercase">'+h+'</th>';}).join('')+'</tr>';
   document.getElementById('imp-thead').innerHTML=thead;
@@ -1926,7 +1972,7 @@ function parseAndPreview(raw){
   var tbody=validRows.slice(0,50).map(function(r,i){
     return'<tr style="border-bottom:1px solid var(--bd)">'
       +'<td style="padding:6px 10px;color:var(--slate);font-size:11px">'+(i+1)+'</td>'
-      +showCols.map(function(f){return'<td style="padding:6px 10px;font-size:11.5px">'+(r[f]||'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â')+'</td>';}).join('')
+      +showCols.map(function(f){return'<td style="padding:6px 10px;font-size:11.5px">'+(r[f]||'—')+'</td>';}).join('')
       +'</tr>';
   }).join('');
   if(validRows.length>50)tbody+='<tr><td colspan="15" style="padding:8px 10px;text-align:center;font-size:11px;color:var(--slate)">...aur '+(validRows.length-50)+' aur rows hain</td></tr>';
@@ -2179,21 +2225,3 @@ window.addEventListener('load',async function(){
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
