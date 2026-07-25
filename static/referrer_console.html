@@ -22,12 +22,17 @@ td{padding:9px 8px;border-bottom:1px solid var(--bd)}
 button{cursor:pointer;font-family:inherit}
 .btn{padding:6px 10px;border-radius:7px;border:1px solid var(--bd);background:#fff;font-size:12px;font-weight:700;margin-right:4px}
 .btn.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.err{background:var(--err);border-color:var(--err);color:#fff}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
 .modal{background:#fff;border-radius:12px;padding:20px;width:420px;max-width:92vw;max-height:85vh;overflow:auto}
 .modal h2{font-size:15px;margin:0 0 12px}
+.modal h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--slate);margin:18px 0 8px;padding-top:12px;border-top:1px solid #f1f5f9}
 label{display:block;font-size:11.5px;font-weight:700;color:var(--slate);margin:10px 0 4px}
 input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:7px;font-size:13px;font-family:inherit}
 .stage-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.ext-box{padding:10px;border-radius:9px;background:#f8fafc;border:1px solid var(--bd);font-size:12.5px}
+.ext-status{font-weight:800;margin-bottom:6px}
 .msg{margin-top:10px;padding:8px 10px;border-radius:7px;font-size:12.5px;display:none}
 .msg.err{background:#fef2f2;color:var(--err);display:block}
 .msg.ok{background:#ecfdf5;color:#047857;display:block}
@@ -54,7 +59,10 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
 </div>
 
 <div class="wrap">
-  <div class="card">
+  <div class="card hidden" id="loginWarningCard" style="border-color:#fecdd3;background:#fef2f2">
+    <div class="sub" style="margin:0;color:#9F1239;font-weight:600">Login required. Pehle main console mein staff/admin login karein, phir yeh page kholein.</div>
+  </div>
+  <div class="card" id="mainCard">
     <div class="sub">Yeh page aapki maujooda staff/admin login session use karta hai. Yahan sirf woh students dikhte hain jinhone khud register kiya aur reference email se aapko (Associate/Reference/Consultant) ya Admin ko assign hue hain. Logout karne se aap dono jagah (yeh console + main app) se sign out ho jayenge.</div>
     <table>
       <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Referred Via</th><th>Stage</th><th>Actions</th></tr></thead>
@@ -77,6 +85,13 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radiu
   <div class="modal">
     <h2>PhD Progress — <span id="sm-name"></span></h2>
     <div id="sm-stages"></div>
+
+    <h3>Progress Reports (1–4)</h3>
+    <div id="sm-reports"></div>
+
+    <h3>Extension Request</h3>
+    <div id="sm-extension"></div>
+
     <div class="msg" id="sm-msg"></div>
     <div style="margin-top:12px;text-align:right"><button class="btn" onclick="closeModal('stageModalBg')">Close</button></div>
   </div>
@@ -181,6 +196,7 @@ async function openStages(sid, name){
   currentStudentId = sid;
   document.getElementById('sm-name').textContent = name;
   document.getElementById('sm-msg').className='msg';
+
   const stages = await api('GET', `/api/students/${sid}/phd-stages`);
   const box = document.getElementById('sm-stages');
   box.innerHTML = '';
@@ -195,6 +211,10 @@ async function openStages(sid, name){
       <button class="btn" onclick="saveStage(${sid}, ${st.id})">Save</button>`;
     box.appendChild(row);
   });
+
+  await loadProgressReports(sid);
+  await loadExtension(sid);
+
   openModal('stageModalBg');
 }
 async function saveStage(sid, stageId){
@@ -202,6 +222,72 @@ async function saveStage(sid, stageId){
     const status = document.getElementById('stage-status-'+stageId).value;
     await api('PUT', `/api/students/${sid}/phd-stages/${stageId}`, {status});
     document.getElementById('sm-msg').className='msg ok'; document.getElementById('sm-msg').textContent='Saved!';
+  }catch(e){
+    document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
+  }
+}
+
+async function loadProgressReports(sid){
+  const box = document.getElementById('sm-reports');
+  box.innerHTML = '<div class="sub">Loading…</div>';
+  try{
+    const reports = await api('GET', `/api/students/${sid}/progress-reports`);
+    box.innerHTML = '';
+    reports.forEach(r=>{
+      const row = document.createElement('div'); row.className='stage-row';
+      row.innerHTML = `<div style="flex:1;font-weight:700;font-size:13px">Progress Report ${r.report_no}</div>
+        <select id="report-status-${r.id}">
+          <option ${r.status==='Pending'?'selected':''}>Pending</option>
+          <option ${r.status==='In Progress'?'selected':''}>In Progress</option>
+          <option ${r.status==='Completed'?'selected':''}>Completed</option>
+        </select>
+        <button class="btn" onclick="saveReport(${sid}, ${r.id})">Save</button>`;
+      box.appendChild(row);
+    });
+    if(!reports.length){ box.innerHTML = '<div class="sub" style="margin:0">Koi progress report record nahi mila.</div>'; }
+  }catch(e){
+    box.innerHTML = '<div class="sub" style="margin:0">Progress reports load nahi ho paye: '+e.message+'</div>';
+  }
+}
+async function saveReport(sid, reportId){
+  try{
+    const status = document.getElementById('report-status-'+reportId).value;
+    await api('PUT', `/api/students/${sid}/progress-reports/${reportId}`, {status});
+    document.getElementById('sm-msg').className='msg ok'; document.getElementById('sm-msg').textContent='Saved!';
+  }catch(e){
+    document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
+  }
+}
+
+async function loadExtension(sid){
+  const box = document.getElementById('sm-extension');
+  box.innerHTML = '<div class="sub">Loading…</div>';
+  try{
+    const s = await api('GET', `/api/students/${sid}`);
+    const status = s.extension_status || 'Not Requested';
+    let actions = '';
+    if(status === 'Requested'){
+      actions = `<div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn ok" onclick="decideExtension(${sid},'Approved')">Approve</button>
+        <button class="btn err" onclick="decideExtension(${sid},'Rejected')">Reject</button>
+      </div>`;
+    }
+    box.innerHTML = `<div class="ext-box">
+      <div class="ext-status">${status}</div>
+      ${s.extension_remarks ? '<div class="sub" style="margin:0">'+s.extension_remarks+'</div>' : ''}
+      ${actions}
+    </div>`;
+  }catch(e){
+    box.innerHTML = '<div class="sub" style="margin:0">Extension status load nahi ho paya: '+e.message+'</div>';
+  }
+}
+async function decideExtension(sid, decision){
+  try{
+    await api('PUT', `/api/students/${sid}/extension`, {status: decision});
+    document.getElementById('sm-msg').className='msg ok';
+    document.getElementById('sm-msg').textContent = 'Extension ' + decision.toLowerCase() + ' kar di gayi!';
+    await loadExtension(sid);
+    await loadRows();
   }catch(e){
     document.getElementById('sm-msg').className='msg err'; document.getElementById('sm-msg').textContent=e.message;
   }
@@ -235,7 +321,13 @@ async function saveFee(){
 
 (async function init(){
   await loadWhoAmI();
-  try{ await loadRows(); }catch(e){ alert('Login required. Pehle main console mein staff/admin login karein, phir yeh page kholein.'); }
+  try{
+    await loadRows();
+  }catch(e){
+    document.getElementById('loginWarningCard').classList.remove('hidden');
+    document.getElementById('mainCard').classList.add('hidden');
+    return;
+  }
   await loadUnassigned();
 })();
 </script>
