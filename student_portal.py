@@ -31,12 +31,8 @@ WHAT THIS ADDS
      associates.email, references_.email
      students.ref_email, students.referred_type, students.referred_id,
      students.registration_stage, students.student_password,
-     students.student_session_token, students.self_registered,
-     students.extension_status, students.extension_remarks,
-     students.extension_requested_at, students.extension_decided_at
-2. New tables: student_phd_stages (8 standard PhD lifecycle stages per
-   student), student_progress_reports (4 six-monthly progress reports per
-   student)
+     students.student_session_token, students.self_registered
+2. New table: student_phd_stages (8 standard PhD lifecycle stages per student)
 3. Public routes (no staff login needed):
      POST /api/public/student-register   (name, phone, email, ref_email)
      POST /api/public/student-login      (identifier, password)
@@ -45,14 +41,10 @@ WHAT THIS ADDS
      GET  /api/student/me
      POST /api/student/complete-profile
      POST /api/student/change-password
-     POST /api/student/request-extension
 5. Staff routes (existing @login_required from app.py — Admin/Staff session):
      GET  /api/referred-students
      GET  /api/students/<id>/phd-stages
      PUT  /api/students/<id>/phd-stages/<stage_id>
-     GET  /api/students/<id>/progress-reports
-     PUT  /api/students/<id>/progress-reports/<report_id>
-     PUT  /api/students/<id>/extension           (Admin only — approve/reject)
      GET  /api/students/<id>/referral-fee
      POST /api/students/<id>/referral-fee
      GET  /api/unassigned-students          (Super Admin only)
@@ -82,8 +74,8 @@ SECTION (total_fee / payments) is only ever touched by:
   - the specific Reference/Consultant-manager (can_manage_references
     permission) if referred_type='reference'.
 A student can NEVER see fee data — /api/student/me deliberately returns only
-name/mobile/email/course/university/registration stage + profile fields +
-PHD progress, never total_fee/paid/fee_payments.
+name/mobile/email/course/university/registration stage + PHD progress, never
+total_fee/paid/fee_payments.
 """
 
 import re
@@ -107,20 +99,6 @@ PHD_STAGES = [
     'Degree Awarded',
 ]
 
-# Minimum 4 six-monthly progress reports, required between RRC/Proposal
-# Approval and Synopsis Submission in the real PhD lifecycle.
-NUM_PROGRESS_REPORTS = 4
-
-# Fields the student fills in on the "Complete Profile" form — also the
-# fields /api/student/me must send back so the frontend can correctly compute
-# % completion and show the profile summary instead of getting stuck showing
-# the edit form / incomplete banner forever.
-PROFILE_FIELDS = [
-    'father', 'mother', 'dob', 'gender', 'aadhar', 'state', 'district',
-    'pincode', 'course', 'subject', 'university', 'batch', 'enroll_no',
-    'roll_no', 'address',
-]
-
 
 # --------------------------------------------------------------------------
 # One-time schema migration (idempotent — safe to run on every deploy)
@@ -137,10 +115,6 @@ def ensure_schema():
             "ADD COLUMN IF NOT EXISTS student_password TEXT",
             "ADD COLUMN IF NOT EXISTS student_session_token TEXT",
             "ADD COLUMN IF NOT EXISTS self_registered BOOLEAN DEFAULT FALSE",
-            "ADD COLUMN IF NOT EXISTS extension_status TEXT DEFAULT 'Not Requested'",
-            "ADD COLUMN IF NOT EXISTS extension_remarks TEXT",
-            "ADD COLUMN IF NOT EXISTS extension_requested_at TIMESTAMP",
-            "ADD COLUMN IF NOT EXISTS extension_decided_at TIMESTAMP",
         ]:
             core.q(f"ALTER TABLE students {col_sql}", commit=True)
         core.q("""
@@ -157,30 +131,7 @@ def ensure_schema():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """, commit=True)
-        core.q("""
-            CREATE TABLE IF NOT EXISTS student_progress_reports (
-                id SERIAL PRIMARY KEY,
-                tenant_id INTEGER,
-                student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-                report_no INTEGER NOT NULL,
-                status TEXT DEFAULT 'Pending',
-                remarks TEXT,
-                updated_by INTEGER REFERENCES users(id),
-                updated_at TIMESTAMP DEFAULT NOW(),
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE(student_id, report_no)
-            )
-        """, commit=True)
         core.q("UPDATE students SET registration_stage='Registered' WHERE registration_stage IS NULL", commit=True)
-        core.q("UPDATE students SET extension_status='Not Requested' WHERE extension_status IS NULL", commit=True)
-        # Backfill progress-report rows for any student that self-registered
-        # before this table existed (safe / idempotent — ON CONFLICT no-op).
-        existing = core.q("SELECT id, tenant_id FROM students WHERE self_registered=TRUE")
-        for s in existing or []:
-            for i in range(1, NUM_PROGRESS_REPORTS + 1):
-                core.q("""INSERT INTO student_progress_reports (tenant_id,student_id,report_no,status)
-                          VALUES (%s,%s,%s,'Pending') ON CONFLICT (student_id,report_no) DO NOTHING""",
-                       (s['tenant_id'], s['id'], i), commit=True)
     except Exception as ex:
         try:
             core.get_db().rollback()
@@ -237,28 +188,12 @@ def seed_phd_stages(student_id, tenant_id):
                "VALUES (%s,%s,%s,%s,%s)", (tenant_id, student_id, i, name, status), commit=True)
 
 
-def seed_progress_reports(student_id, tenant_id):
-    for i in range(1, NUM_PROGRESS_REPORTS + 1):
-        core.q("INSERT INTO student_progress_reports (tenant_id,student_id,report_no,status) "
-               "VALUES (%s,%s,%s,'Pending') ON CONFLICT (student_id,report_no) DO NOTHING",
-               (tenant_id, student_id, i), commit=True)
-
-
 def student_public_payload(s):
-    payload = {
+    return {
         'id': s['id'], 'name': s.get('name'), 'mobile': s.get('mobile'), 'email': s.get('email'),
         'student_code': s.get('student_code'), 'registration_stage': s.get('registration_stage'),
         'course': s.get('course'), 'university': s.get('university'),
     }
-    # Full profile sub-object (used by the frontend's completion % + summary
-    # view). Previously these fields were missing entirely from this
-    # response, so the frontend's completion check could never reach 100%
-    # even after the student filled everything in — the profile status
-    # never showed as complete no matter what.
-    profile = {f: s.get(f) for f in PROFILE_FIELDS}
-    payload['profile'] = profile
-    payload.update(profile)  # also flat, for callers that read fields directly
-    return payload
 
 
 def student_login_required(f):
@@ -338,7 +273,6 @@ def public_student_register():
     try:
         core.assign_student_code(row['id'])
         seed_phd_stages(row['id'], tid)
-        seed_progress_reports(row['id'], tid)
         if referred_type == 'unassigned':
             core.notify_tenant_admins(tid, 'New unassigned student registration',
                                        f"{name} ne register kiya, reference email match nahi hui — please assign.",
@@ -405,15 +339,9 @@ def student_me():
     stages = core.q(
         "SELECT stage_order,stage_name,status,remarks,updated_at FROM student_phd_stages "
         "WHERE student_id=%s ORDER BY stage_order", (s['id'],))
-    reports = core.q(
-        "SELECT report_no,status,remarks,updated_at FROM student_progress_reports "
-        "WHERE student_id=%s ORDER BY report_no", (s['id'],))
     payload = student_public_payload(s)
     payload['profile_complete'] = s.get('registration_stage') != 'Unregistered'
     payload['phd_progress'] = [core.serialize(x) for x in stages]
-    payload['progress_reports'] = [core.serialize(x) for x in reports]
-    payload['extension_status'] = s.get('extension_status') or 'Not Requested'
-    payload['extension_remarks'] = s.get('extension_remarks')
     return jsonify(payload)
 
 
@@ -452,23 +380,6 @@ def student_change_password():
     if len(new) < 4:
         return jsonify({'error': 'Naya password kam se kam 4 characters ka ho'}), 400
     core.q("UPDATE students SET student_password=%s WHERE id=%s", (core.hash_pw(new), s['id']), commit=True)
-    return jsonify({'success': True})
-
-
-@student_bp.route('/api/student/request-extension', methods=['POST'])
-@student_login_required
-def student_request_extension():
-    s = g.student
-    current = s.get('extension_status') or 'Not Requested'
-    if current == 'Requested':
-        return jsonify({'error': 'Extension request pehle se pending hai, Super Admin approval ka wait karein.'}), 400
-    if current == 'Approved':
-        return jsonify({'error': 'Extension pehle se approve ho chuki hai.'}), 400
-    core.q("""UPDATE students SET extension_status='Requested', extension_remarks=NULL,
-              extension_requested_at=NOW(), extension_decided_at=NULL WHERE id=%s""", (s['id'],), commit=True)
-    core.notify_tenant_admins(s['tenant_id'], 'Extension request',
-                               f"{s['name']} ne extension request bheji hai — approval ka wait hai.", 'warning')
-    core.log_action('Request', 'PhD Extension', s['id'], 'Requested')
     return jsonify({'success': True})
 
 
@@ -524,59 +435,6 @@ def update_phd_stage(sid, stage_id):
     core.q("UPDATE student_phd_stages SET status=%s, remarks=%s, updated_by=%s, updated_at=NOW() "
            "WHERE id=%s AND student_id=%s", (status, d.get('remarks'), session.get('user_id'), stage_id, sid), commit=True)
     core.log_action('Update', 'PHD Stage', sid, status)
-    return jsonify({'success': True})
-
-
-@student_bp.route('/api/students/<int:sid>/progress-reports', methods=['GET'])
-@core.login_required
-def get_progress_reports(sid):
-    tf, tp = core.tenant_filter('', include_super=True)
-    student = core.q(f"SELECT * FROM students WHERE id=%s{tf}", (sid, *tp), one=True)
-    if not student:
-        return jsonify({'error': 'Not found'}), 404
-    seed_progress_reports(sid, student.get('tenant_id'))  # safety net for old students
-    rows = core.q("SELECT * FROM student_progress_reports WHERE student_id=%s ORDER BY report_no", (sid,))
-    return jsonify([core.serialize(r) for r in rows])
-
-
-@student_bp.route('/api/students/<int:sid>/progress-reports/<int:report_id>', methods=['PUT'])
-@core.login_required
-def update_progress_report(sid, report_id):
-    tf, tp = core.tenant_filter('', include_super=True)
-    student = core.q(f"SELECT * FROM students WHERE id=%s{tf}", (sid, *tp), one=True)
-    if not student:
-        return jsonify({'error': 'Not found'}), 404
-    if not can_manage_fee(student):
-        return jsonify({'error': 'Permission denied: sirf Admin ya referring Associate/Reference handler hi update kar sakte hain'}), 403
-    d = request.json or {}
-    status = d.get('status', 'Pending')
-    if status not in ('Pending', 'In Progress', 'Completed'):
-        return jsonify({'error': 'Invalid status'}), 400
-    core.q("UPDATE student_progress_reports SET status=%s, remarks=%s, updated_by=%s, updated_at=NOW() "
-           "WHERE id=%s AND student_id=%s", (status, d.get('remarks'), session.get('user_id'), report_id, sid), commit=True)
-    core.log_action('Update', 'Progress Report', sid, status)
-    return jsonify({'success': True})
-
-
-@student_bp.route('/api/students/<int:sid>/extension', methods=['PUT'])
-@core.login_required
-def update_extension(sid):
-    tf, tp = core.tenant_filter('', include_super=True)
-    student = core.q(f"SELECT * FROM students WHERE id=%s{tf}", (sid, *tp), one=True)
-    if not student:
-        return jsonify({'error': 'Not found'}), 404
-    if not core.is_admin():
-        return jsonify({'error': 'Permission denied: sirf Admin/Super Admin extension approve/reject kar sakte hain'}), 403
-    d = request.json or {}
-    decision = d.get('status')
-    if decision not in ('Approved', 'Rejected'):
-        return jsonify({'error': "status 'Approved' ya 'Rejected' hona chahiye"}), 400
-    core.q("""UPDATE students SET extension_status=%s, extension_remarks=%s, extension_decided_at=NOW()
-              WHERE id=%s""", (decision, d.get('remarks'), sid), commit=True)
-    core.log_action('Decide', 'PhD Extension', sid, decision)
-    core.notify_tenant_admins(student.get('tenant_id'),
-                               f"Extension {decision.lower()}",
-                               f"{student.get('name')} ki extension request {decision.lower()} kar di gayi hai.", 'info')
     return jsonify({'success': True})
 
 
